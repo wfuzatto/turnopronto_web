@@ -1,0 +1,1 @@
+<div class="empty-state"><div class="empty-icon">⚙</div><h1>Instalação necessária</h1><p>O banco TurnoPronto ainda não está disponível.</p><a class="btn btn-primary" href="<?=e(url('install.php'))?>">Abrir instalador XAMPP</a></div>
