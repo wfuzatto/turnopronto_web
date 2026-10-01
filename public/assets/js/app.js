@@ -1,0 +1,6 @@
+(()=>{
+  const q=(s,c=document)=>c.querySelector(s), qa=(s,c=document)=>[...c.querySelectorAll(s)];
+  q('[data-sidebar-toggle]')?.addEventListener('click',()=>q('#sidebar')?.classList.toggle('open'));
+  document.addEventListener('click',e=>{const sb=q('#sidebar');if(sb?.classList.contains('open')&&!sb.contains(e.target)&&!e.target.closest('[data-sidebar-toggle]'))sb.classList.remove('open')});
+  qa('[data-fill-login]').forEach(btn=>btn.addEventListener('click',()=>{const email=q('input[name=email]'),pass=q('input[name=password]');if(email)email.value=btn.dataset.fillLogin}));
+})();
