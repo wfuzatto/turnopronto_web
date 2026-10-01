@@ -1,0 +1,1 @@
+<div class="page-head"><div><h1><?=e($heading??$title??'Em construção')?></h1><p>Esta área já está roteada e preparada para a próxima etapa funcional.</p></div></div><div class="panel empty-panel"><div class="empty-icon">✓</div><h2>Estrutura pronta</h2><p>A navegação, permissões e layout desta área já fazem parte do frontend.</p></div>
