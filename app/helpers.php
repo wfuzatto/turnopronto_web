@@ -9,7 +9,15 @@ function app_config(?string $key = null): mixed
             $config = array_replace_recursive($config, require $local);
         }
     }
-    return $key === null ? $config : ($config[$key] ?? null);
+    if ($key === null) return $config;
+    if (array_key_exists($key,$config)) return $config[$key];
+
+    $value=$config;
+    foreach(explode('.',$key) as $part){
+        if(!is_array($value) || !array_key_exists($part,$value)) return null;
+        $value=$value[$part];
+    }
+    return $value;
 }
 
 function e(mixed $value): string
