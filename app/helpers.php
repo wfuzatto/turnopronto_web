@@ -21,6 +21,31 @@ function base_path(): string
 {
     static $base;
     if ($base !== null) return $base;
+
+    // Não derivar a base da URL reescrita (ex.: /profissional/inicio),
+    // pois alguns hosts mantêm essa rota em SCRIPT_NAME após mod_rewrite.
+    // Em vez disso, calculamos a raiz física do projeto em relação ao
+    // DOCUMENT_ROOT. Isso funciona tanto na hospedagem em "/" quanto no
+    // XAMPP em "/turnopronto_web".
+    $projectRoot = realpath(dirname(__DIR__));
+    $documentRoot = realpath((string)($_SERVER['DOCUMENT_ROOT'] ?? ''));
+
+    if ($projectRoot && $documentRoot) {
+        $project = str_replace('\\', '/', $projectRoot);
+        $document = rtrim(str_replace('\\', '/', $documentRoot), '/');
+
+        if ($project === $document) {
+            return $base = '';
+        }
+
+        if (str_starts_with($project . '/', $document . '/')) {
+            $relative = substr($project, strlen($document));
+            return $base = '/' . trim($relative, '/');
+        }
+    }
+
+    // Fallback apenas para ambientes onde DOCUMENT_ROOT não representa
+    // corretamente a raiz pública.
     $script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '/index.php');
     $dir = rtrim(dirname($script), '/.');
     return $base = ($dir === '/' ? '' : $dir);
