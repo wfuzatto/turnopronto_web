@@ -88,7 +88,7 @@ jobs:
       - name: Health check
         shell: bash
         env:
-          HEALTH_URL: https://turnopronto1.websiteseguro.com/api/v1/health
+          HEALTH_URL: http://turnopronto1.hospedagemdesites.ws/api/v1/health
         run: |
           set -euo pipefail
           for attempt in $(seq 1 12); do
@@ -96,7 +96,7 @@ jobs:
             if printf '%s' "$response" | grep -q '"ok":true'; then
               printf '%s\n' "$response"
               curl --fail --silent --show-error --max-time 20 \
-                https://turnopronto1.websiteseguro.com/login >/dev/null
+                http://turnopronto1.hospedagemdesites.ws/login >/dev/null
               exit 0
             fi
             sleep 5
