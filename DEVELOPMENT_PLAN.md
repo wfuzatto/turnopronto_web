@@ -1,4 +1,4 @@
-# Plano de desenvolvimento — `turnopronto_web`
+# Plano de desenvolvimento — turnopronto_web
 
 ## Objetivo
 
@@ -8,42 +8,21 @@ A referência visual é o conceito aprovado: interface clara, cards arredondados
 
 ## Arquitetura escolhida
 
-```text
-Browser empresa/profissional/admin
-            |
-            v
-Apache / XAMPP
-            |
-      PHP front controller
-       /           \
-  Web MVC-ish      REST API v1
-       \           /
-          PDO
-           |
-       MariaDB
-           |
-  pagamentos/KYC/push (adapters futuros)
-```
+Browser empresa/profissional/admin → Apache/XAMPP → PHP → Web + REST API v1 → PDO → MariaDB.
 
-### Por que assim
-
-- roda diretamente em XAMPP;
-- não exige Docker;
-- não exige Node em produção;
-- não exige Composer para o núcleo;
-- uma única regra de negócio para web e app;
-- fácil migração futura para VPS/cloud sem reescrever banco/API.
+- Sem Docker.
+- Sem Node em produção.
+- Sem Composer obrigatório no núcleo.
+- Mesmo banco e regras de negócio para web e app.
 
 ---
 
 ## Fase W0 — Fundação — CONCLUÍDA
 
-- estrutura de pastas
-- roteamento por `.htaccess`
+- roteamento por .htaccess
 - configuração local fora do Git
 - PDO/MariaDB
-- autenticação de sessão
-- autenticação de API por bearer token
+- sessão e bearer token
 - CSRF
 - papéis empresa/profissional/admin
 - layout responsivo
@@ -51,37 +30,42 @@ Apache / XAMPP
 - instalador web
 - dados de demonstração
 
-Critério de aceite: clonar, copiar para `htdocs`, executar `install.php` e entrar com os três perfis.
+## Fase W1 — Empresa MVP — CONCLUÍDA NO FLUXO PRINCIPAL
 
-## Fase W1 — Empresa MVP — BASE IMPLEMENTADA
+Implementado:
 
-- dashboard
-- KPIs
+- dashboard visual
 - criação de vaga
-- lista de vagas
-- candidatos
-- profissionais sugeridos
-- status da vaga
-- estrutura de escalas
-- estrutura financeira
+- edição de vaga
+- cancelamento de vaga futura
+- lista e filtros de vagas
+- detalhe operacional da vaga
+- profissionais confirmados
+- candidaturas
+- aprovação/rejeição manual
+- aceite automático ou aprovação da empresa
+- convite direto de profissional
+- escalas reais
+- financeiro/ledger real
+- trilha de auditoria para ações críticas
+- PIN de check-in por vaga
 
-Próximos incrementos:
+Próximos incrementos de empresa:
 
-- editar/cancelar vaga;
-- candidatura manual vs aceite automático;
-- convite direto;
-- múltiplas unidades/filiais;
-- centros de custo;
-- templates de vaga;
-- aprovação de candidato pela empresa;
-- exportação CSV/PDF.
+- múltiplas unidades/filiais
+- centros de custo
+- templates de vaga
+- exportação CSV/PDF
+- avaliações completas
+- usuários e permissões dentro da empresa
 
 ## Fase W2 — Profissional web — BASE IMPLEMENTADA
 
 - home
 - oportunidades
 - detalhe da vaga
-- aceitar vaga
+- aceite automático
+- candidatura para vaga com aprovação manual
 - próximos turnos
 - turno atual
 - check-in/check-out
@@ -91,148 +75,52 @@ Próximos incrementos:
 
 Próximos incrementos:
 
-- filtros geográficos reais;
-- disponibilidade semanal;
-- cancelamento com regras;
-- contestação de ocorrência;
-- favoritos;
-- mensagens com contratante;
-- anexos/documentos.
+- filtros geográficos reais
+- disponibilidade semanal
+- cancelamento com regras
+- contestação de ocorrência
+- favoritos
+- mensagens
+- anexos/documentos
 
 ## Fase W3 — Reputação e no-show
 
-Implementar `TurnoScore` de maneira auditável.
-
-Componentes:
-
-- comparecimento;
-- pontualidade;
-- conclusão;
-- cancelamentos;
-- no-show;
-- avaliações normalizadas;
-- peso por recência;
-- revisão humana;
-- contestação;
-- histórico explicável.
-
-Regra crítica: nenhuma penalidade grave deve ser aplicada apenas por uma nota subjetiva.
+Implementar TurnoScore auditável com comparecimento, pontualidade, conclusão, cancelamentos, no-show, avaliações normalizadas, recência, revisão humana e contestação.
 
 ## Fase W4 — Pagamentos
 
-Criar interface `PaymentProvider` para permitir trocar fornecedor sem reescrever o produto.
-
-Fluxo:
-
-```text
-financiamento da vaga
- -> reserva/autorização no PSP
- -> turno concluído
- -> janela de contestação
- -> split
- -> profissional
- -> comissão TurnoPronto
-```
-
-Módulos:
-
-- ledger imutável;
-- conciliação;
-- webhook idempotente;
-- chargeback;
-- estorno;
-- cancelamento;
-- comissão;
-- repasse;
-- notas/documentos fiscais.
+Criar PaymentProvider desacoplado para split, conciliação, webhook idempotente, chargeback, estorno, comissão e repasse.
 
 ## Fase W5 — KYC / LGPD
 
-- consentimentos versionados;
-- upload privado;
-- CPF/CNPJ;
-- documento de identidade;
-- selfie/liveness via fornecedor;
-- validade de certificados;
-- política de retenção;
-- download/exclusão conforme regras legais;
-- trilha de auditoria.
+Consentimentos versionados, documentos privados, CPF/CNPJ, selfie/liveness via fornecedor, validade de certificados, retenção e trilha de auditoria.
 
 ## Fase W6 — Administração
 
-- fila de KYC;
-- disputas;
-- no-show;
-- recursos de reputação;
-- bloqueios;
-- fraude;
-- financeiro;
-- conciliação;
-- usuários;
-- empresas;
-- vagas;
-- painel de saúde da operação;
-- auditoria completa.
+Fila de KYC, disputas, no-show, recursos, bloqueios, fraude, financeiro, conciliação, usuários, empresas e auditoria.
 
 ## Fase W7 — Comunicação
 
-- e-mail transacional;
-- push via app;
-- WhatsApp/SMS por adaptador;
-- preferências de comunicação;
-- templates;
-- tentativas e fallback.
+E-mail, push, WhatsApp/SMS por adaptadores, preferências, templates e fallback.
 
 ## Fase W8 — Produção
 
-- HTTPS;
-- ambiente `staging`;
-- migrations versionadas;
-- backup automático;
-- rate limiting;
-- WAF/CDN opcional;
-- logs estruturados;
-- Sentry/observabilidade ou equivalente;
-- métricas de API;
-- testes de carga;
-- política de secrets;
-- CI/CD.
-
----
-
-## Modelo de dados principal
-
-- `tp_users`
-- `tp_companies`
-- `tp_company_members`
-- `tp_professionals`
-- `tp_job_categories`
-- `tp_professional_categories`
-- `tp_shifts`
-- `tp_shift_applications`
-- `tp_assignments`
-- `tp_reviews`
-- `tp_reputation_events`
-- `tp_documents`
-- `tp_ledger`
-- `tp_notifications`
-- `tp_api_tokens`
-- `tp_audit_logs`
+HTTPS, staging, migrations versionadas, backup, rate limit, logs estruturados, observabilidade, testes de carga, política de secrets e CI/CD.
 
 ---
 
 ## Definition of Done do web MVP
 
-O web MVP só é considerado fechado quando:
+O web MVP só é fechado quando:
 
-- empresa cria uma vaga do início ao fim;
-- profissional recebe/visualiza a oportunidade;
-- profissional aceita;
-- vaga reflete preenchimento;
-- profissional faz check-in e check-out;
-- conclusão gera lançamento financeiro;
-- reputação é atualizada por evento;
-- empresa e profissional conseguem contestar ocorrências;
-- admin consegue auditar a trilha;
-- app consome os mesmos endpoints;
+- empresa cria/edita/cancela vaga;
+- profissional visualiza e aceita ou se candidata;
+- empresa aprova quando a vaga exigir aprovação;
+- preenchimento da vaga é consistente;
+- escala mostra profissionais confirmados;
+- check-in/check-out funciona;
+- conclusão gera ledger sem duplicar lançamento;
+- reputação recebe evento de conclusão;
+- ações críticas entram na auditoria;
+- API usa as mesmas regras;
 - nenhuma senha/chave real está versionada.
