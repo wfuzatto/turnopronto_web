@@ -32,8 +32,10 @@ jobs:
             -not -path './vendor/*' \
             -print0 | xargs -0 -n1 php -l
 
-      - name: Base path regression test
-        run: php tests/base_path_regression.php
+      - name: Base path regression tests
+        run: |
+          php tests/base_path_regression.php
+          php tests/base_path_production.php
 
       - name: Validate production tree
         shell: bash
@@ -107,13 +109,18 @@ jobs:
             if printf '%s' "$response" | grep -q '"ok":true'; then
               printf '%s\n' "$response"
 
+              printf '%s' "$response" | grep -q '"public_base_path":""'
+              printf '%s' "$response" | grep -q '"css_asset":"/public/assets/css/app.css"'
+
               login_html=$(curl --fail --silent --show-error --max-time 20 \
                 http://turnopronto1.hospedagemdesites.ws/login)
-              printf '%s' "$login_html" | grep -q 'public/assets/css/app.css'
+              printf '%s' "$login_html" | grep -q 'href="/public/assets/css/app.css"'
 
               css=$(curl --fail --silent --show-error --max-time 20 \
                 http://turnopronto1.hospedagemdesites.ws/public/assets/css/app.css)
               printf '%s' "$css" | grep -q '.app-shell'
+              printf '%s' "$css" | grep -q '.sidebar'
+              printf '%s' "$css" | grep -q '.kpi-grid'
               printf '%s' "$css" | grep -q '.login-page'
 
               exit 0
