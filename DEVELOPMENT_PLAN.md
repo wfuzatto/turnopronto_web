@@ -29,6 +29,8 @@ Browser empresa/profissional/admin → Apache/XAMPP → PHP → Web + REST API v
 - identidade TurnoPronto
 - instalador web
 - dados de demonstração
+- cadastro público de empresa/profissional
+- aprovação administrativa antes da operação
 
 ## Fase W1 — Empresa MVP — CONCLUÍDA NO FLUXO PRINCIPAL
 
@@ -107,9 +109,15 @@ Criar PaymentProvider desacoplado para split, conciliação, webhook idempotente
 
 Consentimentos versionados, documentos privados, CPF/CNPJ, selfie/liveness via fornecedor, validade de certificados, retenção e trilha de auditoria.
 
-## Fase W6 — Administração
+## Fase W6 — Administração — BASE OPERACIONAL IMPLEMENTADA
 
-Fila de KYC, disputas, no-show, recursos, bloqueios, fraude, financeiro, conciliação, usuários, empresas e auditoria.
+Implementado:
+- fila de aprovação de empresas;
+- fila de aprovação de profissionais;
+- revisão humana de contestação de reputação;
+- auditoria de ações críticas.
+
+Próximos: KYC documental completo, disputas com anexos, no-show, bloqueios, fraude, conciliação e gestão avançada de usuários.
 
 ## Fase W7 — Comunicação
 
