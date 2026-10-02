@@ -1,4 +1,8 @@
 <?php
+header('X-TurnoPronto-Layout: 2026.10.02.2');
+header('Cache-Control: no-store, no-cache, must-revalidate');
+?>
+<?php
 $current=request_path();
 $me=$user??Auth::user();
 $role=$me['role']??null;
@@ -13,7 +17,8 @@ $nav=$role==='company'?$navCompany:($role==='professional'?$navPro:[['admin/dash
 ?><!doctype html><html lang="pt-BR"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?=e($title??'TurnoPronto')?> • TurnoPronto</title>
-<link rel="stylesheet" href="<?=e(asset('css/app.css'))?>">
+<link rel="stylesheet" href="<?=e(asset('css/app.css'))?>" data-tp-css="main">
+<meta name="turnopronto-layout-build" content="2026.10.02.2">
 </head><body data-tp-layout="2026.10.02">
 <div class="app-shell">
   <aside class="sidebar" id="sidebar">
