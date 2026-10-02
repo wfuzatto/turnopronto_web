@@ -44,6 +44,44 @@ final class Api
             json_response(['ok'=>true,'token'=>$token,'user'=>$user]);
         }
 
+        if($relative==='/categories' && $method==='GET'){
+            json_response(['ok'=>true,'data'=>Data::categories()]);
+        }
+
+        if($relative==='/auth/register/start' && $method==='POST'){
+            $data=json_input();
+            $role=(string)($data['role']??'');
+            try {
+                $result=Registration::start($data,$role);
+                json_response(['ok'=>true]+$result,201);
+            } catch(Throwable $e){
+                json_response(['ok'=>false,'error'=>$e->getMessage()],422);
+            }
+        }
+
+        if($relative==='/auth/register/resend' && $method==='POST'){
+            $data=json_input();
+            try {
+                $result=Registration::resend((string)($data['registration_id']??''));
+                json_response(['ok'=>true]+$result);
+            } catch(Throwable $e){
+                json_response(['ok'=>false,'error'=>$e->getMessage()],422);
+            }
+        }
+
+        if($relative==='/auth/register/verify' && $method==='POST'){
+            $data=json_input();
+            try {
+                $result=Registration::verify(
+                    (string)($data['registration_id']??''),
+                    (string)($data['code']??'')
+                );
+                json_response(['ok'=>true]+$result);
+            } catch(Throwable $e){
+                json_response(['ok'=>false,'error'=>$e->getMessage()],422);
+            }
+        }
+
         $user=self::user();
 
         if($relative==='/auth/logout' && $method==='POST'){
