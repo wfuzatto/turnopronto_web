@@ -8,3 +8,9 @@ ob_start();
 require __DIR__ . '/../install.php';
 ob_end_clean();
 if ($error !== '') throw new RuntimeException('CI database setup failed');
+
+$localFile=__DIR__ . '/../config/config.local.php';
+$local=require $localFile;
+$local['debug']=true;
+$local['whatsapp']=['driver'=>'debug'];
+file_put_contents($localFile,"<?php\nreturn ".var_export($local,true).";\n");
