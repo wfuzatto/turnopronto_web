@@ -3,6 +3,14 @@ final class Web
 {
     public static function handle(string $path, string $method): never
     {
+        if ($path === '/visual-check' && $method === 'GET') {
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+            View::render('visual_check',[
+                'title'=>'Visual Check',
+                'user'=>['id'=>0,'role'=>'admin','name'=>'Visual Check']
+            ]);
+        }
+
         if ($path === '/login') {
             if ($method === 'POST') {
                 verify_csrf();
