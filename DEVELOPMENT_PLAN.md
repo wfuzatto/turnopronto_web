@@ -56,7 +56,6 @@ Próximos incrementos de empresa:
 - centros de custo
 - templates de vaga
 - exportação CSV/PDF
-- avaliações completas
 - usuários e permissões dentro da empresa
 
 ## Fase W2 — Profissional web — BASE IMPLEMENTADA
@@ -77,15 +76,28 @@ Próximos incrementos:
 
 - filtros geográficos reais
 - disponibilidade semanal
-- cancelamento com regras
-- contestação de ocorrência
 - favoritos
 - mensagens
 - anexos/documentos
 
-## Fase W3 — Reputação e no-show
+## Fase W3 — Reputação, avaliações e cancelamentos — BASE OPERACIONAL IMPLEMENTADA
 
-Implementar TurnoScore auditável com comparecimento, pontualidade, conclusão, cancelamentos, no-show, avaliações normalizadas, recência, revisão humana e contestação.
+Implementado:
+- avaliação bilateral após turno concluído;
+- opinião subjetiva separada de presença/pontualidade objetivas;
+- cancelamento pelo profissional com peso por antecedência;
+- evento de reputação auditável;
+- contestação de ocorrência negativa;
+- revisão humana pelo administrador;
+- reversão de pontos quando a contestação é aceita;
+- auditoria das decisões.
+
+Próximos incrementos:
+- no-show confirmado pela empresa com evidências;
+- peso por recência;
+- TurnoScore estatístico completo;
+- anexos em disputas;
+- SLA e fila de revisão.
 
 ## Fase W4 — Pagamentos
 

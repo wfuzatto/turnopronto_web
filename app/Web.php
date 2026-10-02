@@ -176,7 +176,23 @@ final class Web
 
         if ($path === '/empresa/avaliacoes') {
             $u=Auth::requireRole('company');
-            View::render('placeholder',['title'=>'Avaliações','heading'=>'Avaliações','user'=>$u]);
+            View::render('company_reviews',[
+                'title'=>'Avaliações',
+                'reviews'=>Data::companyReviews((int)$u['id']),
+                'user'=>$u
+            ]);
+        }
+
+        if (preg_match('#^/empresa/avaliacoes/(\\d+)$#',$path,$m) && $method==='POST') {
+            $u=Auth::requireRole('company');
+            verify_csrf();
+            try {
+                Data::createCompanyReview((int)$u['id'],(int)$m[1],$_POST);
+                flash('success','Avaliação registrada. Os indicadores objetivos continuam separados da nota subjetiva.');
+            } catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('empresa/avaliacoes');
         }
 
         if ($path === '/suporte') {
@@ -233,7 +249,37 @@ final class Web
                 http_response_code(404);
                 View::render('placeholder',['title'=>'Não encontrado','heading'=>'Turno não encontrado','user'=>$u]);
             }
-            View::render('current_shift',['title'=>'Turno atual','assignment'=>$a,'user'=>$u]);
+            View::render('current_shift',[
+                'title'=>'Turno atual',
+                'assignment'=>$a,
+                'review'=>Data::professionalReviewForAssignment((int)$u['id'],(int)$m[1]),
+                'user'=>$u
+            ]);
+        }
+
+        if (preg_match('#^/profissional/turno/(\\d+)/cancelar$#',$path,$m) && $method==='POST') {
+            $u=Auth::requireRole('professional');
+            verify_csrf();
+            try {
+                Data::cancelProfessionalAssignment((int)$u['id'],(int)$m[1],trim((string)($_POST['reason']??'')));
+                flash('success','Turno cancelado. A reputação foi tratada de acordo com a antecedência.');
+                redirect('profissional/turnos');
+            } catch(Throwable $e){
+                flash('error',$e->getMessage());
+                redirect('profissional/turno/'.$m[1]);
+            }
+        }
+
+        if (preg_match('#^/profissional/turno/(\\d+)/avaliar$#',$path,$m) && $method==='POST') {
+            $u=Auth::requireRole('professional');
+            verify_csrf();
+            try {
+                Data::createProfessionalReview((int)$u['id'],(int)$m[1],$_POST);
+                flash('success','Avaliação da empresa registrada.');
+            } catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('profissional/turno/'.$m[1]);
         }
 
         if (preg_match('#^/profissional/turno/(\d+)/checkin$#',$path,$m) && $method==='POST') {
@@ -270,6 +316,18 @@ final class Web
             View::render('reputation',['title'=>'Reputação','data'=>Data::reputation((int)$u['id']),'user'=>$u]);
         }
 
+        if (preg_match('#^/profissional/reputacao/(\\d+)/contestar$#',$path,$m) && $method==='POST') {
+            $u=Auth::requireRole('professional');
+            verify_csrf();
+            try {
+                Data::appealReputationEvent((int)$u['id'],(int)$m[1]);
+                flash('success','Contestação enviada para revisão humana.');
+            } catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('profissional/reputacao');
+        }
+
         if ($path === '/profissional/documentos') {
             $u=Auth::requireRole('professional');
             View::render('documents',['title'=>'Documentos','documents'=>Data::documents((int)$u['id']),'user'=>$u]);
@@ -277,7 +335,25 @@ final class Web
 
         if ($path === '/admin/dashboard') {
             $u=Auth::requireRole('admin');
-            View::render('admin_dashboard',['title'=>'Administração','stats'=>Data::adminStats(),'user'=>$u]);
+            View::render('admin_dashboard',[
+                'title'=>'Administração',
+                'stats'=>Data::adminStats(),
+                'appeals'=>Data::adminPendingAppeals(),
+                'audit'=>Data::adminAuditLogs(20),
+                'user'=>$u
+            ]);
+        }
+
+        if (preg_match('#^/admin/reputacao/(\\d+)/(aceitar|rejeitar)$#',$path,$m) && $method==='POST') {
+            $u=Auth::requireRole('admin');
+            verify_csrf();
+            try {
+                Data::resolveReputationAppeal((int)$u['id'],(int)$m[1],$m[2]==='aceitar'?'accepted':'rejected');
+                flash('success','Contestação revisada e decisão registrada na auditoria.');
+            } catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('admin/dashboard');
         }
 
         http_response_code(404);

@@ -640,6 +640,235 @@ final class Data
         return ['profile'=>$profile,'events'=>$st->fetchAll()];
     }
 
+
+    public static function companyReviews(int $userId): array
+    {
+        $companyId=self::companyIdForUser($userId);
+        $sql="SELECT a.id assignment_id,a.agreed_value,a.checkout_at,s.id shift_id,s.starts_at,s.title,c.name category_name,
+                     p.id professional_id,p.rating professional_rating,p.reliability_score,p.attendance_score,p.punctuality_score,
+                     u.id professional_user_id,u.name professional_name,
+                     r.id review_id,r.rating review_rating,r.attendance_rating,r.punctuality_rating,r.comment review_comment,r.created_at review_created_at
+              FROM tp_assignments a
+              JOIN tp_shifts s ON s.id=a.shift_id
+              JOIN tp_job_categories c ON c.id=s.category_id
+              JOIN tp_professionals p ON p.id=a.professional_id
+              JOIN tp_users u ON u.id=p.user_id
+              LEFT JOIN tp_reviews r ON r.assignment_id=a.id AND r.reviewer_user_id=?
+              WHERE s.company_id=? AND a.status='completed'
+              ORDER BY COALESCE(a.checkout_at,s.ends_at) DESC";
+        $st=Database::connection()->prepare($sql);
+        $st->execute([$userId,$companyId]);
+        return $st->fetchAll();
+    }
+
+    private static function normalizedReview(array $data, bool $withOperationalRatings=false): array
+    {
+        $rating=(int)($data['rating']??0);
+        if($rating<1 || $rating>5) throw new InvalidArgumentException('Selecione uma avaliação de 1 a 5.');
+        $result=[
+            'rating'=>$rating,
+            'comment'=>mb_substr(trim((string)($data['comment']??'')),0,1500),
+            'attendance_rating'=>null,
+            'punctuality_rating'=>null
+        ];
+        if($withOperationalRatings){
+            $attendance=(int)($data['attendance_rating']??0);
+            $punctuality=(int)($data['punctuality_rating']??0);
+            if($attendance<1 || $attendance>5 || $punctuality<1 || $punctuality>5){
+                throw new InvalidArgumentException('Avalie presença e pontualidade de 1 a 5.');
+            }
+            $result['attendance_rating']=$attendance;
+            $result['punctuality_rating']=$punctuality;
+        }
+        return $result;
+    }
+
+    public static function createCompanyReview(int $userId, int $assignmentId, array $data): void
+    {
+        $companyId=self::companyIdForUser($userId);
+        $review=self::normalizedReview($data,true);
+        $pdo=Database::connection();
+
+        $sql="SELECT a.id,p.id professional_id,p.user_id professional_user_id
+              FROM tp_assignments a
+              JOIN tp_shifts s ON s.id=a.shift_id
+              JOIN tp_professionals p ON p.id=a.professional_id
+              WHERE a.id=? AND s.company_id=? AND a.status='completed' LIMIT 1";
+        $st=$pdo->prepare($sql);
+        $st->execute([$assignmentId,$companyId]);
+        $assignment=$st->fetch();
+        if(!$assignment) throw new RuntimeException('Turno concluído não encontrado.');
+
+        $st=$pdo->prepare('SELECT id FROM tp_reviews WHERE assignment_id=? AND reviewer_user_id=?');
+        $st->execute([$assignmentId,$userId]);
+        if($st->fetchColumn()) throw new RuntimeException('Este turno já foi avaliado.');
+
+        $pdo->prepare('INSERT INTO tp_reviews (assignment_id,reviewer_user_id,reviewee_user_id,rating,attendance_rating,punctuality_rating,comment,created_at) VALUES (?,?,?,?,?,?,?,NOW())')
+            ->execute([$assignmentId,$userId,$assignment['professional_user_id'],$review['rating'],$review['attendance_rating'],$review['punctuality_rating'],$review['comment']]);
+
+        $avg=$pdo->prepare('SELECT AVG(rating) FROM tp_reviews WHERE reviewee_user_id=?');
+        $avg->execute([$assignment['professional_user_id']]);
+        $rating=(float)$avg->fetchColumn();
+        $pdo->prepare('UPDATE tp_professionals SET rating=? WHERE id=?')->execute([$rating,$assignment['professional_id']]);
+
+        self::audit($userId,'review.company_to_professional','assignment',$assignmentId,['rating'=>$review['rating']]);
+    }
+
+    public static function professionalReviewForAssignment(int $userId, int $assignmentId): ?array
+    {
+        $pid=self::professionalIdForUser($userId);
+        $sql="SELECT a.id assignment_id,a.status,co.id company_id,co.trade_name,
+                     (SELECT MIN(cm.user_id) FROM tp_company_members cm WHERE cm.company_id=co.id) company_user_id,
+                     r.id review_id,r.rating,r.comment,r.created_at
+              FROM tp_assignments a
+              JOIN tp_shifts s ON s.id=a.shift_id
+              JOIN tp_companies co ON co.id=s.company_id
+              LEFT JOIN tp_reviews r ON r.assignment_id=a.id AND r.reviewer_user_id=?
+              WHERE a.id=? AND a.professional_id=? LIMIT 1";
+        $st=Database::connection()->prepare($sql);
+        $st->execute([$userId,$assignmentId,$pid]);
+        return $st->fetch() ?: null;
+    }
+
+    public static function createProfessionalReview(int $userId, int $assignmentId, array $data): void
+    {
+        $review=self::normalizedReview($data,false);
+        $info=self::professionalReviewForAssignment($userId,$assignmentId);
+        if(!$info || $info['status']!=='completed') throw new RuntimeException('Somente turnos concluídos podem ser avaliados.');
+        if(!empty($info['review_id'])) throw new RuntimeException('Este turno já foi avaliado.');
+        if(empty($info['company_user_id'])) throw new RuntimeException('Não foi possível identificar o responsável da empresa.');
+
+        $pdo=Database::connection();
+        $pdo->prepare('INSERT INTO tp_reviews (assignment_id,reviewer_user_id,reviewee_user_id,rating,comment,created_at) VALUES (?,?,?,?,?,NOW())')
+            ->execute([$assignmentId,$userId,$info['company_user_id'],$review['rating'],$review['comment']]);
+
+        $avg=$pdo->prepare('SELECT AVG(r.rating) FROM tp_reviews r JOIN tp_company_members cm ON cm.user_id=r.reviewee_user_id WHERE cm.company_id=?');
+        $avg->execute([$info['company_id']]);
+        $rating=(float)$avg->fetchColumn();
+        if($rating>0) $pdo->prepare('UPDATE tp_companies SET rating=? WHERE id=?')->execute([$rating,$info['company_id']]);
+
+        self::audit($userId,'review.professional_to_company','assignment',$assignmentId,['rating'=>$review['rating']]);
+    }
+
+    public static function cancelProfessionalAssignment(int $userId, int $assignmentId, string $reason=''): void
+    {
+        $a=self::assignment($userId,$assignmentId);
+        if(!$a) throw new RuntimeException('Turno não encontrado.');
+        if($a['status']!=='confirmed') throw new RuntimeException('Somente turnos confirmados e ainda não iniciados podem ser cancelados por aqui.');
+
+        $seconds=strtotime($a['starts_at'])-time();
+        if($seconds<=0) throw new RuntimeException('O turno já começou. Procure o suporte.');
+        $hours=$seconds/3600;
+
+        $points=0.0;
+        $severity='info';
+        $description='Cancelamento com antecedência superior a 48 horas.';
+        if($hours<6){
+            $points=-10;
+            $severity='critical';
+            $description='Cancelamento com menos de 6 horas de antecedência.';
+        } elseif($hours<24){
+            $points=-5;
+            $severity='warning';
+            $description='Cancelamento entre 6 e 24 horas de antecedência.';
+        } elseif($hours<48){
+            $points=-2;
+            $severity='warning';
+            $description='Cancelamento entre 24 e 48 horas de antecedência.';
+        }
+
+        $reason=mb_substr(trim($reason),0,500);
+        $pdo=Database::connection();
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare('UPDATE tp_assignments SET status="cancelled",cancellation_reason=? WHERE id=?')->execute([$reason?:$description,$assignmentId]);
+            $pdo->prepare('UPDATE tp_shift_applications SET status="cancelled" WHERE shift_id=? AND professional_id=?')->execute([$a['shift_id'],$a['professional_id']]);
+            $pdo->prepare('INSERT INTO tp_reputation_events (professional_id,assignment_id,event_type,severity,points_delta,description,occurred_at) VALUES (?,?,"professional_cancellation",?,?,?,NOW())')
+                ->execute([$a['professional_id'],$assignmentId,$severity,$points,$description]);
+
+            if($points!==0.0){
+                $pdo->prepare('UPDATE tp_professionals SET reliability_score=GREATEST(0,LEAST(100,reliability_score+?)) WHERE id=?')
+                    ->execute([$points,$a['professional_id']]);
+            }
+
+            $st=$pdo->prepare("SELECT COUNT(*) FROM tp_assignments WHERE shift_id=? AND status<>'cancelled'");
+            $st->execute([$a['shift_id']]);
+            $count=(int)$st->fetchColumn();
+            $shift=self::shift((int)$a['shift_id']);
+            if($shift && $shift['status']!=='cancelled'){
+                $newStatus=$count>=(int)$shift['required_workers']?'confirmed':($count>0?'filling':'published');
+                $pdo->prepare('UPDATE tp_shifts SET status=? WHERE id=?')->execute([$newStatus,$a['shift_id']]);
+            }
+
+            self::audit($userId,'assignment.cancelled_by_professional','assignment',$assignmentId,['hours_before'=>round($hours,1),'points'=>$points]);
+            $pdo->commit();
+        } catch(Throwable $e){
+            if($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    public static function appealReputationEvent(int $userId, int $eventId): void
+    {
+        $pid=self::professionalIdForUser($userId);
+        $st=Database::connection()->prepare('SELECT * FROM tp_reputation_events WHERE id=? AND professional_id=? LIMIT 1');
+        $st->execute([$eventId,$pid]);
+        $event=$st->fetch();
+        if(!$event) throw new RuntimeException('Ocorrência não encontrada.');
+        if((float)$event['points_delta']>=0) throw new RuntimeException('Somente ocorrências com impacto negativo podem ser contestadas.');
+        if(!empty($event['appeal_status'])) throw new RuntimeException('Esta ocorrência já possui uma contestação.');
+
+        Database::connection()->prepare('UPDATE tp_reputation_events SET appealed_at=NOW(),appeal_status="pending" WHERE id=?')->execute([$eventId]);
+        self::audit($userId,'reputation.appealed','reputation_event',$eventId);
+    }
+
+    public static function adminPendingAppeals(): array
+    {
+        $sql="SELECT e.*,u.name professional_name,p.reliability_score,a.shift_id,s.title shift_title,s.starts_at
+              FROM tp_reputation_events e
+              JOIN tp_professionals p ON p.id=e.professional_id
+              JOIN tp_users u ON u.id=p.user_id
+              LEFT JOIN tp_assignments a ON a.id=e.assignment_id
+              LEFT JOIN tp_shifts s ON s.id=a.shift_id
+              WHERE e.appeal_status='pending'
+              ORDER BY e.appealed_at ASC";
+        return Database::connection()->query($sql)->fetchAll();
+    }
+
+    public static function adminAuditLogs(int $limit=30): array
+    {
+        $sql="SELECT l.*,u.name user_name,u.role user_role
+              FROM tp_audit_logs l
+              LEFT JOIN tp_users u ON u.id=l.user_id
+              ORDER BY l.created_at DESC LIMIT ".max(1,(int)$limit);
+        return Database::connection()->query($sql)->fetchAll();
+    }
+
+    public static function resolveReputationAppeal(int $adminUserId, int $eventId, string $decision): void
+    {
+        if(!in_array($decision,['accepted','rejected'],true)) throw new InvalidArgumentException('Decisão inválida.');
+        $pdo=Database::connection();
+        $pdo->beginTransaction();
+        try {
+            $st=$pdo->prepare('SELECT * FROM tp_reputation_events WHERE id=? AND appeal_status="pending" FOR UPDATE');
+            $st->execute([$eventId]);
+            $event=$st->fetch();
+            if(!$event) throw new RuntimeException('Contestação pendente não encontrada.');
+
+            if($decision==='accepted' && (float)$event['points_delta']<0){
+                $restore=abs((float)$event['points_delta']);
+                $pdo->prepare('UPDATE tp_professionals SET reliability_score=LEAST(100,reliability_score+?) WHERE id=?')->execute([$restore,$event['professional_id']]);
+            }
+
+            $pdo->prepare('UPDATE tp_reputation_events SET appeal_status=? WHERE id=?')->execute([$decision,$eventId]);
+            self::audit($adminUserId,'reputation.appeal_resolved','reputation_event',$eventId,['decision'=>$decision]);
+            $pdo->commit();
+        } catch(Throwable $e){
+            if($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+    }
+
     public static function adminStats(): array
     {
         $pdo=Database::connection();
