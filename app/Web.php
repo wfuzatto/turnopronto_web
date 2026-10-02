@@ -3,6 +3,21 @@ final class Web
 {
     public static function handle(string $path, string $method): never
     {
+        if ($path === '/route-check' && $method === 'GET') {
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-store');
+            echo json_encode([
+                'ok'=>true,
+                'build'=>'2026.10.02.2',
+                'request_path'=>request_path(),
+                'base_path'=>base_path(),
+                'index_file'=>realpath(dirname(__DIR__).'/index.php'),
+                'view_file'=>realpath(__DIR__.'/View.php'),
+                'layout_file'=>realpath(__DIR__.'/views/layout.php'),
+            ], JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+            exit;
+        }
+
         if ($path === '/visual-check' && $method === 'GET') {
             header('Cache-Control: no-store, no-cache, must-revalidate');
             View::render('visual_check',[
