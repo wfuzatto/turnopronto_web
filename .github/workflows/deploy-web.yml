@@ -136,6 +136,14 @@ jobs:
               printf '%s' "$css" | grep -q '.kpi-grid'
               printf '%s' "$css" | grep -q '.login-page'
 
+              visual_html=$(curl --fail --silent --show-error --max-time 20 \
+                http://turnopronto1.hospedagemdesites.ws/visual-check)
+              printf '%s' "$visual_html" | grep -q 'class="app-shell"'
+              printf '%s' "$visual_html" | grep -q 'class="sidebar"'
+              printf '%s' "$visual_html" | grep -q 'class="topbar"'
+              printf '%s' "$visual_html" | grep -q 'id="tp-visual-smoke"'
+              printf '%s' "$visual_html" | grep -q 'href="/public/assets/css/app.css?v='
+
               exit 0
             fi
             sleep 5
