@@ -627,6 +627,126 @@ final class Data
         return ['summary'=>$summary,'months'=>$st->fetchAll()];
     }
 
+
+    public static function updateCompanyAccount(int $userId, array $data): void
+    {
+        $companyId=self::companyIdForUser($userId);
+        if(!$companyId) throw new RuntimeException('Empresa não encontrada.');
+        $name=trim((string)($data['name']??''));
+        $phone=trim((string)($data['phone']??''));
+        $legal=trim((string)($data['legal_name']??''));
+        $trade=trim((string)($data['trade_name']??''));
+        $cnpj=trim((string)($data['cnpj']??''));
+        $address=trim((string)($data['address']??''));
+        $city=trim((string)($data['city']??''));
+        $state=mb_strtoupper(trim((string)($data['state']??'')));
+        if($name===''||$legal===''||$trade===''||$cnpj===''||$address===''||$city===''||strlen($state)!==2) throw new InvalidArgumentException('Preencha todos os campos obrigatórios.');
+
+        $pdo=Database::connection(); $pdo->beginTransaction();
+        try{
+            $pdo->prepare('UPDATE tp_users SET name=?,phone=?,updated_at=NOW() WHERE id=?')->execute([$name,$phone,$userId]);
+            $pdo->prepare('UPDATE tp_companies SET legal_name=?,trade_name=?,cnpj=?,address=?,city=?,state=? WHERE id=?')->execute([$legal,$trade,$cnpj,$address,$city,$state,$companyId]);
+            self::audit($userId,'account.company_updated','company',$companyId);
+            $pdo->commit();
+        }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+    }
+
+    public static function updateProfessionalAccount(int $userId, array $data): void
+    {
+        $professionalId=self::professionalIdForUser($userId);
+        if(!$professionalId) throw new RuntimeException('Perfil profissional não encontrado.');
+        $name=trim((string)($data['name']??''));
+        $phone=trim((string)($data['phone']??''));
+        $headline=trim((string)($data['headline']??''));
+        $bio=trim((string)($data['bio']??''));
+        $city=trim((string)($data['city']??''));
+        $state=mb_strtoupper(trim((string)($data['state']??'')));
+        $pix=trim((string)($data['pix_key']??''));
+        $categories=array_values(array_filter(array_map('intval',(array)($data['categories']??[]))));
+        if($name===''||$headline===''||$city===''||strlen($state)!==2) throw new InvalidArgumentException('Preencha nome, atividade, cidade e UF.');
+        if(!$categories) throw new InvalidArgumentException('Selecione pelo menos uma categoria.');
+
+        $pdo=Database::connection(); $pdo->beginTransaction();
+        try{
+            $pdo->prepare('UPDATE tp_users SET name=?,phone=?,updated_at=NOW() WHERE id=?')->execute([$name,$phone,$userId]);
+            $pdo->prepare('UPDATE tp_professionals SET headline=?,bio=?,city=?,state=?,pix_key=? WHERE id=?')->execute([$headline,$bio,$city,$state,$pix,$professionalId]);
+            $pdo->prepare('DELETE FROM tp_professional_categories WHERE professional_id=?')->execute([$professionalId]);
+            $cat=$pdo->prepare('INSERT IGNORE INTO tp_professional_categories (professional_id,category_id,experience_level) SELECT ?,id,"experienced" FROM tp_job_categories WHERE id=? AND active=1');
+            foreach($categories as $categoryId)$cat->execute([$professionalId,$categoryId]);
+            self::audit($userId,'account.professional_updated','professional',$professionalId);
+            $pdo->commit();
+        }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+    }
+
+    public static function professionalCategoryIds(int $userId): array
+    {
+        $pid=self::professionalIdForUser($userId);
+        $st=Database::connection()->prepare('SELECT category_id FROM tp_professional_categories WHERE professional_id=? ORDER BY category_id');
+        $st->execute([$pid]);
+        return array_map('intval',array_column($st->fetchAll(),'category_id'));
+    }
+
+    public static function uploadProfessionalDocument(int $userId, string $type, array $file): int
+    {
+        $pid=self::professionalIdForUser($userId);
+        if(!$pid) throw new RuntimeException('Perfil profissional não encontrado.');
+        $labels=[
+            'identity'=>'Documento de identidade',
+            'cpf'=>'CPF',
+            'address'=>'Comprovante de residência',
+            'food'=>'Certificado de manipulação de alimentos',
+            'other'=>'Outro documento'
+        ];
+        if(!isset($labels[$type])) throw new InvalidArgumentException('Tipo de documento inválido.');
+        if(($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK) throw new RuntimeException('Selecione um arquivo válido.');
+        if((int)($file['size']??0)<=0 || (int)$file['size']>5*1024*1024) throw new RuntimeException('O arquivo deve ter no máximo 5 MB.');
+        $tmp=(string)($file['tmp_name']??'');
+        if(!is_uploaded_file($tmp)) throw new RuntimeException('Upload não reconhecido pelo servidor.');
+
+        $finfo=new finfo(FILEINFO_MIME_TYPE);
+        $mime=$finfo->file($tmp) ?: '';
+        $allowed=['application/pdf'=>'pdf','image/jpeg'=>'jpg','image/png'=>'png'];
+        if(!isset($allowed[$mime])) throw new RuntimeException('Envie PDF, JPG ou PNG.');
+
+        $root=dirname(__DIR__);
+        $dir=$root.'/storage/uploads/documents';
+        if(!is_dir($dir) && !mkdir($dir,0770,true) && !is_dir($dir)) throw new RuntimeException('Não foi possível criar a pasta privada de documentos.');
+        $filename=bin2hex(random_bytes(20)).'.'.$allowed[$mime];
+        $absolute=$dir.'/'.$filename;
+        if(!move_uploaded_file($tmp,$absolute)) throw new RuntimeException('Falha ao salvar o documento.');
+        @chmod($absolute,0660);
+        $relative='storage/uploads/documents/'.$filename;
+
+        $pdo=Database::connection();
+        $st=$pdo->prepare('INSERT INTO tp_documents (professional_id,type,label,status,file_path,original_name,mime_type,created_at) VALUES (?,?,?,"pending",?,?,?,NOW())');
+        $st->execute([$pid,$type,$labels[$type],$relative,mb_substr((string)($file['name']??'documento'),0,255),$mime]);
+        $id=(int)$pdo->lastInsertId();
+        self::audit($userId,'document.uploaded','document',$id,['type'=>$type,'mime'=>$mime]);
+        return $id;
+    }
+
+    public static function adminPendingDocuments(): array
+    {
+        $sql="SELECT d.*,u.name professional_name,u.email,p.status professional_status
+              FROM tp_documents d
+              JOIN tp_professionals p ON p.id=d.professional_id
+              JOIN tp_users u ON u.id=p.user_id
+              WHERE d.status='pending'
+              ORDER BY d.created_at ASC";
+        return Database::connection()->query($sql)->fetchAll();
+    }
+
+    public static function setDocumentVerification(int $adminUserId, int $documentId, string $decision, string $reason=''): void
+    {
+        if(!in_array($decision,['verified','rejected'],true)) throw new InvalidArgumentException('Decisão inválida.');
+        $reason=mb_substr(trim($reason),0,500);
+        if($decision==='rejected' && $reason==='') $reason='Documento rejeitado na revisão.';
+        $st=Database::connection()->prepare('UPDATE tp_documents SET status=?,verified_at=?,rejection_reason=? WHERE id=? AND status="pending"');
+        $st->execute([$decision,$decision==='verified'?date('Y-m-d H:i:s'):null,$decision==='rejected'?$reason:null,$documentId]);
+        if($st->rowCount()===0) throw new RuntimeException('Documento pendente não encontrado.');
+        self::audit($adminUserId,'document.reviewed','document',$documentId,['decision'=>$decision]);
+    }
+
     public static function documents(int $userId): array
     {
         $pid=self::professionalIdForUser($userId);
@@ -731,6 +851,11 @@ final class Data
     public static function setProfessionalVerification(int $adminUserId,int $professionalId,string $decision): void
     {
         if(!in_array($decision,['verified','rejected'],true))throw new InvalidArgumentException('Decisão inválida.');
+        if($decision==='verified'){
+            $st=Database::connection()->prepare("SELECT COUNT(DISTINCT type) FROM tp_documents WHERE professional_id=? AND type IN ('identity','cpf') AND status='verified'");
+            $st->execute([$professionalId]);
+            if((int)$st->fetchColumn()<2) throw new RuntimeException('Verifique Documento de identidade e CPF antes de liberar o profissional.');
+        }
         $st=Database::connection()->prepare('UPDATE tp_professionals SET status=? WHERE id=? AND status="pending"');
         $st->execute([$decision,$professionalId]);
         if($st->rowCount()===0)throw new RuntimeException('Profissional pendente não encontrado.');
