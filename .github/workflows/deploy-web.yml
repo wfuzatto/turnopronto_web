@@ -103,82 +103,61 @@ jobs:
         shell: bash
         env:
           HEALTH_URL: http://turnopronto1.hospedagemdesites.ws/api/v1/health
+          BASE_URL: http://turnopronto1.hospedagemdesites.ws
         run: |
           set -euo pipefail
-          for attempt in $(seq 1 12); do
-            response=$(curl --silent --show-error --max-time 20 "$HEALTH_URL" || true)
-            if printf '%s' "$response" | grep -q '"ok":true'; then
-              printf '%s\n' "$response"
 
-              printf '%s' "$response" | grep -q '"public_base_path":""'
-              printf '%s' "$response" | grep -q '"css_asset":"/public/assets/css/app.css?v='
+          echo "CHECKPOINT 1: API health"
+          response=$(curl --fail --silent --show-error --max-time 20 "$HEALTH_URL")
+          printf '%s\n' "$response"
+          printf '%s' "$response" | grep -q '"ok":true'
+          printf '%s' "$response" | grep -q '"public_base_path":""'
+          printf '%s' "$response" | grep -q '"css_asset":"/public/assets/css/app.css?v='
 
-              login_html=$(curl --fail --silent --show-error --max-time 20 \
-                http://turnopronto1.hospedagemdesites.ws/login)
-              printf '%s' "$login_html" | grep -q 'href="/public/assets/css/app.css?v='
+          echo "CHECKPOINT 2: login asset path"
+          login_html=$(curl --fail --silent --show-error --max-time 20 "$BASE_URL/login")
+          printf '%s' "$login_html" | grep -q 'href="/public/assets/css/app.css?v='
 
-              echo "CHECKPOINT: visual-check"
-              visual_headers=$(mktemp)
-              visual_html=$(curl --fail --silent --show-error --max-time 20 \
-                -D "$visual_headers" \
-                http://turnopronto1.hospedagemdesites.ws/visual-check)
-              echo "CHECKPOINT: visual-check body received"
-              grep -qi '^X-TurnoPronto-Layout: 2026.10.02' "$visual_headers"
-              printf '%s' "$visual_html" | grep -q 'data-tp-layout="2026.10.02"'
-              printf '%s' "$visual_html" | grep -q '<div class="app-shell">'
-              printf '%s' "$visual_html" | grep -q 'class="sidebar"'
-              printf '%s' "$visual_html" | grep -q 'class="topbar"'
-              printf '%s' "$visual_html" | grep -q 'id="tp-visual-smoke"'
-              printf '%s' "$visual_html" | grep -q 'href="/public/assets/css/app.css?v='
+          echo "CHECKPOINT 3: production CSS"
+          css=$(curl --fail --silent --show-error --max-time 20 "$BASE_URL/public/assets/css/app.css")
+          printf '%s' "$css" | grep -q '.app-shell'
+          printf '%s' "$css" | grep -q '.sidebar'
+          printf '%s' "$css" | grep -q '.topbar'
+          printf '%s' "$css" | grep -q '.kpi-grid'
+          printf '%s' "$css" | grep -q '.login-page'
 
-              css=$(curl --fail --silent --show-error --max-time 20 \
-                http://turnopronto1.hospedagemdesites.ws/public/assets/css/app.css)
-              printf '%s' "$css" | grep -q '.app-shell'
-              printf '%s' "$css" | grep -q '.sidebar'
-              printf '%s' "$css" | grep -q '.kpi-grid'
-              printf '%s' "$css" | grep -q '.login-page'
+          echo "CHECKPOINT 4: front controller/runtime files"
+          route_check=$(curl --fail --silent --show-error --max-time 20 "$BASE_URL/route-check")
+          printf '%s\n' "$route_check"
+          printf '%s' "$route_check" | grep -q '"ok":true'
+          printf '%s' "$route_check" | grep -q '"build":"2026.10.02.3"'
+          printf '%s' "$route_check" | grep -q '"base_path":""'
+          printf '%s' "$route_check" | grep -q 'RendererV3.php'
+          printf '%s' "$route_check" | grep -q 'layout_runtime_v3.php'
 
-              echo "CHECKPOINT: route-check"
-              route_check=$(curl --fail --silent --show-error --max-time 20 \
-                http://turnopronto1.hospedagemdesites.ws/route-check)
-              printf '%s\n' "$route_check"
-              printf '%s' "$route_check" | grep -q '"ok":true'
-              printf '%s' "$route_check" | grep -q '"build":"2026.10.02.3"'
-              printf '%s' "$route_check" | grep -q '"base_path":""'
-              printf '%s' "$route_check" | grep -q '"renderer_file":'
-              printf '%s' "$route_check" | grep -q 'RendererV3.php'
-              printf '%s' "$route_check" | grep -q 'layout_runtime_v3.php'
+          echo "CHECKPOINT 5: shared renderer/layout"
+          visual_headers=$(mktemp)
+          visual_html=$(curl --fail --silent --show-error --max-time 20 -D "$visual_headers" "$BASE_URL/visual-check")
+          cat "$visual_headers"
+          grep -qi '^X-TurnoPronto-Layout: 2026.10.02.3' "$visual_headers"
+          grep -qi '^X-TurnoPronto-Renderer: v3' "$visual_headers"
+          printf '%s' "$visual_html" | grep -q 'name="turnopronto-layout-build" content="2026.10.02.3"'
+          printf '%s' "$visual_html" | grep -q 'data-tp-layout="2026.10.02.3"'
+          printf '%s' "$visual_html" | grep -q '<div class="app-shell">'
+          printf '%s' "$visual_html" | grep -q 'class="sidebar"'
+          printf '%s' "$visual_html" | grep -q 'class="topbar"'
+          printf '%s' "$visual_html" | grep -q 'id="tp-visual-smoke"'
+          printf '%s' "$visual_html" | grep -q 'href="/public/assets/css/app.css?v='
 
-              echo "CHECKPOINT: empresa/dashboard redirect"
-              company_headers=$(mktemp)
-              curl --silent --show-error --max-time 20 -o /dev/null -D "$company_headers" \
-                http://turnopronto1.hospedagemdesites.ws/empresa/dashboard
-              grep -q '^HTTP/.* 302' "$company_headers"
-              grep -qi '^Location: /login' "$company_headers"
+          echo "CHECKPOINT 6: authenticated routes use front controller"
+          company_headers=$(mktemp)
+          curl --silent --show-error --max-time 20 -o /dev/null -D "$company_headers" "$BASE_URL/empresa/dashboard"
+          grep -q '^HTTP/.* 302' "$company_headers"
+          grep -qi '^Location: /login' "$company_headers"
 
-              echo "CHECKPOINT: profissional/inicio redirect"
-              professional_headers=$(mktemp)
-              curl --silent --show-error --max-time 20 -o /dev/null -D "$professional_headers" \
-                http://turnopronto1.hospedagemdesites.ws/profissional/inicio
-              grep -q '^HTTP/.* 302' "$professional_headers"
-              grep -qi '^Location: /login' "$professional_headers"
+          professional_headers=$(mktemp)
+          curl --silent --show-error --max-time 20 -o /dev/null -D "$professional_headers" "$BASE_URL/profissional/inicio"
+          grep -q '^HTTP/.* 302' "$professional_headers"
+          grep -qi '^Location: /login' "$professional_headers"
 
-              visual_headers=$(mktemp)
-              visual_html=$(curl --fail --silent --show-error --max-time 20 \
-                -D "$visual_headers" \
-                http://turnopronto1.hospedagemdesites.ws/visual-check)
-              grep -qi '^X-TurnoPronto-Layout: 2026.10.02.3' "$visual_headers"
-              grep -qi '^X-TurnoPronto-Renderer: v3' "$visual_headers"
-              printf '%s' "$visual_html" | grep -q 'class="app-shell"'
-              printf '%s' "$visual_html" | grep -q 'class="sidebar"'
-              printf '%s' "$visual_html" | grep -q 'class="topbar"'
-              printf '%s' "$visual_html" | grep -q 'id="tp-visual-smoke"'
-              printf '%s' "$visual_html" | grep -q 'name="turnopronto-layout-build" content="2026.10.02.3"'
-              printf '%s' "$visual_html" | grep -q 'href="/public/assets/css/app.css?v='
-
-              exit 0
-            fi
-            sleep 5
-          done
-          echo 'Health check não confirmou a API após as tentativas.' >&2
-          exit 1
+          echo "ALL PRODUCTION CHECKS PASSED"
