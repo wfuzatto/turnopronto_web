@@ -24,6 +24,18 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
           $pdo->exec("ALTER TABLE tp_shifts ADD COLUMN acceptance_mode VARCHAR(20) NOT NULL DEFAULT 'automatic' AFTER checkin_pin");
       }
 
+      $documentColumns=[
+          'file_path'=>"VARCHAR(500) NULL",
+          'original_name'=>"VARCHAR(255) NULL",
+          'mime_type'=>"VARCHAR(100) NULL",
+          'rejection_reason'=>"VARCHAR(500) NULL"
+      ];
+      foreach($documentColumns as $column=>$definition){
+          $st=$pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tp_documents' AND COLUMN_NAME=?");
+          $st->execute([$column]);
+          if(!(int)$st->fetchColumn()) $pdo->exec("ALTER TABLE tp_documents ADD COLUMN `".$column."` ".$definition);
+      }
+
       $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
       foreach(['tp_notifications','tp_reputation_events','tp_reviews','tp_ledger','tp_assignments','tp_shift_applications','tp_shifts','tp_professional_categories','tp_documents','tp_company_members','tp_professionals','tp_companies','tp_api_tokens','tp_audit_logs','tp_users','tp_job_categories'] as $table){ $pdo->exec('TRUNCATE TABLE '.$table); }
       $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
