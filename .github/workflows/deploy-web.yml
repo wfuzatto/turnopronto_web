@@ -1,0 +1,96 @@
+name: Deploy WEB
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: turnopronto-web-production
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: PHP lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -type f -name '*.php' \
+            -not -path './.git/*' \
+            -not -path './vendor/*' \
+            -print0 | xargs -0 -n1 php -l
+
+      - name: Validate production tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find . -type f \( -name '.env' -o -name '.env.*' -o -name '*.sql.bak' -o -name '*.zip' \) -not -path './.git/*' | grep -q .; then
+            echo 'Arquivos sensíveis ou de backup encontrados no tree de produção.' >&2
+            exit 1
+          fi
+          test -f index.php
+          test -f config/app.php
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ${{ secrets.FTP_PROTOCOL || 'ftp' }}
+          port: ${{ secrets.FTP_PORT || '21' }}
+          server-dir: ${{ secrets.FTP_PATH || '/public_html/' }}
+          local-dir: ./
+          log-level: minimal
+          exclude: |
+            **/.git*/**
+            **/.github/**
+            **/.vscode/**
+            **/.idea/**
+            **/tests/**
+            **/test/**
+            **/docs/**
+            **/README.md
+            **/DEVELOPMENT_PLAN.md
+            **/install.php
+            **/config/config.local.php
+            **/.env
+            **/.env.*
+            **/*.sql
+            **/*.sql.bak
+            **/*.zip
+            **/storage/logs/**
+            **/storage/uploads/**
+            **/node_modules/**
+            **/vendor/**
+
+      - name: Health check
+        shell: bash
+        env:
+          HEALTH_URL: https://turnopronto1.websiteseguro.com/api/v1/health
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 3 --retry-delay 3 "$HEALTH_URL"
+          curl --fail --silent --show-error --retry 3 --retry-delay 3 \
+            https://turnopronto1.websiteseguro.com/login >/dev/null
