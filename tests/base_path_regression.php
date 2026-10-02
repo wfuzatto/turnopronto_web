@@ -18,10 +18,10 @@ if ($actual !== $expected) {
 }
 
 $asset = asset('css/app.css');
-$expectedAsset = $expected . '/public/assets/css/app.css';
+$expectedAsset = $expected . '/public/assets/css/app.css?v=';
 
-if ($asset !== $expectedAsset) {
-    fwrite(STDERR, "asset local inválido. Esperado {$expectedAsset}, obtido {$asset}\n");
+if (!str_starts_with($asset, $expectedAsset)) {
+    fwrite(STDERR, "asset local inválido. Esperado prefixo {$expectedAsset}, obtido {$asset}\n");
     exit(1);
 }
 
