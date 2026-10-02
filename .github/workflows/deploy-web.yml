@@ -136,12 +136,22 @@ jobs:
               printf '%s' "$css" | grep -q '.kpi-grid'
               printf '%s' "$css" | grep -q '.login-page'
 
+              route_check=$(curl --fail --silent --show-error --max-time 20 \
+                http://turnopronto1.hospedagemdesites.ws/route-check)
+              printf '%s' "$route_check" | grep -q '"ok":true'
+              printf '%s' "$route_check" | grep -q '"build":"2026.10.02.2"'
+              printf '%s' "$route_check" | grep -q '"base_path":""'
+
+              visual_headers=$(mktemp)
               visual_html=$(curl --fail --silent --show-error --max-time 20 \
+                -D "$visual_headers" \
                 http://turnopronto1.hospedagemdesites.ws/visual-check)
+              grep -qi '^X-TurnoPronto-Layout: 2026.10.02.2' "$visual_headers"
               printf '%s' "$visual_html" | grep -q 'class="app-shell"'
               printf '%s' "$visual_html" | grep -q 'class="sidebar"'
               printf '%s' "$visual_html" | grep -q 'class="topbar"'
               printf '%s' "$visual_html" | grep -q 'id="tp-visual-smoke"'
+              printf '%s' "$visual_html" | grep -q 'name="turnopronto-layout-build" content="2026.10.02.2"'
               printf '%s' "$visual_html" | grep -q 'href="/public/assets/css/app.css?v='
 
               exit 0
