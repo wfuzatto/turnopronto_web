@@ -59,7 +59,15 @@ function url(string $path = ''): string
 
 function asset(string $path): string
 {
-    return url('public/assets/' . ltrim($path, '/'));
+    $clean = ltrim($path, '/');
+    $publicUrl = url('public/assets/' . $clean);
+    $file = dirname(__DIR__) . '/public/assets/' . $clean;
+
+    if (is_file($file)) {
+        return $publicUrl . '?v=' . (string)filemtime($file);
+    }
+
+    return $publicUrl;
 }
 
 function redirect(string $path): never
