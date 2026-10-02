@@ -51,6 +51,7 @@ Implementado:
 - financeiro/ledger real
 - trilha de auditoria para ações críticas
 - PIN de check-in por vaga
+- edição de conta empresarial
 
 Próximos incrementos de empresa:
 
@@ -73,6 +74,8 @@ Próximos incrementos de empresa:
 - ganhos
 - reputação
 - documentos
+- edição de perfil/categorias/PIX
+- upload privado de documentos PDF/JPG/PNG
 
 Próximos incrementos:
 
@@ -117,7 +120,7 @@ Implementado:
 - revisão humana de contestação de reputação;
 - auditoria de ações críticas.
 
-Próximos: KYC documental completo, disputas com anexos, no-show, bloqueios, fraude, conciliação e gestão avançada de usuários.
+Base documental já implementada com upload privado e aprovação/rejeição administrativa. Próximos: validação automática de CPF/CNPJ, selfie/liveness, consentimentos versionados, validade de certificados, disputas com anexos, no-show, bloqueios, fraude, conciliação e gestão avançada de usuários.
 
 ## Fase W7 — Comunicação
 
