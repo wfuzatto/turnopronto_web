@@ -10,7 +10,7 @@ if (base_path() !== '') {
     exit(1);
 }
 
-if (asset('css/app.css') !== '/public/assets/css/app.css') {
+if (!str_starts_with(asset('css/app.css'), '/public/assets/css/app.css?v=')) {
     fwrite(STDERR, "CSS de produção calculado incorretamente: " . asset('css/app.css') . "\n");
     exit(1);
 }
