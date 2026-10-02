@@ -91,6 +91,15 @@ jobs:
           HEALTH_URL: https://turnopronto1.websiteseguro.com/api/v1/health
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --retry 3 --retry-delay 3 "$HEALTH_URL"
-          curl --fail --silent --show-error --retry 3 --retry-delay 3 \
-            https://turnopronto1.websiteseguro.com/login >/dev/null
+          for attempt in $(seq 1 12); do
+            response=$(curl --silent --show-error --max-time 20 "$HEALTH_URL" || true)
+            if printf '%s' "$response" | grep -q '"ok":true'; then
+              printf '%s\n' "$response"
+              curl --fail --silent --show-error --max-time 20 \
+                https://turnopronto1.websiteseguro.com/login >/dev/null
+              exit 0
+            fi
+            sleep 5
+          done
+          echo 'Health check não confirmou a API após as tentativas.' >&2
+          exit 1
