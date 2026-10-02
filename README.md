@@ -20,31 +20,44 @@ A implementação evita recursos exclusivos de PHP 8.4 para funcionar em instala
 ## O que já funciona
 
 ### Empresa
+- cadastro público + aprovação administrativa
 - login por perfil
 - dashboard visual no padrão dos mockups
+- edição da conta empresarial
 - KPIs de vagas, turnos, preenchimento e gasto
-- publicação de vagas/turnos
-- listagem de vagas
-- visualização de profissionais sugeridos
+- criação, edição e cancelamento de vagas
+- aceite automático ou aprovação manual de candidatos
+- convite direto de profissional
+- escalas reais
+- financeiro/ledger operacional
+- avaliações do profissional após turno concluído
 - indicadores de reputação/presença
-- estrutura para escalas, financeiro e avaliações
 
 ### Profissional
+- cadastro público + aprovação administrativa
 - dashboard visual no padrão dos mockups
+- edição de perfil, categorias e chave PIX
 - oportunidades próximas
 - detalhe da vaga
-- aceite de turno
+- aceite automático ou candidatura
 - agenda e próximos turnos
-- check-in por PIN
+- cancelamento com regra por antecedência
+- check-in com PIN obrigatório
 - check-out
 - registro de ganhos
-- reputação operacional
-- documentos verificados
+- avaliação da empresa
+- reputação operacional com contestação
+- upload privado de documentos PDF/JPG/PNG
 
 ### Administração
 - login administrativo
-- KPIs básicos do marketplace
-- base preparada para KYC, disputas, antifraude e auditoria
+- KPIs do marketplace
+- fila de aprovação de empresas e profissionais
+- revisão de documentos privados
+- revisão humana de contestações de reputação
+- reversão de penalidade quando procedente
+- trilha de auditoria
+- base preparada para KYC avançado, disputas, antifraude e conciliação
 
 ### API mobile
 - `POST /api/v1/auth/login`
@@ -107,6 +120,10 @@ http://192.168.1.50/turnopronto_web/api/v1/health
 
 No Android Emulator, o host da máquina normalmente é acessado via `10.0.2.2`.
 
+## Validação contínua
+
+- GitHub Actions executa `php -l` em todos os arquivos PHP a cada push no `main` e em pull requests.
+
 ## Segurança já aplicada
 
 - PDO com prepared statements nativos
@@ -129,8 +146,8 @@ Ainda será necessário:
 - recuperação de senha
 - MFA administrativo
 - CORS restritivo
-- armazenamento seguro de documentos
-- KYC real
+- armazenamento externo/objeto para documentos em produção
+- KYC automatizado (CPF/CNPJ, selfie/liveness)
 - LGPD/consentimentos finais
 - gateway de pagamento + split
 - push/WhatsApp/SMS
