@@ -62,6 +62,25 @@ final class Web
             View::render('company_dashboard',['title'=>'Dashboard','data'=>Data::companyDashboard((int)$u['id']),'user'=>$u]);
         }
 
+        if ($path === '/empresa/conta') {
+            $u=Auth::requireRole('company');
+            if($method==='POST'){
+                verify_csrf();
+                try {
+                    Data::updateCompanyAccount((int)$u['id'],$_POST);
+                    flash('success','Dados da empresa atualizados.');
+                    redirect('empresa/conta');
+                } catch(Throwable $e){
+                    flash('error',$e->getMessage());
+                }
+            }
+            View::render('company_account',[
+                'title'=>'Minha conta',
+                'company'=>Data::companyProfile((int)$u['id']),
+                'user'=>$u
+            ]);
+        }
+
         if ($path === '/empresa/vagas') {
             $u=Auth::requireRole('company');
             View::render('company_shifts',['title'=>'Minhas vagas','shifts'=>Data::companyShifts((int)$u['id']),'user'=>$u]);
@@ -229,6 +248,27 @@ final class Web
             View::render('professional_dashboard',['title'=>'Início','data'=>Data::professionalHome((int)$u['id']),'user'=>$u]);
         }
 
+        if ($path === '/profissional/perfil') {
+            $u=Auth::requireRole('professional');
+            if($method==='POST'){
+                verify_csrf();
+                try {
+                    Data::updateProfessionalAccount((int)$u['id'],$_POST);
+                    flash('success','Perfil atualizado.');
+                    redirect('profissional/perfil');
+                } catch(Throwable $e){
+                    flash('error',$e->getMessage());
+                }
+            }
+            View::render('professional_account',[
+                'title'=>'Meu perfil',
+                'profile'=>Data::professionalProfile((int)$u['id']),
+                'categories'=>Data::categories(),
+                'selected'=>Data::professionalCategoryIds((int)$u['id']),
+                'user'=>$u
+            ]);
+        }
+
         if ($path === '/profissional/oportunidades') {
             $u=Auth::requireRole('professional');
             View::render('opportunities',['title'=>'Oportunidades','opportunities'=>Data::opportunities((int)$u['id']),'user'=>$u]);
@@ -352,9 +392,47 @@ final class Web
             redirect('profissional/reputacao');
         }
 
+        if ($path === '/profissional/documentos/enviar' && $method==='POST') {
+            $u=Auth::requireRole('professional');
+            verify_csrf();
+            try {
+                Data::uploadProfessionalDocument((int)$u['id'],(string)($_POST['type']??''),$_FILES['document']??[]);
+                flash('success','Documento enviado para verificação.');
+            } catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('profissional/documentos');
+        }
+
         if ($path === '/profissional/documentos') {
             $u=Auth::requireRole('professional');
             View::render('documents',['title'=>'Documentos','documents'=>Data::documents((int)$u['id']),'user'=>$u]);
+        }
+
+        if (preg_match('#^/admin/documentos/(\d+)/arquivo$#',$path,$m) && $method==='GET') {
+            Auth::requireRole('admin');
+            $doc=Data::adminDocument((int)$m[1]);
+            if(!$doc || empty($doc['file_path'])){ http_response_code(404); exit('Documento não encontrado.'); }
+            $root=realpath(dirname(__DIR__).'/storage/uploads/documents');
+            $file=realpath(dirname(__DIR__).'/'.$doc['file_path']);
+            if(!$root || !$file || !str_starts_with($file,$root.DIRECTORY_SEPARATOR) || !is_file($file)){ http_response_code(404); exit('Arquivo não encontrado.'); }
+            header('Content-Type: '.($doc['mime_type']?:'application/octet-stream'));
+            header('Content-Disposition: inline; filename="'.preg_replace('/[^a-zA-Z0-9._-]/','_',($doc['original_name']?:'documento')).'"');
+            header('Content-Length: '.filesize($file));
+            readfile($file);
+            exit;
+        }
+
+        if (preg_match('#^/admin/documentos/(\d+)/(aprovar|rejeitar)$#',$path,$m) && $method==='POST') {
+            $u=Auth::requireRole('admin');
+            verify_csrf();
+            try {
+                Data::setDocumentVerification((int)$u['id'],(int)$m[1],$m[2]==='aprovar'?'verified':'rejected',trim((string)($_POST['reason']??'')));
+                flash('success','Documento revisado.');
+            } catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('admin/dashboard');
         }
 
         if (preg_match('#^/admin/verificacao/(empresa|profissional)/(\d+)/(aprovar|rejeitar)$#',$path,$m) && $method==='POST') {
@@ -377,6 +455,7 @@ final class Web
                 'title'=>'Administração',
                 'stats'=>Data::adminStats(),
                 'verification'=>Data::adminPendingVerifications(),
+                'documents'=>Data::adminPendingDocuments(),
                 'appeals'=>Data::adminPendingAppeals(),
                 'audit'=>Data::adminAuditLogs(20),
                 'user'=>$u
