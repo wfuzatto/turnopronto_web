@@ -32,6 +32,9 @@ jobs:
             -not -path './vendor/*' \
             -print0 | xargs -0 -n1 php -l
 
+      - name: Base path regression test
+        run: php tests/base_path_regression.php
+
       - name: Validate production tree
         shell: bash
         run: |
@@ -51,6 +54,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Build single production stylesheet
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat public/assets/css/app-part*.css > public/assets/css/app.css
+          grep -q '.app-shell' public/assets/css/app.css
+          grep -q '.login-page' public/assets/css/app.css
 
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -95,8 +106,16 @@ jobs:
             response=$(curl --silent --show-error --max-time 20 "$HEALTH_URL" || true)
             if printf '%s' "$response" | grep -q '"ok":true'; then
               printf '%s\n' "$response"
-              curl --fail --silent --show-error --max-time 20 \
-                http://turnopronto1.hospedagemdesites.ws/login >/dev/null
+
+              login_html=$(curl --fail --silent --show-error --max-time 20 \
+                http://turnopronto1.hospedagemdesites.ws/login)
+              printf '%s' "$login_html" | grep -q 'public/assets/css/app.css'
+
+              css=$(curl --fail --silent --show-error --max-time 20 \
+                http://turnopronto1.hospedagemdesites.ws/public/assets/css/app.css)
+              printf '%s' "$css" | grep -q '.app-shell'
+              printf '%s' "$css" | grep -q '.login-page'
+
               exit 0
             fi
             sleep 5
