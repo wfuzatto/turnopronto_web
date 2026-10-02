@@ -12,8 +12,17 @@ final class View
         ob_start();
         require $viewFile;
         $content = ob_get_clean();
-        if ($withLayout) require __DIR__ . '/views/layout.php';
-        else echo $content;
+        if ($withLayout) {
+            $layoutFile = __DIR__ . '/views/layout.php';
+            if (!is_file($layoutFile)) {
+                http_response_code(500);
+                exit('Layout principal não encontrado.');
+            }
+            header('X-TurnoPronto-Layout: 2026.10.02');
+            require $layoutFile;
+        } else {
+            echo $content;
+        }
         exit;
     }
 }
