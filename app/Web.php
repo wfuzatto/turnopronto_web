@@ -27,6 +27,22 @@ final class Web
             View::render('login',['title'=>'Entrar'],false);
         }
 
+        if ($path === '/termos' && $method === 'GET') {
+            View::render('legal',[
+                'title'=>'Termos de Uso',
+                'version'=>(string)(app_config('legal.terms_version') ?? '2026-10-02'),
+                'content'=>'<h2>Uso da plataforma</h2><p>O TurnoPronto conecta empresas e profissionais para oportunidades de trabalho pontuais. Dados de identidade, contato, reputação e pagamento devem ser verdadeiros e atualizados.</p><h2>Compromisso com turnos</h2><p>Ao aceitar ou confirmar um turno, as partes assumem o compromisso de cumprir data, horário, valor e condições informadas. Cancelamentos, faltas e atrasos podem gerar registros operacionais e efeitos na reputação, sempre com possibilidade de contestação quando aplicável.</p><h2>Pagamentos</h2><p>Dados Pix são usados para repasses ao profissional e, quando aplicável, devoluções à empresa. A titularidade informada deve corresponder ao usuário ou à empresa responsável.</p>',
+            ],false);
+        }
+
+        if ($path === '/privacidade' && $method === 'GET') {
+            View::render('legal',[
+                'title'=>'Política de Privacidade',
+                'version'=>(string)(app_config('legal.privacy_version') ?? '2026-10-02'),
+                'content'=>'<h2>Dados tratados</h2><p>Tratamos dados cadastrais, CPF/CNPJ, contato, endereço, dados Pix, documentos de verificação, histórico de turnos, avaliações e registros necessários à segurança da plataforma.</p><h2>WhatsApp</h2><p>O número informado é validado por código e pode receber mensagens transacionais relacionadas a cadastro, interesse em vagas, turnos e segurança da conta. Mensagens promocionais exigem base legal/consentimento próprio e não são abrangidas por este aceite transacional.</p><h2>Segurança e direitos</h2><p>O TurnoPronto aplica controles de acesso e auditoria. Solicitações sobre dados pessoais poderão ser tratadas pelos canais oficiais de suporte.</p>',
+            ],false);
+        }
+
         if (in_array($path,['/cadastro','/cadastro/empresa','/cadastro/profissional'],true)) {
             if (!Database::available()) {
                 flash('error','Banco não configurado. Execute a instalação primeiro.');
@@ -36,10 +52,9 @@ final class Web
             if($method==='POST' && $kind!=='choice'){
                 verify_csrf();
                 try {
-                    if($kind==='company') Data::registerCompany($_POST);
-                    else Data::registerProfessional($_POST);
-                    flash('success','Cadastro realizado. Você já pode entrar; a publicação/aceite de turnos será liberada após a verificação.');
-                    redirect('login');
+                    $pending=Registration::start($_POST,$kind);
+                    $_SESSION['registration_pending']=$pending;
+                    redirect('cadastro/verificar');
                 } catch(Throwable $e){
                     flash('error',$e->getMessage());
                 }
@@ -48,6 +63,37 @@ final class Web
                 'title'=>'Criar conta',
                 'kind'=>$kind,
                 'categories'=>$kind==='professional'?Data::categories():[],
+            ],false);
+        }
+
+        if ($path === '/cadastro/verificar') {
+            if (!Database::available()) redirect('login');
+            $pending=(array)($_SESSION['registration_pending']??[]);
+            if(empty($pending['registration_id'])){
+                flash('error','Inicie o cadastro antes de validar o telefone.');
+                redirect('cadastro');
+            }
+            if($method==='POST'){
+                verify_csrf();
+                $action=(string)($_POST['action']??'verify');
+                try {
+                    if($action==='resend'){
+                        $pending=Registration::resend((string)$pending['registration_id']);
+                        $_SESSION['registration_pending']=$pending;
+                        flash('success','Novo código enviado por WhatsApp.');
+                        redirect('cadastro/verificar');
+                    }
+                    Registration::verify((string)$pending['registration_id'],(string)($_POST['code']??''));
+                    unset($_SESSION['registration_pending']);
+                    flash('success','Telefone validado e cadastro concluído. Você já pode entrar.');
+                    redirect('login');
+                } catch(Throwable $e){
+                    flash('error',$e->getMessage());
+                }
+            }
+            View::render('register_verify',[
+                'title'=>'Validar WhatsApp',
+                'pending'=>$pending,
             ],false);
         }
 
