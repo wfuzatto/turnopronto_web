@@ -1,5 +1,5 @@
 <?php $p=$data['profile'];$k=$data['kpis'];?>
-<div class="page-head"><div><h1>Olá, <?=e(explode(' ',$p['name'])[0]??'Juliana')?>! <span>👋</span></h1><p>Aqui está o seu resumo de hoje. Vamos para mais um grande dia?</p></div><div class="date-chip"><?=icon('calendar',18)?> <?=strftime('%A, %d de %B de %Y')?>⌄</div></div>
+<?php if(($p['status']??'pending')!=='verified'):?><div class="verification-banner"><?=icon('shield',22)?><div><strong>Perfil em verificação</strong><p>Você já pode conhecer as oportunidades. Aceitar ou se candidatar será liberado após a aprovação do perfil.</p></div><span class="status filling"><?=e(ucfirst($p['status']??'pending'))?></span></div><?php endif;?><div class="page-head"><div><h1>Olá, <?=e(explode(' ',$p['name'])[0]??'Profissional')?>! <span>👋</span></h1><p>Aqui está o seu resumo de hoje. Vamos para mais um grande dia?</p></div><div class="date-chip"><?=icon('calendar',18)?> <?=strftime('%A, %d de %B de %Y')?>⌄</div></div>
 <div class="pro-layout"><div class="pro-main">
 <div class="kpi-grid four">
  <div class="kpi"><div class="kpi-icon blue"><?=icon('calendar')?></div><div><small>Turnos esta semana</small><strong><?=$k['week']?></strong><span class="trend up">↑ +2 em relação à semana anterior</span></div></div>
