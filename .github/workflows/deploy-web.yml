@@ -142,6 +142,18 @@ jobs:
               printf '%s' "$route_check" | grep -q '"build":"2026.10.02.2"'
               printf '%s' "$route_check" | grep -q '"base_path":""'
 
+              company_headers=$(mktemp)
+              curl --silent --show-error --max-time 20 -o /dev/null -D "$company_headers" \
+                http://turnopronto1.hospedagemdesites.ws/empresa/dashboard
+              grep -q '^HTTP/.* 302' "$company_headers"
+              grep -qi '^Location: /login' "$company_headers"
+
+              professional_headers=$(mktemp)
+              curl --silent --show-error --max-time 20 -o /dev/null -D "$professional_headers" \
+                http://turnopronto1.hospedagemdesites.ws/profissional/inicio
+              grep -q '^HTTP/.* 302' "$professional_headers"
+              grep -qi '^Location: /login' "$professional_headers"
+
               visual_headers=$(mktemp)
               visual_html=$(curl --fail --silent --show-error --max-time 20 \
                 -D "$visual_headers" \
