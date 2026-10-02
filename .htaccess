@@ -1,5 +1,14 @@
 Options -Indexes
 RewriteEngine On
+
+# Rotas da aplicação SEMPRE passam pelo front controller.
+# Isso impede diretórios/arquivos antigos no FTP de sequestrarem
+# /empresa, /profissional, /admin, /suporte e /visual-check.
+RewriteRule ^(empresa|profissional|admin)(/.*)?$ index.php [QSA,L,NC]
+RewriteRule ^(login|logout|cadastro|suporte|visual-check)(/.*)?$ index.php [QSA,L,NC]
+RewriteRule ^api/v1(/.*)?$ index.php [QSA,L,NC]
+
+# Assets e demais arquivos físicos continuam sendo servidos diretamente.
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [QSA,L]
