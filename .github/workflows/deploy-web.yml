@@ -75,6 +75,7 @@ jobs:
           port: ${{ secrets.FTP_PORT || '21' }}
           server-dir: ${{ secrets.FTP_PATH || '/public_html/' }}
           local-dir: ./
+          state-name: .turnopronto-deploy-sync-state-v2.json
           log-level: minimal
           exclude: |
             **/.git*/**
@@ -110,11 +111,11 @@ jobs:
               printf '%s\n' "$response"
 
               printf '%s' "$response" | grep -q '"public_base_path":""'
-              printf '%s' "$response" | grep -q '"css_asset":"/public/assets/css/app.css"'
+              printf '%s' "$response" | grep -q '"css_asset":"/public/assets/css/app.css?v='
 
               login_html=$(curl --fail --silent --show-error --max-time 20 \
                 http://turnopronto1.hospedagemdesites.ws/login)
-              printf '%s' "$login_html" | grep -q 'href="/public/assets/css/app.css"'
+              printf '%s' "$login_html" | grep -q 'href="/public/assets/css/app.css?v='
 
               css=$(curl --fail --silent --show-error --max-time 20 \
                 http://turnopronto1.hospedagemdesites.ws/public/assets/css/app.css)
