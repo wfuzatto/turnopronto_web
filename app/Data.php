@@ -206,6 +206,8 @@ final class Data
     {
         $companyId=self::companyIdForUser($userId);
         if(!$companyId) throw new RuntimeException('Empresa não encontrada para este usuário.');
+        $company=self::companyProfile($userId);
+        if(($company['status']??'pending')!=='verified') throw new RuntimeException('A empresa precisa ser verificada antes de publicar vagas.');
         $d=self::normalizedShiftInput($data);
         $pdo=Database::connection();
 
@@ -482,6 +484,8 @@ final class Data
         $pdo=Database::connection();
         $pid=self::professionalIdForUser($userId);
         if(!$pid) throw new RuntimeException('Perfil profissional não encontrado.');
+        $profile=self::professionalProfile($userId);
+        if(($profile['status']??'pending')!=='verified') throw new RuntimeException('Seu perfil precisa ser verificado antes de aceitar ou se candidatar a turnos.');
 
         $pdo->beginTransaction();
         try {
@@ -571,7 +575,7 @@ final class Data
 
         $shift=self::shift((int)$a['shift_id']);
         $pin=trim((string)$pin);
-        if(!empty($shift['checkin_pin']) && $pin!=='' && !hash_equals((string)$shift['checkin_pin'],$pin)) throw new RuntimeException('PIN de check-in inválido.');
+        if(!empty($shift['checkin_pin']) && ($pin==='' || !hash_equals((string)$shift['checkin_pin'],$pin))) throw new RuntimeException('Informe o PIN correto de check-in.');
 
         Database::connection()->prepare('UPDATE tp_assignments SET status="checked_in",checkin_at=COALESCE(checkin_at,NOW()),checkin_method=? WHERE id=?')
             ->execute([$pin?'pin':'web',$assignmentId]);
@@ -640,6 +644,98 @@ final class Data
         return ['profile'=>$profile,'events'=>$st->fetchAll()];
     }
 
+
+
+    private static function normalizedRegistrationAccount(array $data): array
+    {
+        $name=trim((string)($data['name']??''));
+        $email=mb_strtolower(trim((string)($data['email']??'')));
+        $phone=trim((string)($data['phone']??''));
+        $password=(string)($data['password']??'');
+        $confirm=(string)($data['password_confirm']??'');
+        if(mb_strlen($name)<3) throw new InvalidArgumentException('Informe seu nome completo.');
+        if(!filter_var($email,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe um e-mail válido.');
+        if(strlen($password)<8) throw new InvalidArgumentException('A senha deve ter pelo menos 8 caracteres.');
+        if($password!==$confirm) throw new InvalidArgumentException('As senhas não coincidem.');
+        $st=Database::connection()->prepare('SELECT id FROM tp_users WHERE email=? LIMIT 1');
+        $st->execute([$email]);
+        if($st->fetchColumn()) throw new RuntimeException('Já existe uma conta com este e-mail.');
+        return ['name'=>$name,'email'=>$email,'phone'=>$phone,'password'=>$password];
+    }
+
+    public static function registerCompany(array $data): int
+    {
+        $account=self::normalizedRegistrationAccount($data);
+        $legal=trim((string)($data['legal_name']??''));
+        $trade=trim((string)($data['trade_name']??''));
+        $cnpj=trim((string)($data['cnpj']??''));
+        $address=trim((string)($data['address']??''));
+        $city=trim((string)($data['city']??''));
+        $state=mb_strtoupper(trim((string)($data['state']??'')));
+        if($legal===''||$trade===''||$cnpj===''||$address===''||$city===''||strlen($state)!==2) throw new InvalidArgumentException('Preencha todos os dados obrigatórios da empresa.');
+        $pdo=Database::connection(); $pdo->beginTransaction();
+        try{
+            $st=$pdo->prepare('INSERT INTO tp_users (name,email,password_hash,role,phone,status,created_at) VALUES (?,?,?,?,?,"active",NOW())');
+            $st->execute([$account['name'],$account['email'],password_hash($account['password'],PASSWORD_DEFAULT),'company',$account['phone']]);
+            $userId=(int)$pdo->lastInsertId();
+            $st=$pdo->prepare('INSERT INTO tp_companies (legal_name,trade_name,cnpj,address,city,state,status,created_at) VALUES (?,?,?,?,?,?,"pending",NOW())');
+            $st->execute([$legal,$trade,$cnpj,$address,$city,$state]);
+            $companyId=(int)$pdo->lastInsertId();
+            $pdo->prepare('INSERT INTO tp_company_members (company_id,user_id,member_role,created_at) VALUES (?,?,"owner",NOW())')->execute([$companyId,$userId]);
+            self::audit($userId,'registration.company','company',$companyId);
+            $pdo->commit(); return $userId;
+        }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+    }
+
+    public static function registerProfessional(array $data): int
+    {
+        $account=self::normalizedRegistrationAccount($data);
+        $cpf=trim((string)($data['cpf']??''));
+        $headline=trim((string)($data['headline']??''));
+        $city=trim((string)($data['city']??''));
+        $state=mb_strtoupper(trim((string)($data['state']??'')));
+        $categories=array_values(array_filter(array_map('intval',(array)($data['categories']??[]))));
+        if($cpf===''||$headline===''||$city===''||strlen($state)!==2) throw new InvalidArgumentException('Preencha CPF, atividade principal, cidade e UF.');
+        if(!$categories) throw new InvalidArgumentException('Selecione pelo menos uma categoria de trabalho.');
+        $pdo=Database::connection(); $pdo->beginTransaction();
+        try{
+            $st=$pdo->prepare('INSERT INTO tp_users (name,email,password_hash,role,phone,status,created_at) VALUES (?,?,?,?,?,"active",NOW())');
+            $st->execute([$account['name'],$account['email'],password_hash($account['password'],PASSWORD_DEFAULT),'professional',$account['phone']]);
+            $userId=(int)$pdo->lastInsertId();
+            $st=$pdo->prepare('INSERT INTO tp_professionals (user_id,cpf,headline,city,state,status,created_at) VALUES (?,?,?,?,?,"pending",NOW())');
+            $st->execute([$userId,$cpf,$headline,$city,$state]);
+            $professionalId=(int)$pdo->lastInsertId();
+            $cat=$pdo->prepare('INSERT IGNORE INTO tp_professional_categories (professional_id,category_id,experience_level) SELECT ?,id,"initial" FROM tp_job_categories WHERE id=? AND active=1');
+            foreach($categories as $categoryId)$cat->execute([$professionalId,$categoryId]);
+            self::audit($userId,'registration.professional','professional',$professionalId);
+            $pdo->commit(); return $userId;
+        }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+    }
+
+    public static function adminPendingVerifications(): array
+    {
+        $companies=Database::connection()->query("SELECT c.*,u.name owner_name,u.email owner_email FROM tp_companies c LEFT JOIN tp_company_members cm ON cm.company_id=c.id AND cm.member_role='owner' LEFT JOIN tp_users u ON u.id=cm.user_id WHERE c.status='pending' ORDER BY c.created_at ASC")->fetchAll();
+        $professionals=Database::connection()->query("SELECT p.*,u.name,u.email,u.phone FROM tp_professionals p JOIN tp_users u ON u.id=p.user_id WHERE p.status='pending' ORDER BY p.created_at ASC")->fetchAll();
+        return ['companies'=>$companies,'professionals'=>$professionals];
+    }
+
+    public static function setCompanyVerification(int $adminUserId,int $companyId,string $decision): void
+    {
+        if(!in_array($decision,['verified','rejected'],true))throw new InvalidArgumentException('Decisão inválida.');
+        $st=Database::connection()->prepare('UPDATE tp_companies SET status=? WHERE id=? AND status="pending"');
+        $st->execute([$decision,$companyId]);
+        if($st->rowCount()===0)throw new RuntimeException('Empresa pendente não encontrada.');
+        self::audit($adminUserId,'verification.company','company',$companyId,['decision'=>$decision]);
+    }
+
+    public static function setProfessionalVerification(int $adminUserId,int $professionalId,string $decision): void
+    {
+        if(!in_array($decision,['verified','rejected'],true))throw new InvalidArgumentException('Decisão inválida.');
+        $st=Database::connection()->prepare('UPDATE tp_professionals SET status=? WHERE id=? AND status="pending"');
+        $st->execute([$decision,$professionalId]);
+        if($st->rowCount()===0)throw new RuntimeException('Profissional pendente não encontrado.');
+        self::audit($adminUserId,'verification.professional','professional',$professionalId,['decision'=>$decision]);
+    }
 
     public static function companyReviews(int $userId): array
     {
