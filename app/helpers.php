@@ -22,30 +22,22 @@ function base_path(): string
     static $base;
     if ($base !== null) return $base;
 
-    $configured = app_config('public_base_path');
-    if (is_string($configured)) {
-        return $base = $configured === '' ? '' : '/' . trim($configured, '/');
+    $configured = app_config('base_path');
+    if ($configured !== null) {
+        $configured = trim((string)$configured);
+        return $base = ($configured === '' || $configured === '/') ? '' : '/' . trim($configured, '/');
     }
 
-    // Em hospedagem pública o TurnoPronto é servido na raiz do host.
-    // Não use o caminho físico da conta de hospedagem para montar URLs públicas.
-    $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
-    $host = preg_replace('/:\\d+$/', '', $host) ?: '';
+    $host = strtolower(preg_replace('/:\\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? '')));
+    $isLocal = in_array($host, ['localhost','127.0.0.1','::1'], true) || str_ends_with($host, '.local');
 
-    if ($host !== '' && !in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
+    // Em produção o TurnoPronto é publicado na raiz do domínio.
+    // Não usamos paths físicos da hospedagem para construir URLs públicas.
+    if (!$isLocal && $host !== '') {
         return $base = '';
     }
 
-    // Ambiente local/XAMPP: derive o subdiretório público do projeto.
-    $script = str_replace('\\\\', '/', $_SERVER['SCRIPT_NAME'] ?? '/index.php');
-    $dir = rtrim(dirname($script), '/.');
-
-    // Quando mod_rewrite deixa a rota amigável em SCRIPT_NAME,
-    // tente usar o caminho físico relativo ao DOCUMENT_ROOT.
-    if ($dir !== '' && !str_ends_with($dir, '/profissional') && !str_ends_with($dir, '/empresa') && !str_ends_with($dir, '/admin')) {
-        return $base = ($dir === '/' ? '' : $dir);
-    }
-
+    // XAMPP/local: descobre a subpasta a partir da raiz física.
     $projectRoot = realpath(dirname(__DIR__));
     $documentRoot = realpath((string)($_SERVER['DOCUMENT_ROOT'] ?? ''));
     if ($projectRoot && $documentRoot) {
