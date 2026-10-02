@@ -28,7 +28,7 @@ function base_path(): string
         return $base = ($configured === '' || $configured === '/') ? '' : '/' . trim($configured, '/');
     }
 
-    $host = strtolower(preg_replace('/:\\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? '')));
+    $host = strtolower(preg_replace('/:\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? '')));
     $isLocal = in_array($host, ['localhost','127.0.0.1','::1'], true) || str_ends_with($host, '.local');
 
     // Em produção o TurnoPronto é publicado na raiz do domínio.
@@ -41,8 +41,8 @@ function base_path(): string
     $projectRoot = realpath(dirname(__DIR__));
     $documentRoot = realpath((string)($_SERVER['DOCUMENT_ROOT'] ?? ''));
     if ($projectRoot && $documentRoot) {
-        $project = str_replace('\\\\', '/', $projectRoot);
-        $document = rtrim(str_replace('\\\\', '/', $documentRoot), '/');
+        $project = str_replace('\\', '/', $projectRoot);
+        $document = rtrim(str_replace('\\', '/', $documentRoot), '/');
         if ($project === $document) return $base = '';
         if (str_starts_with($project . '/', $document . '/')) {
             return $base = '/' . trim(substr($project, strlen($document)), '/');

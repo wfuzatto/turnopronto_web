@@ -1,5 +1,5 @@
 <?php
-header('X-TurnoPronto-Layout: 2026.10.02.2');
+
 header('Cache-Control: no-store, no-cache, must-revalidate');
 ?>
 <?php
@@ -18,7 +18,7 @@ $nav=$role==='company'?$navCompany:($role==='professional'?$navPro:[['admin/dash
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?=e($title??'TurnoPronto')?> • TurnoPronto</title>
 <link rel="stylesheet" href="<?=e(asset('css/app.css'))?>" data-tp-css="main">
-<meta name="turnopronto-layout-build" content="2026.10.02.2">
+<meta name="turnopronto-layout-build" content="2026.10.02.data-fix">
 </head><body data-tp-layout="2026.10.02">
 <div class="app-shell">
   <aside class="sidebar" id="sidebar">

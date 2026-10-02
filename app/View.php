@@ -1,16 +1,22 @@
 <?php
 final class View
 {
-    public static function render(string $view, array $data = [], bool $withLayout = true): never
+    public static function render(string $view, array $variables = [], bool $withLayout = true): never
     {
-        extract($data, EXTR_SKIP);
+        // Reserve renderer controls, but allow the view's nested $data payload.
+        extract($variables, EXTR_SKIP);
         $viewFile = __DIR__ . '/views/' . $view . '.php';
         if (!is_file($viewFile)) {
             http_response_code(500);
             exit('View não encontrada: ' . e($view));
         }
         ob_start();
-        require $viewFile;
+        try {
+            require $viewFile;
+        } catch (Throwable $error) {
+            ob_end_clean();
+            throw $error;
+        }
         $content = ob_get_clean();
         if ($withLayout) {
             $layoutFile = __DIR__ . '/views/layout.php';
@@ -18,7 +24,6 @@ final class View
                 http_response_code(500);
                 exit('Layout principal não encontrado.');
             }
-            header('X-TurnoPronto-Layout: 2026.10.02');
             require $layoutFile;
         } else {
             echo $content;

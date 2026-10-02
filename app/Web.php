@@ -3,24 +3,9 @@ final class Web
 {
     public static function handle(string $path, string $method): never
     {
-        if ($path === '/route-check' && $method === 'GET') {
-            header('Content-Type: application/json; charset=utf-8');
-            header('Cache-Control: no-store');
-            echo json_encode([
-                'ok'=>true,
-                'build'=>'2026.10.02.3',
-                'request_path'=>request_path(),
-                'base_path'=>base_path(),
-                'index_file'=>realpath(dirname(__DIR__).'/index.php'),
-                'renderer_file'=>realpath(__DIR__.'/RendererV3.php'),
-                'layout_file'=>realpath(__DIR__.'/views/layout_runtime_v3.php'),
-            ], JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-            exit;
-        }
-
         if ($path === '/visual-check' && $method === 'GET') {
             header('Cache-Control: no-store, no-cache, must-revalidate');
-            RendererV3::render('visual_check',[
+            View::render('visual_check',[
                 'title'=>'Visual Check',
                 'user'=>['id'=>0,'role'=>'admin','name'=>'Visual Check']
             ]);
@@ -39,7 +24,7 @@ final class Web
                 flash('error','E-mail ou senha inválidos.');
                 redirect('login');
             }
-            RendererV3::render('login',['title'=>'Entrar'],false);
+            View::render('login',['title'=>'Entrar'],false);
         }
 
         if (in_array($path,['/cadastro','/cadastro/empresa','/cadastro/profissional'],true)) {
@@ -59,7 +44,7 @@ final class Web
                     flash('error',$e->getMessage());
                 }
             }
-            RendererV3::render('register',[
+            View::render('register',[
                 'title'=>'Criar conta',
                 'kind'=>$kind,
                 'categories'=>$kind==='professional'?Data::categories():[],
@@ -77,12 +62,12 @@ final class Web
         }
 
         if (!Database::available()) {
-            RendererV3::render('not_installed',['title'=>'Instalação necessária']);
+            View::render('not_installed',['title'=>'Instalação necessária']);
         }
 
         if ($path === '/empresa/dashboard') {
             $u=Auth::requireRole('company');
-            RendererV3::render('company_dashboard',['title'=>'Dashboard','data'=>Data::companyDashboard((int)$u['id']),'user'=>$u]);
+            View::render('company_dashboard',['title'=>'Dashboard','data'=>Data::companyDashboard((int)$u['id']),'user'=>$u]);
         }
 
         if ($path === '/empresa/conta') {
@@ -97,7 +82,7 @@ final class Web
                     flash('error',$e->getMessage());
                 }
             }
-            RendererV3::render('company_account',[
+            View::render('company_account',[
                 'title'=>'Minha conta',
                 'company'=>Data::companyProfile((int)$u['id']),
                 'user'=>$u
@@ -106,7 +91,7 @@ final class Web
 
         if ($path === '/empresa/vagas') {
             $u=Auth::requireRole('company');
-            RendererV3::render('company_shifts',['title'=>'Minhas vagas','shifts'=>Data::companyShifts((int)$u['id']),'user'=>$u]);
+            View::render('company_shifts',['title'=>'Minhas vagas','shifts'=>Data::companyShifts((int)$u['id']),'user'=>$u]);
         }
 
         if ($path === '/empresa/vagas/nova') {
@@ -121,7 +106,7 @@ final class Web
                     flash('error',$e->getMessage());
                 }
             }
-            RendererV3::render('company_shift_form',[
+            View::render('company_shift_form',[
                 'title'=>'Publicar nova vaga',
                 'categories'=>Data::categories(),
                 'shift'=>null,
@@ -134,7 +119,7 @@ final class Web
             $shift=Data::companyShift((int)$u['id'],(int)$m[1]);
             if(!$shift){
                 http_response_code(404);
-                RendererV3::render('placeholder',['title'=>'Vaga não encontrada','heading'=>'Vaga não encontrada','user'=>$u]);
+                View::render('placeholder',['title'=>'Vaga não encontrada','heading'=>'Vaga não encontrada','user'=>$u]);
             }
             if($method==='POST'){
                 verify_csrf();
@@ -146,7 +131,7 @@ final class Web
                     flash('error',$e->getMessage());
                 }
             }
-            RendererV3::render('company_shift_form',[
+            View::render('company_shift_form',[
                 'title'=>'Editar vaga',
                 'categories'=>Data::categories(),
                 'shift'=>$shift,
@@ -188,9 +173,9 @@ final class Web
             $shift=Data::companyShift((int)$u['id'],(int)$m[1]);
             if(!$shift){
                 http_response_code(404);
-                RendererV3::render('placeholder',['title'=>'Vaga não encontrada','heading'=>'Vaga não encontrada','user'=>$u]);
+                View::render('placeholder',['title'=>'Vaga não encontrada','heading'=>'Vaga não encontrada','user'=>$u]);
             }
-            RendererV3::render('company_shift_detail',[
+            View::render('company_shift_detail',[
                 'title'=>$shift['category_name'].' • '.$shift['title'],
                 'shift'=>$shift,
                 'candidates'=>Data::companyShiftCandidates((int)$u['id'],(int)$m[1]),
@@ -201,7 +186,7 @@ final class Web
 
         if ($path === '/empresa/profissionais') {
             $u=Auth::requireRole('company');
-            RendererV3::render('professionals',[
+            View::render('professionals',[
                 'title'=>'Profissionais',
                 'professionals'=>Data::suggestedProfessionals(30),
                 'openShifts'=>Data::companyOpenShifts((int)$u['id']),
@@ -224,7 +209,7 @@ final class Web
 
         if ($path === '/empresa/escalas') {
             $u=Auth::requireRole('company');
-            RendererV3::render('company_schedule',[
+            View::render('company_schedule',[
                 'title'=>'Escalas',
                 'assignments'=>Data::companySchedule((int)$u['id']),
                 'user'=>$u
@@ -233,7 +218,7 @@ final class Web
 
         if ($path === '/empresa/financeiro') {
             $u=Auth::requireRole('company');
-            RendererV3::render('company_finance',[
+            View::render('company_finance',[
                 'title'=>'Financeiro',
                 'data'=>Data::companyFinance((int)$u['id']),
                 'user'=>$u
@@ -242,7 +227,7 @@ final class Web
 
         if ($path === '/empresa/avaliacoes') {
             $u=Auth::requireRole('company');
-            RendererV3::render('company_reviews',[
+            View::render('company_reviews',[
                 'title'=>'Avaliações',
                 'reviews'=>Data::companyReviews((int)$u['id']),
                 'user'=>$u
@@ -263,12 +248,12 @@ final class Web
 
         if ($path === '/suporte') {
             $u=Auth::requireRole('company','professional','admin');
-            RendererV3::render('placeholder',['title'=>'Suporte','heading'=>'Suporte','user'=>$u]);
+            View::render('placeholder',['title'=>'Suporte','heading'=>'Suporte','user'=>$u]);
         }
 
         if ($path === '/profissional/inicio') {
             $u=Auth::requireRole('professional');
-            RendererV3::render('professional_dashboard',['title'=>'Início','data'=>Data::professionalHome((int)$u['id']),'user'=>$u]);
+            View::render('professional_dashboard',['title'=>'Início','data'=>Data::professionalHome((int)$u['id']),'user'=>$u]);
         }
 
         if ($path === '/profissional/perfil') {
@@ -283,7 +268,7 @@ final class Web
                     flash('error',$e->getMessage());
                 }
             }
-            RendererV3::render('professional_account',[
+            View::render('professional_account',[
                 'title'=>'Meu perfil',
                 'profile'=>Data::professionalProfile((int)$u['id']),
                 'categories'=>Data::categories(),
@@ -294,7 +279,7 @@ final class Web
 
         if ($path === '/profissional/oportunidades') {
             $u=Auth::requireRole('professional');
-            RendererV3::render('opportunities',['title'=>'Oportunidades','opportunities'=>Data::opportunities((int)$u['id']),'user'=>$u]);
+            View::render('opportunities',['title'=>'Oportunidades','opportunities'=>Data::opportunities((int)$u['id']),'user'=>$u]);
         }
 
         if (preg_match('#^/profissional/vagas/(\d+)$#',$path,$m)) {
@@ -302,9 +287,9 @@ final class Web
             $shift=Data::shift((int)$m[1]);
             if(!$shift){
                 http_response_code(404);
-                RendererV3::render('placeholder',['title'=>'Não encontrada','heading'=>'Vaga não encontrada','user'=>$u]);
+                View::render('placeholder',['title'=>'Não encontrada','heading'=>'Vaga não encontrada','user'=>$u]);
             }
-            RendererV3::render('shift_detail',['title'=>$shift['category_name'],'shift'=>$shift,'user'=>$u]);
+            View::render('shift_detail',['title'=>$shift['category_name'],'shift'=>$shift,'user'=>$u]);
         }
 
         if (preg_match('#^/profissional/vagas/(\d+)/aceitar$#',$path,$m) && $method==='POST') {
@@ -326,7 +311,7 @@ final class Web
 
         if ($path === '/profissional/turnos' || $path === '/profissional/agenda') {
             $u=Auth::requireRole('professional');
-            RendererV3::render('assignments',['title'=>$path==='/profissional/agenda'?'Agenda':'Meus turnos','assignments'=>Data::professionalAssignments((int)$u['id']),'user'=>$u]);
+            View::render('assignments',['title'=>$path==='/profissional/agenda'?'Agenda':'Meus turnos','assignments'=>Data::professionalAssignments((int)$u['id']),'user'=>$u]);
         }
 
         if (preg_match('#^/profissional/turno/(\d+)$#',$path,$m)) {
@@ -334,9 +319,9 @@ final class Web
             $a=Data::assignment((int)$u['id'],(int)$m[1]);
             if(!$a){
                 http_response_code(404);
-                RendererV3::render('placeholder',['title'=>'Não encontrado','heading'=>'Turno não encontrado','user'=>$u]);
+                View::render('placeholder',['title'=>'Não encontrado','heading'=>'Turno não encontrado','user'=>$u]);
             }
-            RendererV3::render('current_shift',[
+            View::render('current_shift',[
                 'title'=>'Turno atual',
                 'assignment'=>$a,
                 'review'=>Data::professionalReviewForAssignment((int)$u['id'],(int)$m[1]),
@@ -395,12 +380,12 @@ final class Web
 
         if ($path === '/profissional/ganhos') {
             $u=Auth::requireRole('professional');
-            RendererV3::render('earnings',['title'=>'Ganhos','data'=>Data::earnings((int)$u['id']),'user'=>$u]);
+            View::render('earnings',['title'=>'Ganhos','data'=>Data::earnings((int)$u['id']),'user'=>$u]);
         }
 
         if ($path === '/profissional/reputacao') {
             $u=Auth::requireRole('professional');
-            RendererV3::render('reputation',['title'=>'Reputação','data'=>Data::reputation((int)$u['id']),'user'=>$u]);
+            View::render('reputation',['title'=>'Reputação','data'=>Data::reputation((int)$u['id']),'user'=>$u]);
         }
 
         if (preg_match('#^/profissional/reputacao/(\\d+)/contestar$#',$path,$m) && $method==='POST') {
@@ -429,7 +414,7 @@ final class Web
 
         if ($path === '/profissional/documentos') {
             $u=Auth::requireRole('professional');
-            RendererV3::render('documents',['title'=>'Documentos','documents'=>Data::documents((int)$u['id']),'user'=>$u]);
+            View::render('documents',['title'=>'Documentos','documents'=>Data::documents((int)$u['id']),'user'=>$u]);
         }
 
         if (preg_match('#^/admin/documentos/(\d+)/arquivo$#',$path,$m) && $method==='GET') {
@@ -474,7 +459,7 @@ final class Web
 
         if ($path === '/admin/dashboard') {
             $u=Auth::requireRole('admin');
-            RendererV3::render('admin_dashboard',[
+            View::render('admin_dashboard',[
                 'title'=>'Administração',
                 'stats'=>Data::adminStats(),
                 'verification'=>Data::adminPendingVerifications(),
@@ -499,6 +484,6 @@ final class Web
 
         http_response_code(404);
         $u=Auth::user();
-        RendererV3::render('placeholder',['title'=>'404','heading'=>'Página não encontrada','user'=>$u]);
+        View::render('placeholder',['title'=>'404','heading'=>'Página não encontrada','user'=>$u]);
     }
 }
