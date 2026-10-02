@@ -22,33 +22,42 @@ function base_path(): string
     static $base;
     if ($base !== null) return $base;
 
-    // Não derivar a base da URL reescrita (ex.: /profissional/inicio),
-    // pois alguns hosts mantêm essa rota em SCRIPT_NAME após mod_rewrite.
-    // Em vez disso, calculamos a raiz física do projeto em relação ao
-    // DOCUMENT_ROOT. Isso funciona tanto na hospedagem em "/" quanto no
-    // XAMPP em "/turnopronto_web".
+    $configured = app_config('public_base_path');
+    if (is_string($configured)) {
+        return $base = $configured === '' ? '' : '/' . trim($configured, '/');
+    }
+
+    // Em hospedagem pública o TurnoPronto é servido na raiz do host.
+    // Não use o caminho físico da conta de hospedagem para montar URLs públicas.
+    $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+    $host = preg_replace('/:\\d+$/', '', $host) ?: '';
+
+    if ($host !== '' && !in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
+        return $base = '';
+    }
+
+    // Ambiente local/XAMPP: derive o subdiretório público do projeto.
+    $script = str_replace('\\\\', '/', $_SERVER['SCRIPT_NAME'] ?? '/index.php');
+    $dir = rtrim(dirname($script), '/.');
+
+    // Quando mod_rewrite deixa a rota amigável em SCRIPT_NAME,
+    // tente usar o caminho físico relativo ao DOCUMENT_ROOT.
+    if ($dir !== '' && !str_ends_with($dir, '/profissional') && !str_ends_with($dir, '/empresa') && !str_ends_with($dir, '/admin')) {
+        return $base = ($dir === '/' ? '' : $dir);
+    }
+
     $projectRoot = realpath(dirname(__DIR__));
     $documentRoot = realpath((string)($_SERVER['DOCUMENT_ROOT'] ?? ''));
-
     if ($projectRoot && $documentRoot) {
-        $project = str_replace('\\', '/', $projectRoot);
-        $document = rtrim(str_replace('\\', '/', $documentRoot), '/');
-
-        if ($project === $document) {
-            return $base = '';
-        }
-
+        $project = str_replace('\\\\', '/', $projectRoot);
+        $document = rtrim(str_replace('\\\\', '/', $documentRoot), '/');
+        if ($project === $document) return $base = '';
         if (str_starts_with($project . '/', $document . '/')) {
-            $relative = substr($project, strlen($document));
-            return $base = '/' . trim($relative, '/');
+            return $base = '/' . trim(substr($project, strlen($document)), '/');
         }
     }
 
-    // Fallback apenas para ambientes onde DOCUMENT_ROOT não representa
-    // corretamente a raiz pública.
-    $script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '/index.php');
-    $dir = rtrim(dirname($script), '/.');
-    return $base = ($dir === '/' ? '' : $dir);
+    return $base = '';
 }
 
 function url(string $path = ''): string
