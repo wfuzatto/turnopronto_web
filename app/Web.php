@@ -19,6 +19,30 @@ final class Web
             View::render('login',['title'=>'Entrar'],false);
         }
 
+        if (in_array($path,['/cadastro','/cadastro/empresa','/cadastro/profissional'],true)) {
+            if (!Database::available()) {
+                flash('error','Banco não configurado. Execute a instalação primeiro.');
+                redirect('install.php');
+            }
+            $kind=$path==='/cadastro/empresa'?'company':($path==='/cadastro/profissional'?'professional':'choice');
+            if($method==='POST' && $kind!=='choice'){
+                verify_csrf();
+                try {
+                    if($kind==='company') Data::registerCompany($_POST);
+                    else Data::registerProfessional($_POST);
+                    flash('success','Cadastro realizado. Você já pode entrar; a publicação/aceite de turnos será liberada após a verificação.');
+                    redirect('login');
+                } catch(Throwable $e){
+                    flash('error',$e->getMessage());
+                }
+            }
+            View::render('register',[
+                'title'=>'Criar conta',
+                'kind'=>$kind,
+                'categories'=>$kind==='professional'?Data::categories():[],
+            ],false);
+        }
+
         if ($path === '/logout') {
             Auth::logout();
             redirect('login');
@@ -333,11 +357,26 @@ final class Web
             View::render('documents',['title'=>'Documentos','documents'=>Data::documents((int)$u['id']),'user'=>$u]);
         }
 
+        if (preg_match('#^/admin/verificacao/(empresa|profissional)/(\d+)/(aprovar|rejeitar)$#',$path,$m) && $method==='POST') {
+            $u=Auth::requireRole('admin');
+            verify_csrf();
+            try {
+                $decision=$m[3]==='aprovar'?'verified':'rejected';
+                if($m[1]==='empresa') Data::setCompanyVerification((int)$u['id'],(int)$m[2],$decision);
+                else Data::setProfessionalVerification((int)$u['id'],(int)$m[2],$decision);
+                flash('success','Verificação atualizada.');
+            } catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('admin/dashboard');
+        }
+
         if ($path === '/admin/dashboard') {
             $u=Auth::requireRole('admin');
             View::render('admin_dashboard',[
                 'title'=>'Administração',
                 'stats'=>Data::adminStats(),
+                'verification'=>Data::adminPendingVerifications(),
                 'appeals'=>Data::adminPendingAppeals(),
                 'audit'=>Data::adminAuditLogs(20),
                 'user'=>$u
