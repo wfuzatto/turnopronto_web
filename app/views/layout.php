@@ -14,7 +14,7 @@ $nav=$role==='company'?$navCompany:($role==='professional'?$navPro:[['admin/dash
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?=e($title??'TurnoPronto')?> • TurnoPronto</title>
 <link rel="stylesheet" href="<?=e(asset('css/app.css'))?>">
-</head><body>
+</head><body data-tp-layout="2026.10.02">
 <div class="app-shell">
   <aside class="sidebar" id="sidebar">
     <a class="brand" href="<?=e(url(Auth::check()?Auth::dashboardPath($me):'login'))?>"><img src="<?=e(asset('img/logo.svg'))?>" alt="TurnoPronto"></a>
