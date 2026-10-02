@@ -18,6 +18,12 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
       $schema=file_get_contents($projectDir.'/database/schema.sql');
       foreach(preg_split('/;\s*(?:\r?\n|$)/',$schema) as $statement){ $statement=trim($statement); if($statement!=='')$pdo->exec($statement); }
 
+      // Upgrade leve para bancos já existentes: CREATE TABLE IF NOT EXISTS não adiciona colunas novas.
+      $hasAcceptance=(int)$pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tp_shifts' AND COLUMN_NAME='acceptance_mode'")->fetchColumn();
+      if(!$hasAcceptance){
+          $pdo->exec("ALTER TABLE tp_shifts ADD COLUMN acceptance_mode VARCHAR(20) NOT NULL DEFAULT 'automatic' AFTER checkin_pin");
+      }
+
       $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
       foreach(['tp_notifications','tp_reputation_events','tp_reviews','tp_ledger','tp_assignments','tp_shift_applications','tp_shifts','tp_professional_categories','tp_documents','tp_company_members','tp_professionals','tp_companies','tp_api_tokens','tp_audit_logs','tp_users','tp_job_categories'] as $table){ $pdo->exec('TRUNCATE TABLE '.$table); }
       $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
@@ -65,6 +71,9 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
       $s5=$make(5,'08:00','16:00','aux-limpeza','Aux. Limpeza',140,2,'published');
       $sToday=$make(0,'18:00','23:59','garcom','Garçom',160,2,'confirmed');
 
+      // Deixa duas vagas em aprovação manual para validar o fluxo de candidatos no painel da empresa.
+      $pdo->prepare('UPDATE tp_shifts SET acceptance_mode="manual" WHERE id IN (?,?)')->execute([$s1,$s2]);
+
       $pdo->prepare('INSERT INTO tp_shift_applications (shift_id,professional_id,status,applied_at) VALUES (?,?,"accepted",NOW())')->execute([$sToday,$julianaId]);
       $pdo->prepare('INSERT INTO tp_assignments (shift_id,professional_id,status,agreed_value,confirmed_at) VALUES (?,? ,"confirmed",160,NOW())')->execute([$sToday,$julianaId]);
       $assignmentToday=(int)$pdo->lastInsertId();
@@ -72,6 +81,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 
       $ledger=$pdo->prepare('INSERT INTO tp_ledger (company_id,professional_id,assignment_id,direction,amount,kind,status,created_at) VALUES (?,?,?,"credit",?,"shift_payment","paid",?)');
       foreach([[980,'-3 months'],[1250,'-2 months'],[1850,'-1 month'],[2340,'now']] as [$amount,$mod])$ledger->execute([$companyId,$julianaId,$assignmentToday,$amount,date('Y-m-d H:i:s',strtotime($mod))]);
+      // Lançamento de custo de demonstração para o painel financeiro da empresa.
+      $pdo->prepare('INSERT INTO tp_ledger (company_id,professional_id,assignment_id,direction,amount,kind,status,created_at) VALUES (?,?,?,"debit",160,"shift_cost","settled",NOW())')->execute([$companyId,$julianaId,$assignmentToday]);
       $pdo->prepare('INSERT INTO tp_reputation_events (professional_id,event_type,severity,points_delta,description,occurred_at) VALUES (?,"completed_shift","positive",1,"Turno concluído com pontualidade.",DATE_SUB(NOW(),INTERVAL 7 DAY))')->execute([$julianaId]);
       $pdo->commit();
 
