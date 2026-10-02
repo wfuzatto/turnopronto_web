@@ -725,6 +725,14 @@ final class Data
         return $id;
     }
 
+    public static function adminDocument(int $documentId): ?array
+    {
+        $sql="SELECT d.*,u.name professional_name FROM tp_documents d JOIN tp_professionals p ON p.id=d.professional_id JOIN tp_users u ON u.id=p.user_id WHERE d.id=? LIMIT 1";
+        $st=Database::connection()->prepare($sql);
+        $st->execute([$documentId]);
+        return $st->fetch() ?: null;
+    }
+
     public static function adminPendingDocuments(): array
     {
         $sql="SELECT d.*,u.name professional_name,u.email,p.status professional_status
