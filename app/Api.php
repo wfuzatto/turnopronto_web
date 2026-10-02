@@ -21,7 +21,14 @@ final class Api
         $relative=preg_replace('#^/api/v1#','',$path) ?: '/';
 
         if($relative==='/health' && $method==='GET'){
-            json_response(['ok'=>true,'service'=>'TurnoPronto API','version'=>'1.1.0','time'=>date(DATE_ATOM)]);
+            json_response([
+                'ok'=>true,
+                'service'=>'TurnoPronto API',
+                'version'=>'1.1.1',
+                'time'=>date(DATE_ATOM),
+                'public_base_path'=>base_path(),
+                'css_asset'=>asset('css/app.css'),
+            ]);
         }
 
         if($relative==='/auth/login' && $method==='POST'){
