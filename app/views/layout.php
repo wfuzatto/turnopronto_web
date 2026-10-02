@@ -34,7 +34,7 @@ $nav=$role==='company'?$navCompany:($role==='professional'?$navPro:[['admin/dash
     <header class="topbar">
       <button class="mobile-menu" data-sidebar-toggle aria-label="Menu">☰</button>
       <div class="top-search"><?=icon('search',18)?><input placeholder="<?=$role==='company'?'Buscar profissionais, vagas ou palavras-chave...':'Buscar oportunidades, cidades ou estabelecimentos...'?>"></div>
-      <div class="top-actions"><button class="icon-btn"><?=icon('bell',21)?><span class="notif">3</span></button><div class="user-chip"><div class="avatar-sm"><?=e(mb_strtoupper(mb_substr($companyName,0,1)))?></div><div><strong><?=e($companyName)?></strong><small><?=$role==='company'?'Conta Empresarial':($role==='professional'?'Profissional':'Administrador')?></small></div></div><a class="icon-btn" title="Sair" href="<?=e(url('logout'))?>"><?=icon('logout',19)?></a></div>
+      <?php $accountHref=$role==='company'?'empresa/conta':($role==='professional'?'profissional/perfil':'admin/dashboard'); ?><div class="top-actions"><button class="icon-btn"><?=icon('bell',21)?><span class="notif">3</span></button><a class="user-chip" href="<?=e(url($accountHref))?>"><div class="avatar-sm"><?=e(mb_strtoupper(mb_substr($companyName,0,1)))?></div><div><strong><?=e($companyName)?></strong><small><?=$role==='company'?'Conta Empresarial':($role==='professional'?'Profissional':'Administrador')?></small></div></a><a class="icon-btn" title="Sair" href="<?=e(url('logout'))?>"><?=icon('logout',19)?></a></div>
     </header>
     <main class="main-content">
       <?php if($msg=flash('success')):?><div class="alert success"><?=e($msg)?></div><?php endif;?>
