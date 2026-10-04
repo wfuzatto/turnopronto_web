@@ -1,6 +1,6 @@
 <?php $error=flash('error'); $success=flash('success'); ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Entrar • TurnoPronto</title><link rel="stylesheet" href="<?=e(asset('css/app.css'))?>"></head><body class="login-page">
 <div class="login-shell"><section class="login-brand"><img src="<?=e(asset('img/logo.svg'))?>" alt="TurnoPronto"><h1>O extra que sua equipe precisa.<br><span>No momento certo.</span></h1><p>Empresas encontram profissionais para turnos pontuais. Profissionais transformam tempo livre em renda extra.</p><div class="login-feature"><b>✓</b> Reputação baseada em presença e pontualidade</div><div class="login-feature"><b>✓</b> Turnos, check-in e ganhos em um só lugar</div></section>
-<section class="login-card"><h2>Bem-vindo</h2><p>Entre para acessar sua conta.</p><?php if($success):?><div class="alert success"><?=e($success)?></div><?php endif;?><?php if($error):?><div class="alert error"><?=e($error)?></div><?php endif;?><form method="post" action="<?=e(url('login'))?>"><?=csrf_field()?><label>E-mail</label><input name="email" type="email" value="juliana@turnopronto.local" required><label>Senha</label><input name="password" type="password" value="" required><button class="btn btn-primary btn-block" type="submit">Entrar</button></form><div class="demo-login"><strong>Acessos de demonstração</strong><button data-fill-login="empresa@turnopronto.local">Empresa</button><button data-fill-login="juliana@turnopronto.local">Profissional</button><button data-fill-login="admin@turnopronto.local">Admin</button><small>Use a senha definida no instalador.</small></div><div class="signup-link">Ainda não tem conta? <a href="<?=e(url('cadastro'))?>">Criar conta</a></div>
+<section class="login-card"><h2>Bem-vindo</h2><p>Entre para acessar sua conta.</p><?php if($success):?><div class="alert success"><?=e($success)?></div><?php endif;?><?php if($error):?><div class="alert error"><?=e($error)?></div><?php endif;?><form method="post" action="<?=e(url('login'))?>"><?=csrf_field()?><label>E-mail</label><input name="email" type="email" value="" required><label>Senha</label><input name="password" type="password" value="" required><button class="btn btn-primary btn-block" type="submit">Entrar</button></form><div class="signup-link">Ainda não tem conta? <a href="<?=e(url('cadastro'))?>">Criar conta</a></div>
 <div class="app-downloads">
   <div class="app-downloads-title">Leve o TurnoPronto com você</div>
   <div class="store-badges">
@@ -18,5 +18,4 @@
     </span>
   </div>
   <div class="app-download-note">Android disponível em versão de teste.</div>
-</div>
-<a class="installer-link" href="<?=e(url('install.php'))?>">Instalar / recriar banco de demonstração</a></section></div><script src="<?=e(asset('js/app.js'))?>"></script></body></html>
+</div></section></div><script src="<?=e(asset('js/app.js'))?>"></script></body></html>
