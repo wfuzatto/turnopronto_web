@@ -17,7 +17,11 @@
     <?php else:?>
       <a class="back-login" href="<?=e(url('cadastro'))?>">← Trocar tipo de conta</a>
       <h2><?=$kind==='company'?'Cadastrar empresa':'Cadastrar profissional'?></h2>
-      <p>Ao final enviaremos um código para o WhatsApp informado.</p>
+      <?php if((bool)app_config('debug') && (bool)app_config('registration.development_whatsapp_bypass')):?>
+        <p><strong>Modo de desenvolvimento:</strong> a validação continuará ativa, mas nenhum WhatsApp será enviado. Use o código fixo <strong><?=e((string)(app_config('registration.development_code')??'000111'))?></strong>.</p>
+      <?php else:?>
+        <p>Ao final enviaremos um código para o WhatsApp informado.</p>
+      <?php endif;?>
       <?php if($error):?><div class="alert error"><?=e($error)?></div><?php endif;?>
       <form method="post" class="register-form"><?=csrf_field()?>
         <div class="register-grid">
