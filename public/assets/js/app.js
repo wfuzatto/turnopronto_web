@@ -79,6 +79,7 @@
     button.className='password-toggle';
     button.setAttribute('aria-label','Mostrar senha');
     button.textContent='👁';
+    input.parentElement?.classList.add('has-password-toggle');
     input.insertAdjacentElement('afterend',button);
     button.addEventListener('click',()=>{
       const show=input.type==='password';
@@ -88,6 +89,17 @@
       input.focus();
     });
   });
+
+  qa('form.register-form').forEach(form=>form.addEventListener('submit',event=>{
+    const categories=q('.category-checks',form);
+    if(categories&&!q('input[type="checkbox"]:checked',categories)){
+      event.preventDefault();
+      const first=q('input[type="checkbox"]',categories);
+      categories.scrollIntoView({behavior:'smooth',block:'center'});
+      first?.focus();
+      window.alert('Selecione pelo menos uma função de interesse.');
+    }
+  }));
 
   qa('input[name="acceptance_mode"]').forEach(input=>input.addEventListener('change',()=>{
     qa('.choice-card').forEach(card=>card.classList.toggle('selected',!!q('input',card)?.checked));
