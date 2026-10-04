@@ -15,8 +15,8 @@ final class Web
             if ($method === 'POST') {
                 verify_csrf();
                 if (!Database::available()) {
-                    flash('error','Banco não configurado. Execute a instalação primeiro.');
-                    redirect('install.php');
+                    flash('error','Serviço temporariamente indisponível. Tente novamente em alguns instantes.');
+                    redirect('login');
                 }
                 if (Auth::attempt((string)($_POST['email'] ?? ''),(string)($_POST['password'] ?? ''))) {
                     redirect(Auth::dashboardPath(Auth::user()));
@@ -45,8 +45,8 @@ final class Web
 
         if (in_array($path,['/cadastro','/cadastro/empresa','/cadastro/profissional'],true)) {
             if (!Database::available()) {
-                flash('error','Banco não configurado. Execute a instalação primeiro.');
-                redirect('install.php');
+                flash('error','Serviço temporariamente indisponível. Tente novamente em alguns instantes.');
+                redirect('login');
             }
             $kind=$path==='/cadastro/empresa'?'company':($path==='/cadastro/profissional'?'professional':'choice');
             if($method==='POST' && $kind!=='choice'){
@@ -108,7 +108,7 @@ final class Web
         }
 
         if (!Database::available()) {
-            View::render('not_installed',['title'=>'Instalação necessária']);
+            View::render('not_installed',['title'=>'Serviço indisponível']);
         }
 
         if ($path === '/empresa/dashboard') {
