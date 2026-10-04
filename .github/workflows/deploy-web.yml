@@ -130,8 +130,8 @@ jobs:
       - name: Health check
         shell: bash
         env:
-          HEALTH_URL: http://turnopronto1.hospedagemdesites.ws/api/v1/health
-          BASE_URL: http://turnopronto1.hospedagemdesites.ws
+          HEALTH_URL: https://turnopronto.com.br/api/v1/health
+          BASE_URL: https://turnopronto.com.br
         run: |
           set -euo pipefail
 
