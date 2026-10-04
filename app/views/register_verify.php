@@ -1,4 +1,4 @@
-<?php $error=flash('error'); $success=flash('success'); ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Validar WhatsApp • TurnoPronto</title><link rel="stylesheet" href="<?=e(asset('css/app.css'))?>"></head><body class="login-page">
+<?php $error=flash('error'); $success=flash('success'); ?><!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Validar WhatsApp • TurnoPronto</title><link rel="stylesheet" href="<?=e(asset('css/app.css'))?>"><link rel="stylesheet" href="<?=e(asset('css/register-verify.css'))?>"></head><body class="login-page">
 <div class="register-shell">
   <section class="register-brand"><a href="<?=e(url('login'))?>"><img src="<?=e(asset('img/logo.svg'))?>" alt="TurnoPronto"></a><h1>Confirme seu WhatsApp.</h1><p>Isso garante que o contato usado para oportunidades e segurança realmente pertence a você.</p></section>
   <section class="register-card">
@@ -13,7 +13,9 @@
     <?php if($error):?><div class="alert error"><?=e($error)?></div><?php endif;?>
     <form method="post" class="register-form"><?=csrf_field()?>
       <input type="hidden" name="action" value="verify">
-      <label>Código recebido<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000" required></label>
+      <label class="verify-code-field" for="verification-code">Código recebido
+        <input id="verification-code" class="verify-code-input" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000" required autofocus>
+      </label>
       <button class="btn btn-primary btn-block" type="submit">Validar e concluir cadastro</button>
     </form>
     <form method="post" style="margin-top:12px"><?=csrf_field()?><input type="hidden" name="action" value="resend"><button class="btn btn-soft btn-block" type="submit">Reenviar código</button></form>
