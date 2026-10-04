@@ -22,21 +22,22 @@
       <form method="post" class="register-form"><?=csrf_field()?>
         <div class="register-grid">
           <label>Nome completo <?=$kind==='company'?'do responsável':''?> *<input name="name" value="<?=e($_POST['name']??'')?>" autocomplete="name" required></label>
-          <label>WhatsApp com DDD *<input name="phone" value="<?=e($_POST['phone']??'')?>" inputmode="tel" autocomplete="tel" placeholder="(35) 99999-9999" required></label>
+          <label>WhatsApp com DDD *<input name="phone" data-mask="phone" value="<?=e($_POST['phone']??'')?>" inputmode="tel" autocomplete="tel" placeholder="(35) 99999-9999" required></label>
           <label class="wide">E-mail *<input type="email" name="email" value="<?=e($_POST['email']??'')?>" autocomplete="email" required></label>
 
           <?php if($kind==='company'):?>
-            <label>CPF do responsável *<input name="responsible_cpf" value="<?=e($_POST['responsible_cpf']??'')?>" inputmode="numeric" required></label>
-            <label>CNPJ *<input name="cnpj" value="<?=e($_POST['cnpj']??'')?>" inputmode="numeric" required></label>
+            <label>CPF do responsável *<input name="responsible_cpf" data-mask="cpf" value="<?=e($_POST['responsible_cpf']??'')?>" inputmode="numeric" required></label>
+            <label>CNPJ *<input name="cnpj" data-mask="cnpj" value="<?=e($_POST['cnpj']??'')?>" inputmode="numeric" required></label>
             <label>Razão social *<input name="legal_name" value="<?=e($_POST['legal_name']??'')?>" required></label>
             <label>Nome fantasia *<input name="trade_name" value="<?=e($_POST['trade_name']??'')?>" required></label>
           <?php else:?>
-            <label>CPF *<input name="cpf" value="<?=e($_POST['cpf']??'')?>" inputmode="numeric" required></label>
+            <label>CPF *<input name="cpf" data-mask="cpf" value="<?=e($_POST['cpf']??'')?>" inputmode="numeric" required></label>
+            <label>RG *<input name="rg" data-mask="rg" value="<?=e($_POST['rg']??'')?>" inputmode="text" autocomplete="off" required></label>
             <label>Data de nascimento *<input type="date" name="birth_date" value="<?=e($_POST['birth_date']??'')?>" required></label>
             <label class="wide">Atividade / apresentação profissional *<input name="headline" value="<?=e($_POST['headline']??'')?>" placeholder="Ex.: Garçom • Recepcionista" required></label>
           <?php endif;?>
 
-          <label>CEP *<input name="postal_code" value="<?=e($_POST['postal_code']??'')?>" inputmode="numeric" placeholder="00000-000" required></label>
+          <label>CEP *<input name="postal_code" data-mask="cep" value="<?=e($_POST['postal_code']??'')?>" inputmode="numeric" placeholder="00000-000" required></label>
           <label>UF *<input name="state" maxlength="2" value="<?=e($_POST['state']??'MG')?>" required></label>
           <label class="wide">Endereço *<input name="address" value="<?=e($_POST['address']??'')?>" autocomplete="street-address" required></label>
           <label class="wide">Cidade *<input name="city" value="<?=e($_POST['city']??'')?>" required></label>
@@ -55,7 +56,7 @@
           </label>
           <label>Chave Pix *<input name="pix_key" value="<?=e($_POST['pix_key']??'')?>" required></label>
           <label>Nome do titular Pix *<input name="pix_holder_name" value="<?=e($_POST['pix_holder_name']??'')?>" required></label>
-          <label>CPF/CNPJ do titular Pix *<input name="pix_holder_document" value="<?=e($_POST['pix_holder_document']??'')?>" inputmode="numeric" required></label>
+          <label>CPF/CNPJ do titular Pix *<input name="pix_holder_document" data-mask="cpfcnpj" value="<?=e($_POST['pix_holder_document']??'')?>" inputmode="numeric" required></label>
 
           <label>Senha *<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
           <label>Confirmar senha *<input type="password" name="password_confirm" minlength="8" required autocomplete="new-password"></label>
