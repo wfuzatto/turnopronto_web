@@ -1,1 +1,1 @@
-<div class="empty-state"><div class="empty-icon">⚙</div><h1>Instalação necessária</h1><p>O banco TurnoPronto ainda não está disponível.</p><a class="btn btn-primary" href="<?=e(url('install.php'))?>">Abrir instalador XAMPP</a></div>
+<div class="empty-state"><div class="empty-icon">⚠</div><h1>Serviço temporariamente indisponível</h1><p>Não foi possível acessar os dados do TurnoPronto neste momento. Tente novamente em alguns instantes.</p><a class="btn btn-primary" href="<?=e(url('login'))?>">Voltar ao login</a></div>
