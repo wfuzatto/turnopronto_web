@@ -13,11 +13,11 @@ return [
         'webhook_token' => '',
     ],
     'db' => [
-        'host' => '127.0.0.1',
+        'host' => 'turnopronto.mysql.dbaas.com.br',
         'port' => 3306,
         'name' => 'turnopronto',
-        'user' => 'root',
-        'pass' => '',
+        'user' => 'turnopronto',
+        'pass' => 'DEFINA_A_SENHA_SOMENTE_NO_SERVIDOR',
         'charset' => 'utf8mb4',
     ],
 ];
