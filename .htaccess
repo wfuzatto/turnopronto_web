@@ -1,6 +1,9 @@
 Options -Indexes
 RewriteEngine On
 
+# O instalador existe apenas para testes/CI e nunca deve ser exposto em produção.
+RewriteRule ^install\.php$ - [F,L,NC]
+
 # Rotas da aplicação SEMPRE passam pelo front controller.
 # Isso impede diretórios/arquivos antigos no FTP de sequestrarem
 # /empresa, /profissional, /admin, /suporte e /visual-check.
