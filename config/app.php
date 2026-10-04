@@ -15,6 +15,13 @@ return [
         'privacy_version' => '2026-10-02',
     ],
 
+    // SOMENTE DESENVOLVIMENTO. O bypass também exige debug=true.
+    // Antes do lançamento, mantenha development_whatsapp_bypass=false e debug=false.
+    'registration' => [
+        'development_whatsapp_bypass' => true,
+        'development_code' => '000111',
+    ],
+
     // Configure em config.local.php. Nunca versionar tokens reais.
     'whatsapp' => [
         'driver' => 'disabled', // disabled | meta_cloud | webhook | debug
