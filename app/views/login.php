@@ -4,7 +4,7 @@
 <div class="app-downloads">
   <div class="app-downloads-title">Leve o TurnoPronto com você</div>
   <div class="store-badges">
-    <a class="store-badge android" href="https://github.com/wfuzatto/turnopronto_app/releases/download/test-latest/TurnoPronto.apk" aria-label="Baixar aplicativo TurnoPronto para Android">
+    <a class="store-badge android" href="https://github.com/wfuzatto/turnopronto_app/releases/download/dev-latest/TurnoPronto-dev.apk" aria-label="Baixar aplicativo TurnoPronto para Android">
       <span class="store-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="24" height="24" role="img"><path fill="currentColor" d="M17.523 15.341a1.18 1.18 0 1 0 0 2.36 1.18 1.18 0 0 0 0-2.36Zm-11.046 0a1.18 1.18 0 1 0 0 2.36 1.18 1.18 0 0 0 0-2.36ZM17.945 8.21l1.79-3.1a.37.37 0 0 0-.64-.37L17.28 7.88A11.05 11.05 0 0 0 12 6.55c-1.9 0-3.69.48-5.28 1.33L4.905 4.74a.37.37 0 0 0-.64.37l1.79 3.1C3.205 9.77 1.27 12.59 1 15.9h22c-.27-3.31-2.205-6.13-5.055-7.69Z"/></svg>
       </span>
@@ -17,5 +17,5 @@
       <span><small>EM BREVE PARA</small><strong>iOS</strong></span>
     </span>
   </div>
-  <div class="app-download-note">Android disponível em versão de teste.</div>
+  <div class="app-download-note">Android DEV atual: versão otimizada com as últimas correções.</div>
 </div></section></div><script src="<?=e(asset('js/app.js'))?>"></script></body></html>
