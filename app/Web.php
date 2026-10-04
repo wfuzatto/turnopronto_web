@@ -80,7 +80,12 @@ final class Web
                     if($action==='resend'){
                         $pending=Registration::resend((string)$pending['registration_id']);
                         $_SESSION['registration_pending']=$pending;
-                        flash('success','Novo código enviado por WhatsApp.');
+                        flash(
+                            'success',
+                            !empty($pending['development_bypass'])
+                                ? 'Modo de desenvolvimento: continue usando o código '.($pending['development_code']??'000111').'. Nenhum WhatsApp foi enviado.'
+                                : 'Novo código enviado por WhatsApp.'
+                        );
                         redirect('cadastro/verificar');
                     }
                     Registration::verify((string)$pending['registration_id'],(string)($_POST['code']??''));
