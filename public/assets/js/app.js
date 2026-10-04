@@ -39,6 +39,56 @@
     status?.addEventListener('change',apply);
   });
 
+  const onlyDigits=value=>(value||'').replace(/\D/g,'');
+  const applyMask=(kind,value)=>{
+    let d=onlyDigits(value);
+    if(kind==='cpf'){
+      d=d.slice(0,11);
+      return d.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');
+    }
+    if(kind==='cnpj'){
+      d=d.slice(0,14);
+      return d.replace(/^(\d{2})(\d)/,'$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3').replace(/\.(\d{3})(\d)/,'.$1/$2').replace(/(\d{4})(\d{1,2})$/,'$1-$2');
+    }
+    if(kind==='cep'){
+      d=d.slice(0,8);
+      return d.replace(/(\d{5})(\d)/,'$1-$2');
+    }
+    if(kind==='phone'){
+      d=d.slice(0,11);
+      if(d.length<=10) return d.replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{4})(\d)/,'$1-$2');
+      return d.replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2');
+    }
+    if(kind==='rg'){
+      const raw=(value||'').toUpperCase().replace(/[^0-9A-Z]/g,'').slice(0,9);
+      return raw.replace(/^(.{2})(.)/,'$1.$2').replace(/^(.{2})\.(.{3})(.)/,'$1.$2.$3').replace(/(.{3})(.)$/,'$1-$2');
+    }
+    if(kind==='cpfcnpj') return applyMask(d.length<=11?'cpf':'cnpj',d);
+    return value;
+  };
+
+  qa('[data-mask]').forEach(input=>{
+    const update=()=>{ input.value=applyMask(input.dataset.mask,input.value); };
+    input.addEventListener('input',update);
+    update();
+  });
+
+  qa('input[type="password"]').forEach(input=>{
+    const button=document.createElement('button');
+    button.type='button';
+    button.className='password-toggle';
+    button.setAttribute('aria-label','Mostrar senha');
+    button.textContent='👁';
+    input.insertAdjacentElement('afterend',button);
+    button.addEventListener('click',()=>{
+      const show=input.type==='password';
+      input.type=show?'text':'password';
+      button.setAttribute('aria-label',show?'Ocultar senha':'Mostrar senha');
+      button.textContent=show?'🙈':'👁';
+      input.focus();
+    });
+  });
+
   qa('input[name="acceptance_mode"]').forEach(input=>input.addEventListener('change',()=>{
     qa('.choice-card').forEach(card=>card.classList.toggle('selected',!!q('input',card)?.checked));
   }));
