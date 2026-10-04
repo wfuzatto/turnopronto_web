@@ -1,0 +1,48 @@
+.verify-code-field{
+  display:block;
+  margin:0 0 12px;
+  color:var(--text);
+  font-size:10.5px;
+  font-weight:700;
+}
+
+.verify-code-input{
+  display:block;
+  width:100%;
+  height:46px;
+  margin-top:6px;
+  border:1px solid #d9e2ed;
+  border-radius:9px;
+  background:#fff;
+  padding:10px 14px;
+  outline:none;
+  text-align:center;
+  font-size:17px;
+  font-weight:750;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:6px;
+  transition:border-color .16s ease,box-shadow .16s ease,background .16s ease;
+}
+
+.verify-code-input::placeholder{
+  color:#a8b3c3;
+  opacity:1;
+  font-weight:600;
+  letter-spacing:6px;
+}
+
+.verify-code-input:hover{
+  border-color:#c7d4e3;
+}
+
+.verify-code-input:focus{
+  border-color:#83b6ff;
+  box-shadow:0 0 0 3px #eaf3ff;
+}
+
+@media(max-width:600px){
+  .verify-code-input{
+    height:48px;
+    font-size:18px;
+  }
+}
