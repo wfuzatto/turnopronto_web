@@ -142,11 +142,17 @@ jobs:
           printf '%s' "$response" | grep -q '"public_base_path":""'
           printf '%s' "$response" | grep -q '"css_asset":"/public/assets/css/app.css?v='
 
-          echo "CHECKPOINT 2: login asset path"
+          echo "CHECKPOINT 2: database-backed API"
+          categories=$(curl --fail --silent --show-error --max-time 20 "$BASE_URL/api/v1/categories")
+          printf '%s\n' "$categories"
+          printf '%s' "$categories" | grep -q '"ok":true'
+          printf '%s' "$categories" | grep -q '"data":\['
+
+          echo "CHECKPOINT 3: login asset path"
           login_html=$(curl --fail --silent --show-error --max-time 20 "$BASE_URL/login")
           printf '%s' "$login_html" | grep -q 'href="/public/assets/css/app.css?v='
 
-          echo "CHECKPOINT 3: production CSS"
+          echo "CHECKPOINT 4: production CSS"
           css=$(curl --fail --silent --show-error --max-time 20 "$BASE_URL/public/assets/css/app.css")
           printf '%s' "$css" | grep -q '.app-shell'
           printf '%s' "$css" | grep -q '.sidebar'
