@@ -47,7 +47,8 @@ final class Registration
 
         $columns=[
             ['tp_users','phone_verified_at','DATETIME NULL AFTER phone'],
-            ['tp_professionals','birth_date','DATE NULL AFTER cpf'],
+            ['tp_professionals','rg','VARCHAR(30) NULL AFTER cpf'],
+            ['tp_professionals','birth_date','DATE NULL AFTER rg'],
             ['tp_professionals','address','VARCHAR(255) NULL AFTER bio'],
             ['tp_professionals','postal_code','VARCHAR(12) NULL AFTER address'],
             ['tp_professionals','pix_key_type','VARCHAR(30) NULL AFTER pix_key'],
@@ -93,7 +94,8 @@ final class Registration
             ->execute([$payload['email']]);
 
         $publicId=bin2hex(random_bytes(16));
-        $code=(string)random_int(100000,999999);
+        $developmentBypass=self::developmentWhatsappBypass();
+        $code=$developmentBypass?self::developmentCode():(string)random_int(100000,999999);
         $hash=password_hash($code,PASSWORD_DEFAULT);
         $expires=date('Y-m-d H:i:s',time()+600);
         $document=$role==='professional'?$payload['cpf']:$payload['cnpj'];
@@ -107,18 +109,23 @@ final class Registration
             $hash,$expires
         ]);
 
-        try{
-            WhatsApp::sendVerificationCode($payload['phone'],$code);
-        }catch(Throwable $e){
-            $pdo->prepare("UPDATE tp_registration_requests SET status='delivery_failed' WHERE public_id=?")->execute([$publicId]);
-            throw $e;
+        if(!$developmentBypass){
+            try{
+                WhatsApp::sendVerificationCode($payload['phone'],$code);
+            }catch(Throwable $e){
+                $pdo->prepare("UPDATE tp_registration_requests SET status='delivery_failed' WHERE public_id=?")->execute([$publicId]);
+                throw $e;
+            }
         }
 
-        return [
+        $result=[
             'registration_id'=>$publicId,
             'phone_masked'=>self::maskPhone($payload['phone']),
             'expires_in'=>600,
+            'development_bypass'=>$developmentBypass,
         ];
+        if($developmentBypass) $result['development_code']=self::developmentCode();
+        return $result;
     }
 
     public static function resend(string $publicId): array
@@ -133,13 +140,16 @@ final class Registration
         $last=strtotime((string)$row['last_sent_at']);
         if($last && time()-$last<60) throw new RuntimeException('Aguarde 60 segundos antes de reenviar o código.');
 
-        $code=(string)random_int(100000,999999);
+        $developmentBypass=self::developmentWhatsappBypass();
+        $code=$developmentBypass?self::developmentCode():(string)random_int(100000,999999);
         $hash=password_hash($code,PASSWORD_DEFAULT);
-        WhatsApp::sendVerificationCode((string)$row['phone'],$code);
+        if(!$developmentBypass) WhatsApp::sendVerificationCode((string)$row['phone'],$code);
         $pdo->prepare("UPDATE tp_registration_requests SET code_hash=?,code_expires_at=?,attempts=0,sent_count=sent_count+1,last_sent_at=NOW(),status='pending' WHERE id=?")
             ->execute([$hash,date('Y-m-d H:i:s',time()+600),(int)$row['id']]);
 
-        return ['registration_id'=>$publicId,'phone_masked'=>self::maskPhone((string)$row['phone']),'expires_in'=>600];
+        $result=['registration_id'=>$publicId,'phone_masked'=>self::maskPhone((string)$row['phone']),'expires_in'=>600,'development_bypass'=>$developmentBypass];
+        if($developmentBypass) $result['development_code']=self::developmentCode();
+        return $result;
     }
 
     public static function verify(string $publicId,string $code): array
@@ -195,10 +205,10 @@ final class Registration
 
         if($role==='professional'){
             $st=$pdo->prepare('INSERT INTO tp_professionals
-                (user_id,cpf,birth_date,headline,address,postal_code,city,state,pix_key,pix_key_type,pix_holder_name,pix_holder_document,status,created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,"pending",NOW())');
+                (user_id,cpf,rg,birth_date,headline,address,postal_code,city,state,pix_key,pix_key_type,pix_holder_name,pix_holder_document,status,created_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,"pending",NOW())');
             $st->execute([
-                $userId,$p['cpf'],$p['birth_date'],$p['headline'],$p['address'],$p['postal_code'],$p['city'],$p['state'],
+                $userId,$p['cpf'],$p['rg'],$p['birth_date'],$p['headline'],$p['address'],$p['postal_code'],$p['city'],$p['state'],
                 $p['pix_key'],$p['pix_key_type'],$p['pix_holder_name'],$p['pix_holder_document']
             ]);
             $professionalId=(int)$pdo->lastInsertId();
@@ -264,6 +274,8 @@ final class Registration
         if($role==='professional'){
             $cpf=preg_replace('/\D+/','',(string)($d['cpf']??''));
             if(!self::validCpf($cpf)) throw new InvalidArgumentException('CPF inválido.');
+            $rg=mb_strtoupper(preg_replace('/[^0-9A-Za-z]+/','',(string)($d['rg']??'')));
+            if(strlen($rg)<7||strlen($rg)>12) throw new InvalidArgumentException('Informe um RG válido.');
             $birth=trim((string)($d['birth_date']??''));
             $date=DateTime::createFromFormat('Y-m-d',$birth);
             if(!$date || $date->format('Y-m-d')!==$birth) throw new InvalidArgumentException('Informe uma data de nascimento válida.');
@@ -274,7 +286,7 @@ final class Registration
             if($headline==='') throw new InvalidArgumentException('Informe sua atividade principal.');
             $categories=array_values(array_unique(array_filter(array_map('intval',(array)($d['categories']??[])))));
             if(!$categories) throw new InvalidArgumentException('Selecione pelo menos uma função de interesse.');
-            return $base+['cpf'=>$cpf,'birth_date'=>$birth,'headline'=>$headline,'categories'=>$categories];
+            return $base+['cpf'=>$cpf,'rg'=>$rg,'birth_date'=>$birth,'headline'=>$headline,'categories'=>$categories];
         }
 
         $cnpj=preg_replace('/\D+/','',(string)($d['cnpj']??''));
@@ -285,6 +297,17 @@ final class Registration
         if(!self::validCpf($responsibleCpf)) throw new InvalidArgumentException('CPF do responsável inválido.');
         if($legal===''||$trade==='') throw new InvalidArgumentException('Informe razão social e nome fantasia.');
         return $base+['cnpj'=>$cnpj,'responsible_cpf'=>$responsibleCpf,'legal_name'=>$legal,'trade_name'=>$trade];
+    }
+
+    private static function developmentWhatsappBypass(): bool
+    {
+        return (bool)app_config('debug') && (bool)app_config('registration.development_whatsapp_bypass');
+    }
+
+    private static function developmentCode(): string
+    {
+        $code=preg_replace('/\D+/','',(string)(app_config('registration.development_code') ?? '000111'));
+        return strlen($code)===6?$code:'000111';
     }
 
     private static function normalizePhone(string $value): string
