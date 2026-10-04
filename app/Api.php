@@ -17,7 +17,7 @@ final class Api
 
     public static function handle(string $path, string $method): never
     {
-        if(!Database::available()) json_response(['ok'=>false,'error'=>'Banco de dados indisponível. Execute /install.php.'],503);
+        if(!Database::available()) json_response(['ok'=>false,'error'=>'Serviço temporariamente indisponível.'],503);
         $relative=preg_replace('#^/api/v1#','',$path) ?: '/';
 
         if($relative==='/health' && $method==='GET'){
