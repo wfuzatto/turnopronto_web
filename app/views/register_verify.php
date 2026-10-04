@@ -3,7 +3,12 @@
   <section class="register-brand"><a href="<?=e(url('login'))?>"><img src="<?=e(asset('img/logo.svg'))?>" alt="TurnoPronto"></a><h1>Confirme seu WhatsApp.</h1><p>Isso garante que o contato usado para oportunidades e segurança realmente pertence a você.</p></section>
   <section class="register-card">
     <h2>Código de verificação</h2>
-    <p>Enviamos um código de 6 dígitos para <strong><?=e($pending['phone_masked']??'seu WhatsApp')?></strong>. Ele expira em 10 minutos.</p>
+    <?php if(!empty($pending['development_bypass'])):?>
+      <div class="alert success"><strong>Modo de desenvolvimento:</strong> nenhum WhatsApp foi enviado. Use o código fixo <strong><?=e($pending['development_code']??'000111')?></strong>.</div>
+      <p>Digite o código acima para validar normalmente o cadastro de <strong><?=e($pending['phone_masked']??'seu telefone')?></strong>.</p>
+    <?php else:?>
+      <p>Enviamos um código de 6 dígitos para <strong><?=e($pending['phone_masked']??'seu WhatsApp')?></strong>. Ele expira em 10 minutos.</p>
+    <?php endif;?>
     <?php if($success):?><div class="alert success"><?=e($success)?></div><?php endif;?>
     <?php if($error):?><div class="alert error"><?=e($error)?></div><?php endif;?>
     <form method="post" class="register-form"><?=csrf_field()?>
