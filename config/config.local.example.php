@@ -1,6 +1,10 @@
 <?php
 return [
     'debug' => true,
+    'registration' => [
+        'development_whatsapp_bypass' => true,
+        'development_code' => '000111',
+    ],
     'whatsapp' => [
         // Produção recomendada: meta_cloud ou webhook.
         'driver' => 'disabled',
