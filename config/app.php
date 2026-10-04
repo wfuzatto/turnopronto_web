@@ -5,8 +5,8 @@ return [
     'timezone' => 'America/Sao_Paulo',
     'session_name' => 'turnopronto_session',
 
-    // Produção publicada na raiz de https://turnopronto.com.br
-    'public_base_path' => '',
+    // null mantém autodetecção local; em produção o helper fixa a raiz do domínio.
+    'public_base_path' => null,
 
     'debug' => true,
 
