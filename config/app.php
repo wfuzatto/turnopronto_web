@@ -5,9 +5,8 @@ return [
     'timezone' => 'America/Sao_Paulo',
     'session_name' => 'turnopronto_session',
 
-    // null = autodetect (ideal para XAMPP em /turnopronto_web)
-    // ''   = aplicação publicada na raiz do domínio
-    'public_base_path' => null,
+    // Produção publicada na raiz de https://turnopronto.com.br
+    'public_base_path' => '',
 
     'debug' => true,
 
@@ -29,10 +28,11 @@ return [
     ],
 
     'db' => [
-        'host' => '127.0.0.1',
+        'host' => 'turnopronto.mysql.dbaas.com.br',
         'port' => 3306,
         'name' => 'turnopronto',
-        'user' => 'root',
+        'user' => 'turnopronto',
+        // Senha somente em config/config.local.php no servidor.
         'pass' => '',
         'charset' => 'utf8mb4',
     ],
