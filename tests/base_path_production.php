@@ -1,5 +1,5 @@
 <?php
-$_SERVER['HTTP_HOST'] = 'turnopronto1.hospedagemdesites.ws';
+$_SERVER['HTTP_HOST'] = 'turnopronto.com.br';
 $_SERVER['SCRIPT_NAME'] = '/empresa/dashboard';
 $_SERVER['DOCUMENT_ROOT'] = '/home/fake/public_html';
 
