@@ -128,6 +128,57 @@ final class Web
             View::render('company_dashboard',['title'=>'Dashboard','data'=>Data::companyDashboard((int)$u['id']),'user'=>$u]);
         }
 
+        if ($path === '/empresa/verificacao/whatsapp/enviar' && $method==='POST') {
+            $u=Auth::requireRole('company');
+            verify_csrf();
+            try {
+                $result=Data::requestCompanyPhoneVerification((int)$u['id']);
+                if(!empty($result['already_verified'])){
+                    flash('success','Seu WhatsApp já está verificado.');
+                }elseif(!empty($result['development_bypass'])){
+                    flash('success','Código gerado em modo de desenvolvimento: '.($result['development_code']??'000111').'.');
+                }else{
+                    flash('success','Código enviado para '.$result['phone_masked'].'.');
+                }
+            } catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('empresa/verificacao');
+        }
+
+        if ($path === '/empresa/verificacao/whatsapp/confirmar' && $method==='POST') {
+            $u=Auth::requireRole('company');
+            verify_csrf();
+            try {
+                Data::confirmCompanyPhoneVerification((int)$u['id'],(string)($_POST['code']??''));
+                flash('success','WhatsApp verificado com sucesso.');
+            } catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('empresa/verificacao');
+        }
+
+        if ($path === '/empresa/verificacao/documentos/enviar' && $method==='POST') {
+            $u=Auth::requireRole('company');
+            verify_csrf();
+            try {
+                Data::uploadCompanyVerificationDocument((int)$u['id'],(string)($_POST['type']??''),$_FILES['document']??[]);
+                flash('success','Documento enviado para análise.');
+            } catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('empresa/verificacao');
+        }
+
+        if ($path === '/empresa/verificacao') {
+            $u=Auth::requireRole('company');
+            View::render('company_verification',[
+                'title'=>'Verificação da empresa',
+                'verification'=>Data::companyVerificationSummary((int)$u['id']),
+                'user'=>$u
+            ]);
+        }
+
         if ($path === '/empresa/conta') {
             $u=Auth::requireRole('company');
             if($method==='POST'){
@@ -489,6 +540,32 @@ final class Web
             View::render('documents',['title'=>'Documentos','documents'=>Data::documents((int)$u['id']),'user'=>$u]);
         }
 
+        if (preg_match('#^/admin/documentos/empresa/(\d+)/arquivo$#',$path,$m) && $method==='GET') {
+            Auth::requireRole('admin');
+            $doc=Data::adminCompanyDocument((int)$m[1]);
+            if(!$doc || empty($doc['file_path'])){ http_response_code(404); exit('Documento não encontrado.'); }
+            $root=realpath(dirname(__DIR__).'/storage/uploads/company_documents');
+            $file=realpath(dirname(__DIR__).'/'.$doc['file_path']);
+            if(!$root || !$file || !str_starts_with($file,$root.DIRECTORY_SEPARATOR) || !is_file($file)){ http_response_code(404); exit('Arquivo não encontrado.'); }
+            header('Content-Type: '.($doc['mime_type']?:'application/octet-stream'));
+            header('Content-Disposition: inline; filename="'.preg_replace('/[^a-zA-Z0-9._-]/','_',($doc['original_name']?:'documento')).'"');
+            header('Content-Length: '.filesize($file));
+            readfile($file);
+            exit;
+        }
+
+        if (preg_match('#^/admin/documentos/empresa/(\d+)/(aprovar|rejeitar)$#',$path,$m) && $method==='POST') {
+            $u=Auth::requireRole('admin');
+            verify_csrf();
+            try {
+                Data::setCompanyDocumentVerification((int)$u['id'],(int)$m[1],$m[2]==='aprovar'?'verified':'rejected',trim((string)($_POST['reason']??'')));
+                flash('success','Documento empresarial revisado.');
+            } catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('admin/dashboard');
+        }
+
         if (preg_match('#^/admin/documentos/(\d+)/arquivo$#',$path,$m) && $method==='GET') {
             Auth::requireRole('admin');
             $doc=Data::adminDocument((int)$m[1]);
@@ -535,6 +612,7 @@ final class Web
                 'title'=>'Administração',
                 'stats'=>Data::adminStats(),
                 'verification'=>Data::adminPendingVerifications(),
+                'companyDocuments'=>Data::adminPendingCompanyDocuments(),
                 'documents'=>Data::adminPendingDocuments(),
                 'appeals'=>Data::adminPendingAppeals(),
                 'audit'=>Data::adminAuditLogs(20),
