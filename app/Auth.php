@@ -18,6 +18,21 @@ final class Auth
         return true;
     }
 
+    public static function loginUserId(int $userId): bool
+    {
+        $pdo = Database::connection();
+        $stmt = $pdo->prepare('SELECT * FROM tp_users WHERE id = ? AND status = "active" LIMIT 1');
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+        if (!$user) return false;
+
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = (int)$user['id'];
+        self::$cachedUser = $user;
+        $pdo->prepare('UPDATE tp_users SET last_login_at = NOW() WHERE id = ?')->execute([$user['id']]);
+        return true;
+    }
+
     public static function user(): ?array
     {
         if (self::$cachedUser !== null) return self::$cachedUser;
