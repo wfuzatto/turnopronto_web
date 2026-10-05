@@ -34,7 +34,7 @@ for role, route, defaults in [
     css_response = opener.open(urllib.parse.urljoin(base, css_url), timeout=20)
     assert css_response.status == 200 and css_response.headers.get_content_type() == 'text/css'
     css = css_response.read().decode()
-    for selector in ['.app-shell', '.sidebar', '.topbar', '.main-content', '.dashboard-grid', '.kpi-grid', '.tp-table']:
+    for selector in ['.app-shell', '.sidebar', '.topbar', '.main-content', '.dashboard-grid', '.kpi-grid', '.tp-table', '.verification-row-detailed']:
         assert selector in css, 'CSS missing ' + selector
 
     if role == 'COMPANY':
