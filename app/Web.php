@@ -88,10 +88,14 @@ final class Web
                         );
                         redirect('cadastro/verificar');
                     }
-                    Registration::verify((string)$pending['registration_id'],(string)($_POST['code']??''));
+                    $verified=Registration::verify((string)$pending['registration_id'],(string)($_POST['code']??''));
+                    $userId=(int)($verified['user']['id']??0);
+                    if($userId<=0 || !Auth::loginUserId($userId)){
+                        throw new RuntimeException('Cadastro concluído, mas não foi possível iniciar a sessão automaticamente.');
+                    }
                     unset($_SESSION['registration_pending']);
-                    flash('success','Telefone validado e cadastro concluído. Você já pode entrar.');
-                    redirect('login');
+                    flash('success','Cadastro concluído. Bem-vindo ao TurnoPronto!');
+                    redirect(Auth::dashboardPath(Auth::user()));
                 } catch(Throwable $e){
                     flash('error',$e->getMessage());
                 }
