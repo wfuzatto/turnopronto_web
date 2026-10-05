@@ -2,7 +2,7 @@
 @media(max-width:900px){.category-profile-grid{grid-template-columns:repeat(2,1fr)}.document-upload-grid{grid-template-columns:1fr}.document-upload-grid .btn{width:100%}}@media(max-width:650px){.category-profile-grid{grid-template-columns:1fr}.doc-review-row{grid-template-columns:auto 1fr}.doc-review-actions{grid-column:1/-1;padding-left:48px;flex-wrap:wrap}.doc-review-actions .reject-doc{width:100%}.doc-review-actions input{flex:1;width:auto}}
 
 /* Company verification center */
-.verification-banner-actions{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none}
+.verification-banner>.verification-banner-actions{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto}
 .verification-page{max-width:1080px;display:flex;flex-direction:column;gap:16px}
 .verification-overview{padding:22px}
 .verification-overview-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
