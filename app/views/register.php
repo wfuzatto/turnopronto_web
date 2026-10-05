@@ -62,8 +62,8 @@
           <label>Nome do titular Pix *<input name="pix_holder_name" value="<?=e($_POST['pix_holder_name']??'')?>" required></label>
           <label>CPF/CNPJ do titular Pix *<input name="pix_holder_document" data-mask="cpfcnpj" value="<?=e($_POST['pix_holder_document']??'')?>" inputmode="numeric" required></label>
 
-          <label>Senha *<input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
-          <label>Confirmar senha *<input type="password" name="password_confirm" minlength="8" required autocomplete="new-password"></label>
+          <div class="register-field"><label for="register-password">Senha *</label><span class="password-field"><input id="register-password" type="password" name="password" minlength="8" required autocomplete="new-password"><button class="password-toggle" type="button" data-password-toggle aria-label="Mostrar senha" aria-pressed="false"><?=icon('eye',16)?></button></span></div>
+          <div class="register-field"><label for="register-password-confirm">Confirmar senha *</label><span class="password-field"><input id="register-password-confirm" type="password" name="password_confirm" minlength="8" required autocomplete="new-password"><button class="password-toggle" type="button" data-password-toggle aria-label="Mostrar senha" aria-pressed="false"><?=icon('eye',16)?></button></span></div>
         </div>
 
         <label class="terms-check"><input type="checkbox" name="terms_accepted" value="1" required> <span>Li e aceito os <a href="<?=e(url('termos'))?>" target="_blank">Termos de Uso</a>.</span></label>
