@@ -52,4 +52,10 @@ for role, route, defaults in [
         assert any(int(item['id']) == category_id for item in categories_result.get('data', []))
         print('COMPANY global category creation: PASS')
 
+        verification_html = opener.open(base + '/empresa/verificacao', timeout=20).read().decode()
+        for marker in ['Verificação da empresa', 'verification-checklist', 'WhatsApp', 'Cartão do CNPJ',
+                       'Documento do responsável', 'Comprovante de endereço']:
+            assert marker in verification_html, 'company verification center missing ' + marker
+        print('COMPANY verification center: PASS')
+
     print(role + ' authenticated dashboard and CSS: PASS')
