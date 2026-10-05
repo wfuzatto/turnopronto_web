@@ -12,6 +12,9 @@ final class Web
         }
 
         if ($path === '/login') {
+            if ($method === 'GET' && Auth::check()) {
+                redirect(Auth::dashboardPath(Auth::user()));
+            }
             if ($method === 'POST') {
                 verify_csrf();
                 if (!Database::available()) {
