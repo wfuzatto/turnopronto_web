@@ -73,6 +73,23 @@
     update();
   });
 
+  const bindPasswordToggle=(input,button)=>{
+    if(!input||!button||button.dataset.passwordBound==='1') return;
+    button.dataset.passwordBound='1';
+    button.addEventListener('click',()=>{
+      const show=input.type==='password';
+      input.type=show?'text':'password';
+      button.setAttribute('aria-label',show?'Ocultar senha':'Mostrar senha');
+      button.setAttribute('aria-pressed',show?'true':'false');
+      button.classList.toggle('is-visible',show);
+      input.focus({preventScroll:true});
+    });
+  };
+
+  qa('.password-field').forEach(wrapper=>{
+    bindPasswordToggle(q('input',wrapper),q('[data-password-toggle]',wrapper));
+  });
+
   qa('input[type="password"]').forEach(input=>{
     if(input.closest('.password-field')) return;
 
@@ -84,19 +101,12 @@
     const button=document.createElement('button');
     button.type='button';
     button.className='password-toggle';
+    button.dataset.passwordToggle='';
     button.setAttribute('aria-label','Mostrar senha');
     button.setAttribute('aria-pressed','false');
-    button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.25 12s3.5-6 9.75-6 9.75 6 9.75 6-3.5 6-9.75 6S2.25 12 2.25 12Z"/><circle cx="12" cy="12" r="2.75"/></svg>';
+    button.innerHTML='<svg class="tp-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.75"/></svg>';
     wrapper.appendChild(button);
-
-    button.addEventListener('click',()=>{
-      const show=input.type==='password';
-      input.type=show?'text':'password';
-      button.setAttribute('aria-label',show?'Ocultar senha':'Mostrar senha');
-      button.setAttribute('aria-pressed',show?'true':'false');
-      button.classList.toggle('is-visible',show);
-      input.focus({preventScroll:true});
-    });
+    bindPasswordToggle(input,button);
   });
 
   qa('form.register-form').forEach(form=>form.addEventListener('submit',event=>{
