@@ -64,3 +64,37 @@
 .category-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
 body.modal-open{overflow:hidden}
 @media(max-width:600px){.category-modal{padding:12px}.category-modal-card{padding:17px}.category-modal-actions{display:grid;grid-template-columns:1fr 1fr}.category-modal-actions .btn{width:100%}}
+
+
+/* Company verification center */
+.verification-banner-actions{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none}
+.verification-page{max-width:1080px;display:flex;flex-direction:column;gap:16px}
+.verification-overview{padding:22px}
+.verification-overview-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.verification-overview h2{margin:0 0 5px;font-size:20px}
+.verification-overview p{margin:0;color:var(--muted);line-height:1.5}
+.verification-progress-meta{display:flex;justify-content:space-between;gap:12px;margin-top:18px;font-size:10.5px;font-weight:750;color:#51647d}
+.verification-progress{height:9px;background:#edf2f7;border-radius:30px;overflow:hidden;margin-top:7px}
+.verification-progress i{display:block;height:100%;border-radius:30px;background:linear-gradient(90deg,var(--blue),var(--green))}
+.verification-checklist{display:flex;flex-direction:column;gap:10px}
+.verification-step-card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:16px;display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:13px;align-items:start}
+.verification-step-card.complete{border-color:#d5eedf;background:#fbfffd}
+.verification-step-card.rejected{border-color:#f1d1d6;background:#fffafb}
+.verification-step-icon{width:40px;height:40px;border-radius:11px;background:#edf4ff;color:var(--blue);display:grid;place-items:center}
+.verification-step-card.complete .verification-step-icon{background:#e7f9ef;color:#0a9b57}
+.verification-step-card.rejected .verification-step-icon{background:#fff0f1;color:#b83c49}
+.verification-step-main{min-width:0}
+.verification-step-main h3{margin:1px 0 4px;font-size:13px}
+.verification-step-main p{margin:0;color:#68788f;font-size:10.5px;line-height:1.5}
+.verification-step-main .missing-list{margin:7px 0 0;padding-left:17px;color:#936c0a;font-size:10px;line-height:1.5}
+.verification-step-side{min-width:190px;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.verification-step-actions{display:flex;gap:7px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.verification-step-actions form{margin:0}
+.verification-code-form{display:grid;grid-template-columns:120px auto;gap:7px;align-items:center;width:100%}
+.verification-code-form input{width:120px;border:1px solid #d9e2ed;border-radius:9px;padding:8px 10px;letter-spacing:4px;text-align:center;font-weight:800}
+.verification-upload-form{display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:7px;align-items:center;width:min(430px,100%)}
+.verification-upload-form input[type=file]{min-width:0;width:100%;border:1px solid #d9e2ed;border-radius:9px;padding:7px;background:#fff;font-size:9px}
+.verification-dev-code{display:inline-block;margin-top:7px;padding:6px 8px;border-radius:8px;background:#eef5ff;color:#0b63e9;font-size:10px;font-weight:800;letter-spacing:.3px}
+.verification-final-note{font-size:9.5px;color:var(--muted);text-align:right}
+@media(max-width:850px){.verification-step-card{grid-template-columns:42px 1fr}.verification-step-side{grid-column:2;align-items:flex-start;min-width:0}.verification-step-actions{justify-content:flex-start}.verification-upload-form{width:100%}.verification-banner{align-items:flex-start;flex-wrap:wrap}.verification-banner-actions{width:100%;margin-left:33px;justify-content:flex-start}}
+@media(max-width:600px){.verification-overview-head{flex-direction:column}.verification-step-card{grid-template-columns:1fr}.verification-step-icon{grid-row:auto}.verification-step-side{grid-column:1;align-items:stretch}.verification-step-actions{display:grid;grid-template-columns:1fr}.verification-step-actions .btn,.verification-step-actions form,.verification-step-actions form button{width:100%}.verification-code-form,.verification-upload-form{grid-template-columns:1fr}.verification-code-form input{width:100%}.verification-final-note{text-align:left}.verification-banner-actions{margin-left:0}}
