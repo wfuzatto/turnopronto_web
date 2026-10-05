@@ -1475,8 +1475,65 @@ final class Data
 
     public static function adminPendingVerifications(): array
     {
-        $companies=Database::connection()->query("SELECT c.*,u.name owner_name,u.email owner_email FROM tp_companies c LEFT JOIN tp_company_members cm ON cm.company_id=c.id AND cm.member_role='owner' LEFT JOIN tp_users u ON u.id=cm.user_id WHERE c.status='pending' ORDER BY c.created_at ASC")->fetchAll();
-        $professionals=Database::connection()->query("SELECT p.*,u.name,u.email,u.phone FROM tp_professionals p JOIN tp_users u ON u.id=p.user_id WHERE p.status='pending' ORDER BY p.created_at ASC")->fetchAll();
+        $pdo=Database::connection();
+        $companies=$pdo->query("SELECT c.*,u.id owner_user_id,u.name owner_name,u.email owner_email
+                                FROM tp_companies c
+                                LEFT JOIN tp_company_members cm ON cm.company_id=c.id AND cm.member_role='owner'
+                                LEFT JOIN tp_users u ON u.id=cm.user_id
+                                WHERE c.status='pending'
+                                ORDER BY c.created_at ASC")->fetchAll();
+
+        foreach($companies as &$company){
+            $summary=null;
+            if(!empty($company['owner_user_id'])){
+                try{
+                    $summary=self::companyVerificationSummary((int)$company['owner_user_id']);
+                }catch(Throwable $e){
+                    $summary=null;
+                }
+            }
+
+            $checks=[
+                ['label'=>'WhatsApp do responsável','ok'=>(bool)($summary['phone_verified']??false)],
+                ['label'=>'Dados cadastrais','ok'=>(bool)($summary['data_complete']??false)],
+            ];
+            foreach(($summary['required_documents']??self::companyVerificationDocumentTypes()) as $type=>$label){
+                $checks[]=[
+                    'label'=>$label,
+                    'ok'=>(($summary['documents'][$type]['status']??'')==='verified'),
+                ];
+            }
+
+            $company['verification_kind']='Cadastro empresarial';
+            $company['verification_purpose']='Liberação da empresa para publicar vagas';
+            $company['verification_checks']=$checks;
+            $company['ready_for_final']=(bool)($summary['ready_for_final']??false);
+        }
+        unset($company);
+
+        $professionals=$pdo->query("SELECT p.*,u.name,u.email,u.phone,
+                                    MAX(CASE WHEN d.type='identity' THEN d.status END) identity_status,
+                                    MAX(CASE WHEN d.type='cpf' THEN d.status END) cpf_status
+                                    FROM tp_professionals p
+                                    JOIN tp_users u ON u.id=p.user_id
+                                    LEFT JOIN tp_documents d ON d.professional_id=p.id AND d.type IN ('identity','cpf')
+                                    WHERE p.status='pending'
+                                    GROUP BY p.id,u.id
+                                    ORDER BY p.created_at ASC")->fetchAll();
+
+        foreach($professionals as &$professional){
+            $identityVerified=($professional['identity_status']??'')==='verified';
+            $cpfVerified=($professional['cpf_status']??'')==='verified';
+            $professional['verification_kind']='Cadastro profissional';
+            $professional['verification_purpose']='Liberação do profissional para aceitar e se candidatar a turnos';
+            $professional['verification_checks']=[
+                ['label'=>'Documento de identidade','ok'=>$identityVerified],
+                ['label'=>'CPF','ok'=>$cpfVerified],
+            ];
+            $professional['ready_for_final']=$identityVerified&&$cpfVerified;
+        }
+        unset($professional);
+
         return ['companies'=>$companies,'professionals'=>$professionals];
     }
 
