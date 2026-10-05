@@ -52,6 +52,11 @@ for role, route, defaults in [
         assert any(int(item['id']) == category_id for item in categories_result.get('data', []))
         print('COMPANY global category creation: PASS')
 
+        account_html = opener.open(base + '/empresa/conta', timeout=20).read().decode()
+        assert 'name="maps_url"' in account_html, 'company account missing maps_url field'
+        assert 'Link do Google Maps' in account_html
+        print('COMPANY Google Maps field: PASS')
+
         verification_html = opener.open(base + '/empresa/verificacao', timeout=20).read().decode()
         for marker in ['Verificação da empresa', 'verification-checklist', 'WhatsApp', 'Cartão do CNPJ',
                        'Documento do responsável', 'Comprovante de endereço']:
