@@ -56,7 +56,8 @@ final class Registration
             ['tp_professionals','pix_holder_document','VARCHAR(30) NULL AFTER pix_holder_name'],
             ['tp_companies','responsible_cpf','VARCHAR(20) NULL AFTER cnpj'],
             ['tp_companies','postal_code','VARCHAR(12) NULL AFTER address'],
-            ['tp_companies','pix_key_type','VARCHAR(30) NULL AFTER state'],
+            ['tp_companies','maps_url','VARCHAR(1000) NULL AFTER state'],
+            ['tp_companies','pix_key_type','VARCHAR(30) NULL AFTER maps_url'],
             ['tp_companies','pix_key','VARCHAR(190) NULL AFTER pix_key_type'],
             ['tp_companies','pix_holder_name','VARCHAR(190) NULL AFTER pix_key'],
             ['tp_companies','pix_holder_document','VARCHAR(30) NULL AFTER pix_holder_name'],
@@ -216,10 +217,10 @@ final class Registration
             foreach($p['categories'] as $categoryId)$cat->execute([$professionalId,$categoryId]);
         }else{
             $st=$pdo->prepare('INSERT INTO tp_companies
-                (legal_name,trade_name,cnpj,responsible_cpf,address,postal_code,city,state,pix_key_type,pix_key,pix_holder_name,pix_holder_document,status,created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,"pending",NOW())');
+                (legal_name,trade_name,cnpj,responsible_cpf,address,postal_code,city,state,maps_url,pix_key_type,pix_key,pix_holder_name,pix_holder_document,status,created_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,"pending",NOW())');
             $st->execute([
-                $p['legal_name'],$p['trade_name'],$p['cnpj'],$p['responsible_cpf'],$p['address'],$p['postal_code'],$p['city'],$p['state'],
+                $p['legal_name'],$p['trade_name'],$p['cnpj'],$p['responsible_cpf'],$p['address'],$p['postal_code'],$p['city'],$p['state'],$p['maps_url'],
                 $p['pix_key_type'],$p['pix_key'],$p['pix_holder_name'],$p['pix_holder_document']
             ]);
             $companyId=(int)$pdo->lastInsertId();
@@ -293,10 +294,22 @@ final class Registration
         $responsibleCpf=preg_replace('/\D+/','',(string)($d['responsible_cpf']??''));
         $legal=trim((string)($d['legal_name']??''));
         $trade=trim((string)($d['trade_name']??''));
+        $mapsUrl=self::normalizeMapsUrl((string)($d['maps_url']??''));
         if(!self::validCnpj($cnpj)) throw new InvalidArgumentException('CNPJ inválido.');
         if(!self::validCpf($responsibleCpf)) throw new InvalidArgumentException('CPF do responsável inválido.');
         if($legal===''||$trade==='') throw new InvalidArgumentException('Informe razão social e nome fantasia.');
-        return $base+['cnpj'=>$cnpj,'responsible_cpf'=>$responsibleCpf,'legal_name'=>$legal,'trade_name'=>$trade];
+        return $base+['cnpj'=>$cnpj,'responsible_cpf'=>$responsibleCpf,'legal_name'=>$legal,'trade_name'=>$trade,'maps_url'=>$mapsUrl];
+    }
+
+    private static function normalizeMapsUrl(string $value): string
+    {
+        $value=trim($value);
+        if($value==='') return '';
+        if(mb_strlen($value)>1000) throw new InvalidArgumentException('O link do Google Maps é muito longo.');
+        if(!filter_var($value,FILTER_VALIDATE_URL)) throw new InvalidArgumentException('Informe um link válido do Google Maps.');
+        $scheme=mb_strtolower((string)parse_url($value,PHP_URL_SCHEME));
+        if(!in_array($scheme,['http','https'],true)) throw new InvalidArgumentException('O link do Google Maps precisa começar com http:// ou https://.');
+        return $value;
     }
 
     private static function developmentWhatsappBypass(): bool
