@@ -7,6 +7,7 @@ $end=$editing && !empty($source['ends_at']) ? date('H:i',strtotime($source['ends
 $value=$source['value']??$source['shift_value']??160;
 $mode=$source['acceptance_mode']??'automatic';
 ?>
+<div class="shift-form-page">
 <div class="page-head">
   <div>
     <h1><?=$editing?'Editar vaga':'Publicar nova vaga'?></h1>
@@ -88,6 +89,8 @@ $mode=$source['acceptance_mode']??'automatic';
   <button class="btn btn-primary" type="submit"><?=$editing?'Salvar alterações':'Publicar vaga'?></button>
 </div>
 </form>
+
+</div>
 
 <div class="category-modal" data-category-modal hidden>
   <section class="category-modal-card" role="dialog" aria-modal="true" aria-labelledby="category-modal-title">

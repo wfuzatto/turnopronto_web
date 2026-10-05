@@ -22,3 +22,5 @@
 .category-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
 body.modal-open{overflow:hidden}
 @media(max-width:600px){.category-modal{padding:12px}.category-modal-card{padding:17px}.category-modal-actions{display:grid;grid-template-columns:1fr 1fr}.category-modal-actions .btn{width:100%}}
+
+.shift-form-page{width:100%;max-width:980px;margin:0 auto}.shift-form-page .form-layout{max-width:none;width:100%}
