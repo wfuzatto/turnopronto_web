@@ -100,3 +100,10 @@ body.modal-open{overflow:hidden}
 @media(max-width:600px){.verification-overview-head{flex-direction:column}.verification-step-card{grid-template-columns:1fr}.verification-step-icon{grid-row:auto}.verification-step-side{grid-column:1;align-items:stretch}.verification-step-actions{display:grid;grid-template-columns:1fr}.verification-step-actions .btn,.verification-step-actions form,.verification-step-actions form button{width:100%}.verification-code-form,.verification-upload-form{grid-template-columns:1fr}.verification-code-form input{width:100%}.verification-final-note{text-align:left}.verification-banner-actions{margin-left:0}}
 
 .shift-form-page{width:100%;max-width:980px;margin:0 auto}.shift-form-page .form-layout{max-width:none;width:100%}
+
+
+.location-card-link{text-decoration:none;color:inherit;cursor:pointer;border-radius:12px;transition:background .16s ease,box-shadow .16s ease,transform .16s ease}
+.location-card-link:hover{background:#f7faff;box-shadow:0 0 0 6px #f7faff;transform:translateY(-1px)}
+.location-card-link:focus-visible{outline:2px solid var(--blue);outline-offset:5px}
+.location-card-link .mini-map{transition:box-shadow .16s ease}
+.location-card-link:hover .mini-map{box-shadow:0 5px 16px rgba(11,103,255,.12)}
