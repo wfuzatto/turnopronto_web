@@ -21,9 +21,15 @@ for role, route, defaults in [
     assert urllib.parse.urlparse(response.url).path == route, role + ' login failed'
     html = opener.open(base + route, timeout=20).read().decode()
     for marker in ['<!doctype html>', 'app-shell', 'sidebar', 'topbar', 'main-content',
-                   'logo.svg', 'kpi-grid', 'tp-table', '</html>']:
+                   'logo.svg', 'kpi-grid', 'tp-table', 'data-notifications', '</html>']:
         assert marker in html, role + ' missing ' + marker
     assert 'Fatal error' not in html and 'Warning:' not in html
+    expected_account = '/empresa/conta' if role == 'COMPANY' else '/profissional/perfil'
+    assert ('href="' + expected_account + '"') in html, role + ' account chip link missing'
+    notification_payload = json.loads(opener.open(base + '/api/v1/notifications', timeout=20).read().decode())
+    assert notification_payload.get('ok') is True
+    assert isinstance(notification_payload.get('data', {}).get('unread'), int)
+    assert isinstance(notification_payload.get('data', {}).get('items'), list)
     css_url = re.search(r'<link rel="stylesheet" href="([^"]+)"', html).group(1)
     css_response = opener.open(urllib.parse.urljoin(base, css_url), timeout=20)
     assert css_response.status == 200 and css_response.headers.get_content_type() == 'text/css'
