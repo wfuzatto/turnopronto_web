@@ -75,6 +75,8 @@ jobs:
           fi
           test -f index.php
           test -f config/app.php
+          grep -q 'data-category-modal-open' app/views/company_shift_form.php
+          grep -q 'createJobCategory' app/Data.php
 
   deploy:
     needs: validate
@@ -94,6 +96,8 @@ jobs:
           grep -q '.login-page' public/assets/css/app.css
           grep -q '.password-field' public/assets/css/app.css
           grep -q '.password-toggle' public/assets/css/app.css
+          grep -q '.category-add-btn' public/assets/css/app.css
+          grep -q '.category-modal' public/assets/css/app.css
 
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5

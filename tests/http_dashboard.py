@@ -1,5 +1,6 @@
 """Real CSRF login and authenticated dashboard checks; never log credentials."""
 import http.cookiejar
+import json
 import os
 import re
 import urllib.parse
@@ -29,4 +30,26 @@ for role, route, defaults in [
     css = css_response.read().decode()
     for selector in ['.app-shell', '.sidebar', '.topbar', '.main-content', '.dashboard-grid', '.kpi-grid', '.tp-table']:
         assert selector in css, 'CSS missing ' + selector
+
+    if role == 'COMPANY':
+        shift_html = opener.open(base + '/empresa/vagas/nova', timeout=20).read().decode()
+        for marker in ['data-category-select', 'data-category-modal-open', 'data-category-modal', 'data-category-form']:
+            assert marker in shift_html, 'category UI missing ' + marker
+        shift_csrf = re.search(r'name="_csrf" value="([^"]+)"', shift_html).group(1)
+        category_body = urllib.parse.urlencode({'_csrf': shift_csrf, 'name': 'Categoria CI'}).encode()
+        request = urllib.request.Request(
+            base + '/empresa/categorias',
+            data=category_body,
+            headers={'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}
+        )
+        category_result = json.loads(opener.open(request, timeout=20).read().decode())
+        assert category_result.get('ok') is True
+        category_id = int(category_result['category']['id'])
+        assert category_id > 0 and category_result['category']['name'] == 'Categoria CI'
+
+        categories_result = json.loads(opener.open(base + '/api/v1/categories', timeout=20).read().decode())
+        assert categories_result.get('ok') is True
+        assert any(int(item['id']) == category_id for item in categories_result.get('data', []))
+        print('COMPANY global category creation: PASS')
+
     print(role + ' authenticated dashboard and CSS: PASS')

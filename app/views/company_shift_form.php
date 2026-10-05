@@ -20,13 +20,17 @@ $mode=$source['acceptance_mode']??'automatic';
   <h2>1. Função e quantidade</h2>
   <div class="form-grid">
     <div>
-      <label>Categoria *</label>
-      <select name="category_id" required>
-        <option value="">Selecione</option>
-        <?php foreach($categories as $c):?>
-          <option value="<?=$c['id']?>" <?=((int)($source['category_id']??0)===(int)$c['id'])?'selected':''?>><?=e($c['name'])?></option>
-        <?php endforeach;?>
-      </select>
+      <label for="shift-category">Categoria *</label>
+      <div class="category-select-row">
+        <select id="shift-category" name="category_id" data-category-select required>
+          <option value="">Selecione</option>
+          <?php foreach($categories as $c):?>
+            <option value="<?=$c['id']?>" <?=((int)($source['category_id']??0)===(int)$c['id'])?'selected':''?>><?=e($c['name'])?></option>
+          <?php endforeach;?>
+        </select>
+        <button class="category-add-btn" type="button" data-category-modal-open title="Cadastrar nova categoria" aria-label="Cadastrar nova categoria">+</button>
+      </div>
+      <small class="category-created-notice" data-category-created-notice hidden></small>
     </div>
     <div>
       <label>Título da vaga *</label>
@@ -84,3 +88,25 @@ $mode=$source['acceptance_mode']??'automatic';
   <button class="btn btn-primary" type="submit"><?=$editing?'Salvar alterações':'Publicar vaga'?></button>
 </div>
 </form>
+
+<div class="category-modal" data-category-modal hidden>
+  <section class="category-modal-card" role="dialog" aria-modal="true" aria-labelledby="category-modal-title">
+    <div class="category-modal-head">
+      <div>
+        <h2 id="category-modal-title">Cadastrar categoria</h2>
+        <p>Essa categoria ficará disponível para todas as empresas e profissionais nos próximos cadastros e vagas.</p>
+      </div>
+      <button type="button" class="category-modal-close" data-category-modal-close aria-label="Fechar">×</button>
+    </div>
+    <form method="post" action="<?=e(url('empresa/categorias'))?>" data-category-form>
+      <?=csrf_field()?>
+      <label for="new-category-name">Nome da categoria *</label>
+      <input id="new-category-name" name="name" maxlength="120" autocomplete="off" placeholder="Ex.: Cozinheiro, Segurança, Manobrista" required>
+      <div class="category-modal-feedback" data-category-feedback role="alert" hidden></div>
+      <div class="category-modal-actions">
+        <button type="button" class="btn btn-soft" data-category-modal-close>Cancelar</button>
+        <button type="submit" class="btn btn-primary" data-category-submit>Cadastrar categoria</button>
+      </div>
+    </form>
+  </section>
+</div>

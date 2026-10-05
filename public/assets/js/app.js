@@ -109,6 +109,107 @@
     bindPasswordToggle(input,button);
   });
 
+  qa('[data-category-modal]').forEach(modal=>{
+    const openButton=q('[data-category-modal-open]');
+    const form=q('[data-category-form]',modal);
+    const input=q('input[name="name"]',form);
+    const submit=q('[data-category-submit]',form);
+    const feedback=q('[data-category-feedback]',form);
+    const select=q('[data-category-select]');
+    const notice=q('[data-category-created-notice]');
+    let previousFocus=null;
+
+    const setFeedback=(message='')=>{
+      if(!feedback) return;
+      feedback.textContent=message;
+      feedback.hidden=!message;
+    };
+
+    const openModal=()=>{
+      previousFocus=document.activeElement;
+      setFeedback('');
+      modal.hidden=false;
+      document.body.classList.add('modal-open');
+      window.setTimeout(()=>input?.focus(),0);
+    };
+
+    const closeModal=()=>{
+      modal.hidden=true;
+      document.body.classList.remove('modal-open');
+      form?.reset();
+      setFeedback('');
+      previousFocus?.focus?.();
+    };
+
+    openButton?.addEventListener('click',openModal);
+    qa('[data-category-modal-close]',modal).forEach(button=>button.addEventListener('click',closeModal));
+    modal.addEventListener('click',event=>{ if(event.target===modal) closeModal(); });
+    document.addEventListener('keydown',event=>{
+      if(event.key==='Escape'&&!modal.hidden) closeModal();
+    });
+
+    form?.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const name=(input?.value||'').trim();
+      if(name.length<2){
+        setFeedback('Informe um nome de categoria com pelo menos 2 caracteres.');
+        input?.focus();
+        return;
+      }
+
+      submit.disabled=true;
+      setFeedback('');
+      try{
+        const response=await fetch(form.action,{
+          method:'POST',
+          body:new FormData(form),
+          headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'}
+        });
+        const raw=await response.text();
+        let payload={};
+        try{ payload=raw?JSON.parse(raw):{}; }catch(_){ payload={}; }
+
+        if(!response.ok||!payload.ok){
+          const message=payload.error||(response.status===419
+            ? 'Sua sessão expirou. Atualize a página e tente novamente.'
+            : 'Não foi possível cadastrar a categoria.');
+          throw new Error(message);
+        }
+
+        const category=payload.category||{};
+        if(!category.id||!category.name||!select) throw new Error('A categoria foi salva, mas não foi possível selecioná-la.');
+
+        let option=[...select.options].find(item=>String(item.value)===String(category.id));
+        if(!option){
+          option=new Option(String(category.name),String(category.id));
+          select.add(option);
+        }else{
+          option.textContent=String(category.name);
+        }
+
+        select.value=String(category.id);
+        select.dispatchEvent(new Event('change',{bubbles:true}));
+
+        if(notice){
+          notice.textContent='Categoria “'+String(category.name)+'” cadastrada e selecionada.';
+          notice.hidden=false;
+          window.setTimeout(()=>{ notice.hidden=true; },5000);
+        }
+
+        modal.hidden=true;
+        document.body.classList.remove('modal-open');
+        form.reset();
+        setFeedback('');
+        select.focus();
+      }catch(error){
+        setFeedback(error?.message||'Não foi possível cadastrar a categoria.');
+        input?.focus();
+      }finally{
+        submit.disabled=false;
+      }
+    });
+  });
+
   qa('form.register-form').forEach(form=>form.addEventListener('submit',event=>{
     const categories=q('.category-checks',form);
     if(categories&&!q('input[type="checkbox"]:checked',categories)){

@@ -163,6 +163,82 @@ final class Data
         return Database::connection()->query('SELECT * FROM tp_job_categories WHERE active=1 ORDER BY name')->fetchAll();
     }
 
+    public static function createJobCategory(int $userId,string $name): array
+    {
+        $company=self::companyProfile($userId);
+        if(!$company) throw new RuntimeException('Empresa não encontrada para este usuário.');
+        if(($company['status']??'pending')!=='verified') throw new RuntimeException('A empresa precisa ser verificada antes de cadastrar categorias.');
+
+        $name=trim((string)(preg_replace('/\\s+/u',' ',trim($name)) ?? trim($name)));
+        $length=mb_strlen($name);
+        if($length<2) throw new InvalidArgumentException('Informe um nome de categoria com pelo menos 2 caracteres.');
+        if($length>120) throw new InvalidArgumentException('O nome da categoria pode ter no máximo 120 caracteres.');
+
+        $pdo=Database::connection();
+        $findByName=$pdo->prepare('SELECT id,name,slug,active FROM tp_job_categories WHERE name=? LIMIT 1');
+        $findByName->execute([$name]);
+        $existing=$findByName->fetch();
+
+        if($existing){
+            if(!(int)$existing['active']){
+                $pdo->prepare('UPDATE tp_job_categories SET active=1 WHERE id=?')->execute([(int)$existing['id']]);
+                self::audit($userId,'category.reactivated','job_category',(int)$existing['id'],['name'=>$existing['name']]);
+            }
+            return [
+                'id'=>(int)$existing['id'],
+                'name'=>(string)$existing['name'],
+                'slug'=>(string)$existing['slug'],
+                'active'=>1,
+                'created'=>false,
+            ];
+        }
+
+        $base=self::jobCategorySlug($name);
+        $slug=$base;
+        $slugExists=$pdo->prepare('SELECT id FROM tp_job_categories WHERE slug=? LIMIT 1');
+        for($suffix=2;;$suffix++){
+            $slugExists->execute([$slug]);
+            if(!$slugExists->fetchColumn()) break;
+            $tail='-'.$suffix;
+            $slug=mb_substr($base,0,max(1,120-mb_strlen($tail))).$tail;
+        }
+
+        try{
+            $st=$pdo->prepare('INSERT INTO tp_job_categories (name,slug,active) VALUES (?,?,1)');
+            $st->execute([$name,$slug]);
+            $id=(int)$pdo->lastInsertId();
+        }catch(PDOException $e){
+            if((string)$e->getCode()==='23000'){
+                $findByName->execute([$name]);
+                $existing=$findByName->fetch();
+                if($existing){
+                    return [
+                        'id'=>(int)$existing['id'],
+                        'name'=>(string)$existing['name'],
+                        'slug'=>(string)$existing['slug'],
+                        'active'=>(int)$existing['active'],
+                        'created'=>false,
+                    ];
+                }
+            }
+            throw $e;
+        }
+
+        self::audit($userId,'category.created','job_category',$id,['name'=>$name,'slug'=>$slug]);
+        return ['id'=>$id,'name'=>$name,'slug'=>$slug,'active'=>1,'created'=>true];
+    }
+
+    private static function jobCategorySlug(string $name): string
+    {
+        $ascii=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$name);
+        $source=is_string($ascii)&&$ascii!==''?$ascii:$name;
+        $source=strtolower($source);
+        $slug=preg_replace('/[^a-z0-9]+/','-',$source) ?? '';
+        $slug=trim($slug,'-');
+        if($slug==='') $slug='categoria';
+        return mb_substr($slug,0,110);
+    }
+
     private static function normalizedShiftInput(array $data): array
     {
         $required=['category_id','title','date','start_time','end_time','value','required_workers','address','city','state'];

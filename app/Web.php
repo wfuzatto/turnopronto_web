@@ -152,6 +152,20 @@ final class Web
             View::render('company_shifts',['title'=>'Minhas vagas','shifts'=>Data::companyShifts((int)$u['id']),'user'=>$u]);
         }
 
+        if ($path === '/empresa/categorias' && $method === 'POST') {
+            $u=Auth::requireRole('company');
+            verify_csrf();
+            try {
+                $category=Data::createJobCategory((int)$u['id'],(string)($_POST['name']??''));
+                $created=(bool)($category['created']??false);
+                json_response(['ok'=>true,'created'=>$created,'category'=>$category],$created?201:200);
+            } catch(InvalidArgumentException|RuntimeException $e){
+                json_response(['ok'=>false,'error'=>$e->getMessage()],422);
+            } catch(Throwable $e){
+                json_response(['ok'=>false,'error'=>'Não foi possível cadastrar a categoria agora. Tente novamente.'],500);
+            }
+        }
+
         if ($path === '/empresa/vagas/nova') {
             $u=Auth::requireRole('company');
             if($method==='POST'){
