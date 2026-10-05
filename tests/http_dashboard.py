@@ -26,7 +26,7 @@ for role, route, defaults in [
     assert 'Fatal error' not in html and 'Warning:' not in html
     expected_account = '/empresa/conta' if role == 'COMPANY' else '/profissional/perfil'
     assert ('href="' + expected_account + '"') in html, role + ' account chip link missing'
-    notification_payload = json.loads(opener.open(base + '/api/v1/notifications', timeout=20).read().decode())
+    notification_payload = json.loads(opener.open(base + '/notificacoes/feed', timeout=20).read().decode())
     assert notification_payload.get('ok') is True
     assert isinstance(notification_payload.get('data', {}).get('unread'), int)
     assert isinstance(notification_payload.get('data', {}).get('items'), list)
