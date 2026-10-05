@@ -51,6 +51,317 @@ final class Data
         return $s->fetch() ?: [];
     }
 
+    private static function ensureCompanyVerificationSchema(): void
+    {
+        static $ready=false;
+        if($ready) return;
+        $pdo=Database::connection();
+        $pdo->exec("CREATE TABLE IF NOT EXISTS tp_company_documents (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            company_id BIGINT UNSIGNED NOT NULL,
+            type VARCHAR(80) NOT NULL,
+            label VARCHAR(150) NOT NULL,
+            status VARCHAR(30) NOT NULL DEFAULT 'pending',
+            file_path VARCHAR(500) NULL,
+            original_name VARCHAR(255) NULL,
+            mime_type VARCHAR(100) NULL,
+            rejection_reason VARCHAR(500) NULL,
+            verified_at DATETIME NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_company_doc_company FOREIGN KEY (company_id) REFERENCES tp_companies(id) ON DELETE CASCADE,
+            INDEX idx_company_doc_status (company_id,type,status,created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS tp_company_phone_verifications (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            user_id BIGINT UNSIGNED NOT NULL,
+            phone VARCHAR(30) NOT NULL,
+            code_hash VARCHAR(255) NOT NULL,
+            expires_at DATETIME NOT NULL,
+            attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            status VARCHAR(30) NOT NULL DEFAULT 'pending',
+            last_sent_at DATETIME NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            verified_at DATETIME NULL,
+            CONSTRAINT fk_company_phone_verification_user FOREIGN KEY (user_id) REFERENCES tp_users(id) ON DELETE CASCADE,
+            INDEX idx_company_phone_verification (user_id,status,created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $ready=true;
+    }
+
+    private static function companyVerificationDocumentTypes(): array
+    {
+        return [
+            'cnpj'=>'Cartão do CNPJ',
+            'responsible_identity'=>'Documento do responsável',
+            'address'=>'Comprovante de endereço',
+        ];
+    }
+
+    private static function normalizeCompanyVerificationPhone(string $value): string
+    {
+        $digits=preg_replace('/\\D+/','',$value);
+        if(strlen($digits)===10||strlen($digits)===11) $digits='55'.$digits;
+        if(!preg_match('/^55\\d{10,11}$/',$digits)) throw new InvalidArgumentException('Informe um WhatsApp brasileiro válido com DDD.');
+        return '+'.$digits;
+    }
+
+    private static function maskCompanyVerificationPhone(string $phone): string
+    {
+        $digits=preg_replace('/\\D+/','',$phone);
+        if(strlen($digits)<7) return $phone;
+        return '+'.substr($digits,0,4).'*****'.substr($digits,-4);
+    }
+
+    public static function companyVerificationDocuments(int $userId): array
+    {
+        self::ensureCompanyVerificationSchema();
+        $companyId=self::companyIdForUser($userId);
+        if(!$companyId) throw new RuntimeException('Empresa não encontrada para este usuário.');
+        $st=Database::connection()->prepare('SELECT * FROM tp_company_documents WHERE company_id=? ORDER BY created_at DESC,id DESC');
+        $st->execute([$companyId]);
+        $latest=[];
+        foreach($st->fetchAll() as $doc){
+            $type=(string)$doc['type'];
+            if(!isset($latest[$type])) $latest[$type]=$doc;
+        }
+        return $latest;
+    }
+
+    public static function companyVerificationSummary(int $userId): array
+    {
+        self::ensureCompanyVerificationSchema();
+        $pdo=Database::connection();
+        $company=self::companyProfile($userId);
+        if(!$company) throw new RuntimeException('Empresa não encontrada para este usuário.');
+
+        $st=$pdo->prepare('SELECT id,name,email,phone,phone_verified_at,status FROM tp_users WHERE id=? LIMIT 1');
+        $st->execute([$userId]);
+        $account=$st->fetch();
+        if(!$account) throw new RuntimeException('Conta não encontrada.');
+
+        $requiredData=[
+            'name'=>['source'=>'user','label'=>'Nome do responsável'],
+            'email'=>['source'=>'user','label'=>'E-mail'],
+            'phone'=>['source'=>'user','label'=>'WhatsApp'],
+            'legal_name'=>['source'=>'company','label'=>'Razão social'],
+            'trade_name'=>['source'=>'company','label'=>'Nome fantasia'],
+            'cnpj'=>['source'=>'company','label'=>'CNPJ'],
+            'responsible_cpf'=>['source'=>'company','label'=>'CPF do responsável'],
+            'address'=>['source'=>'company','label'=>'Endereço'],
+            'postal_code'=>['source'=>'company','label'=>'CEP'],
+            'city'=>['source'=>'company','label'=>'Cidade'],
+            'state'=>['source'=>'company','label'=>'UF'],
+            'pix_key_type'=>['source'=>'company','label'=>'Tipo da chave Pix'],
+            'pix_key'=>['source'=>'company','label'=>'Chave Pix'],
+            'pix_holder_name'=>['source'=>'company','label'=>'Titular da chave Pix'],
+            'pix_holder_document'=>['source'=>'company','label'=>'CPF/CNPJ do titular Pix'],
+        ];
+        $missing=[];
+        foreach($requiredData as $field=>$meta){
+            $source=$meta['source']==='user'?$account:$company;
+            if(trim((string)($source[$field]??''))==='') $missing[]=$meta['label'];
+        }
+
+        $documents=self::companyVerificationDocuments($userId);
+        $requiredDocuments=self::companyVerificationDocumentTypes();
+        $verifiedDocuments=0;
+        foreach($requiredDocuments as $type=>$label){
+            if(($documents[$type]['status']??'')==='verified') $verifiedDocuments++;
+        }
+
+        $phoneVerified=!empty($account['phone_verified_at']);
+        $dataComplete=!$missing;
+        $documentsVerified=$verifiedDocuments===count($requiredDocuments);
+        $companyVerified=($company['status']??'pending')==='verified';
+        $readyForFinal=$phoneVerified&&$dataComplete&&$documentsVerified;
+
+        $challenge=null;
+        if(!$phoneVerified){
+            $st=$pdo->prepare("SELECT id,phone,expires_at,attempts,last_sent_at,status FROM tp_company_phone_verifications WHERE user_id=? AND status='pending' ORDER BY id DESC LIMIT 1");
+            $st->execute([$userId]);
+            $challenge=$st->fetch() ?: null;
+            if($challenge) $challenge['expired']=strtotime((string)$challenge['expires_at'])<time();
+            if($challenge && (bool)app_config('debug') && (bool)app_config('registration.development_whatsapp_bypass')){
+                $challenge['development_code']=preg_replace('/\\D+/','',(string)(app_config('registration.development_code')??'000111')) ?: '000111';
+            }
+        }
+
+        $total=6;
+        $completed=($phoneVerified?1:0)+($dataComplete?1:0)+$verifiedDocuments+($companyVerified?1:0);
+        $progress=$companyVerified?100:(int)round(($completed/$total)*100);
+
+        return [
+            'account'=>$account,
+            'company'=>$company,
+            'phone_verified'=>$phoneVerified,
+            'phone_masked'=>self::maskCompanyVerificationPhone((string)($account['phone']??'')),
+            'phone_challenge'=>$challenge,
+            'data_complete'=>$dataComplete,
+            'missing_data'=>$missing,
+            'required_documents'=>$requiredDocuments,
+            'documents'=>$documents,
+            'verified_documents'=>$verifiedDocuments,
+            'documents_verified'=>$documentsVerified,
+            'ready_for_final'=>$readyForFinal,
+            'company_verified'=>$companyVerified,
+            'progress'=>$progress,
+            'completed_steps'=>$completed,
+            'total_steps'=>$total,
+        ];
+    }
+
+    public static function requestCompanyPhoneVerification(int $userId): array
+    {
+        self::ensureCompanyVerificationSchema();
+        $pdo=Database::connection();
+        $companyId=self::companyIdForUser($userId);
+        if(!$companyId) throw new RuntimeException('Empresa não encontrada para este usuário.');
+
+        $st=$pdo->prepare('SELECT phone,phone_verified_at FROM tp_users WHERE id=? LIMIT 1');
+        $st->execute([$userId]);
+        $user=$st->fetch();
+        if(!$user) throw new RuntimeException('Conta não encontrada.');
+        if(!empty($user['phone_verified_at'])) return ['already_verified'=>true];
+
+        $phone=self::normalizeCompanyVerificationPhone((string)($user['phone']??''));
+        $last=$pdo->prepare('SELECT last_sent_at FROM tp_company_phone_verifications WHERE user_id=? ORDER BY id DESC LIMIT 1');
+        $last->execute([$userId]);
+        $lastSent=$last->fetchColumn();
+        if($lastSent && time()-strtotime((string)$lastSent)<60) throw new RuntimeException('Aguarde 60 segundos antes de reenviar o código.');
+
+        $count=$pdo->prepare('SELECT COUNT(*) FROM tp_company_phone_verifications WHERE user_id=? AND created_at>=DATE_SUB(NOW(),INTERVAL 24 HOUR)');
+        $count->execute([$userId]);
+        if((int)$count->fetchColumn()>=10) throw new RuntimeException('Limite de códigos atingido nas últimas 24 horas. Tente novamente mais tarde.');
+
+        $developmentBypass=(bool)app_config('debug') && (bool)app_config('registration.development_whatsapp_bypass');
+        $developmentCode=preg_replace('/\\D+/','',(string)(app_config('registration.development_code')??'000111'));
+        if(strlen($developmentCode)!==6) $developmentCode='000111';
+        $code=$developmentBypass?$developmentCode:(string)random_int(100000,999999);
+
+        if(!$developmentBypass) WhatsApp::sendVerificationCode($phone,$code);
+        $pdo->prepare("UPDATE tp_company_phone_verifications SET status='superseded' WHERE user_id=? AND status='pending'")->execute([$userId]);
+        $expires=date('Y-m-d H:i:s',time()+600);
+        $st=$pdo->prepare("INSERT INTO tp_company_phone_verifications (user_id,phone,code_hash,expires_at,attempts,status,last_sent_at,created_at) VALUES (?,?,?,?,0,'pending',NOW(),NOW())");
+        $st->execute([$userId,$phone,password_hash($code,PASSWORD_DEFAULT),$expires]);
+        self::audit($userId,'verification.company_phone_code_sent','company',$companyId);
+
+        $result=['already_verified'=>false,'phone_masked'=>self::maskCompanyVerificationPhone($phone),'expires_in'=>600,'development_bypass'=>$developmentBypass];
+        if($developmentBypass) $result['development_code']=$developmentCode;
+        return $result;
+    }
+
+    public static function confirmCompanyPhoneVerification(int $userId,string $code): void
+    {
+        self::ensureCompanyVerificationSchema();
+        $code=preg_replace('/\\D+/','',$code);
+        if(strlen($code)!==6) throw new InvalidArgumentException('Informe o código de 6 dígitos.');
+
+        $pdo=Database::connection();
+        $pdo->beginTransaction();
+        try{
+            $st=$pdo->prepare("SELECT * FROM tp_company_phone_verifications WHERE user_id=? AND status='pending' ORDER BY id DESC LIMIT 1 FOR UPDATE");
+            $st->execute([$userId]);
+            $challenge=$st->fetch();
+            if(!$challenge) throw new RuntimeException('Envie um código antes de confirmar o WhatsApp.');
+            if(strtotime((string)$challenge['expires_at'])<time()){
+                $pdo->prepare("UPDATE tp_company_phone_verifications SET status='expired' WHERE id=?")->execute([(int)$challenge['id']]);
+                throw new RuntimeException('Código expirado. Solicite um novo código.');
+            }
+            if((int)$challenge['attempts']>=5) throw new RuntimeException('Limite de tentativas atingido. Solicite um novo código.');
+            if(!password_verify($code,(string)$challenge['code_hash'])){
+                $pdo->prepare('UPDATE tp_company_phone_verifications SET attempts=attempts+1 WHERE id=?')->execute([(int)$challenge['id']]);
+                $pdo->commit();
+                throw new RuntimeException('Código inválido.');
+            }
+
+            $current=$pdo->prepare('SELECT phone FROM tp_users WHERE id=? LIMIT 1');
+            $current->execute([$userId]);
+            $phone=self::normalizeCompanyVerificationPhone((string)$current->fetchColumn());
+            if($phone!==self::normalizeCompanyVerificationPhone((string)$challenge['phone'])) throw new RuntimeException('O WhatsApp da conta foi alterado. Solicite um novo código.');
+
+            $pdo->prepare('UPDATE tp_users SET phone_verified_at=NOW(),updated_at=NOW() WHERE id=?')->execute([$userId]);
+            $pdo->prepare("UPDATE tp_company_phone_verifications SET status='verified',verified_at=NOW() WHERE id=?")->execute([(int)$challenge['id']]);
+            $companyId=self::companyIdForUser($userId);
+            self::audit($userId,'verification.company_phone_verified','company',$companyId);
+            $pdo->commit();
+        }catch(Throwable $e){
+            if($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    public static function uploadCompanyVerificationDocument(int $userId,string $type,array $file): int
+    {
+        self::ensureCompanyVerificationSchema();
+        $companyId=self::companyIdForUser($userId);
+        if(!$companyId) throw new RuntimeException('Empresa não encontrada para este usuário.');
+        $labels=self::companyVerificationDocumentTypes();
+        if(!isset($labels[$type])) throw new InvalidArgumentException('Tipo de documento inválido.');
+
+        $documents=self::companyVerificationDocuments($userId);
+        $current=$documents[$type]??null;
+        if(($current['status']??'')==='verified') throw new RuntimeException('Este documento já foi verificado.');
+        if(($current['status']??'')==='pending') throw new RuntimeException('Este documento já está em análise.');
+
+        if(($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK) throw new RuntimeException('Selecione um arquivo válido.');
+        if((int)($file['size']??0)<=0 || (int)$file['size']>5*1024*1024) throw new RuntimeException('O arquivo deve ter no máximo 5 MB.');
+        $tmp=(string)($file['tmp_name']??'');
+        if(!is_uploaded_file($tmp)) throw new RuntimeException('Upload não reconhecido pelo servidor.');
+
+        $finfo=new finfo(FILEINFO_MIME_TYPE);
+        $mime=$finfo->file($tmp) ?: '';
+        $allowed=['application/pdf'=>'pdf','image/jpeg'=>'jpg','image/png'=>'png'];
+        if(!isset($allowed[$mime])) throw new RuntimeException('Envie PDF, JPG ou PNG.');
+
+        $root=dirname(__DIR__);
+        $dir=$root.'/storage/uploads/company_documents';
+        if(!is_dir($dir) && !mkdir($dir,0770,true) && !is_dir($dir)) throw new RuntimeException('Não foi possível criar a pasta privada de documentos.');
+        $filename=bin2hex(random_bytes(20)).'.'.$allowed[$mime];
+        $absolute=$dir.'/'.$filename;
+        if(!move_uploaded_file($tmp,$absolute)) throw new RuntimeException('Falha ao salvar o documento.');
+        @chmod($absolute,0660);
+        $relative='storage/uploads/company_documents/'.$filename;
+
+        $st=Database::connection()->prepare('INSERT INTO tp_company_documents (company_id,type,label,status,file_path,original_name,mime_type,created_at) VALUES (?,?,?,"pending",?,?,?,NOW())');
+        $st->execute([$companyId,$type,$labels[$type],$relative,mb_substr((string)($file['name']??'documento'),0,255),$mime]);
+        $id=(int)Database::connection()->lastInsertId();
+        self::audit($userId,'verification.company_document_uploaded','company_document',$id,['type'=>$type,'mime'=>$mime]);
+        return $id;
+    }
+
+    public static function adminPendingCompanyDocuments(): array
+    {
+        self::ensureCompanyVerificationSchema();
+        $sql="SELECT d.*,c.trade_name,c.cnpj,u.name owner_name,u.email owner_email
+              FROM tp_company_documents d
+              JOIN tp_companies c ON c.id=d.company_id
+              LEFT JOIN tp_company_members cm ON cm.company_id=c.id AND cm.member_role='owner'
+              LEFT JOIN tp_users u ON u.id=cm.user_id
+              WHERE d.status='pending'
+              ORDER BY d.created_at ASC";
+        return Database::connection()->query($sql)->fetchAll();
+    }
+
+    public static function adminCompanyDocument(int $documentId): ?array
+    {
+        self::ensureCompanyVerificationSchema();
+        $st=Database::connection()->prepare('SELECT d.*,c.trade_name FROM tp_company_documents d JOIN tp_companies c ON c.id=d.company_id WHERE d.id=? LIMIT 1');
+        $st->execute([$documentId]);
+        return $st->fetch() ?: null;
+    }
+
+    public static function setCompanyDocumentVerification(int $adminUserId,int $documentId,string $decision,string $reason=''): void
+    {
+        self::ensureCompanyVerificationSchema();
+        if(!in_array($decision,['verified','rejected'],true)) throw new InvalidArgumentException('Decisão inválida.');
+        $reason=mb_substr(trim($reason),0,500);
+        if($decision==='rejected' && $reason==='') $reason='Documento recusado durante a revisão.';
+        $st=Database::connection()->prepare('UPDATE tp_company_documents SET status=?,verified_at=?,rejection_reason=? WHERE id=? AND status="pending"');
+        $st->execute([$decision,$decision==='verified'?date('Y-m-d H:i:s'):null,$decision==='rejected'?$reason:null,$documentId]);
+        if($st->rowCount()===0) throw new RuntimeException('Documento empresarial pendente não encontrado.');
+        self::audit($adminUserId,'verification.company_document_reviewed','company_document',$documentId,['decision'=>$decision]);
+    }
+
     public static function companyDashboard(int $userId): array
     {
         $pdo=Database::connection();
@@ -709,7 +1020,7 @@ final class Data
         $companyId=self::companyIdForUser($userId);
         if(!$companyId) throw new RuntimeException('Empresa não encontrada.');
         $name=trim((string)($data['name']??''));
-        $phone=trim((string)($data['phone']??''));
+        $phone=self::normalizeCompanyVerificationPhone((string)($data['phone']??''));
         $legal=trim((string)($data['legal_name']??''));
         $trade=trim((string)($data['trade_name']??''));
         $cnpj=trim((string)($data['cnpj']??''));
@@ -718,9 +1029,19 @@ final class Data
         $state=mb_strtoupper(trim((string)($data['state']??'')));
         if($name===''||$legal===''||$trade===''||$cnpj===''||$address===''||$city===''||strlen($state)!==2) throw new InvalidArgumentException('Preencha todos os campos obrigatórios.');
 
-        $pdo=Database::connection(); $pdo->beginTransaction();
+        $pdo=Database::connection();
+        $current=$pdo->prepare('SELECT phone FROM tp_users WHERE id=? LIMIT 1');
+        $current->execute([$userId]);
+        $currentPhone=(string)$current->fetchColumn();
+        $phoneChanged=$phone!==$currentPhone;
+
+        $pdo->beginTransaction();
         try{
-            $pdo->prepare('UPDATE tp_users SET name=?,phone=?,updated_at=NOW() WHERE id=?')->execute([$name,$phone,$userId]);
+            if($phoneChanged){
+                $pdo->prepare('UPDATE tp_users SET name=?,phone=?,phone_verified_at=NULL,updated_at=NOW() WHERE id=?')->execute([$name,$phone,$userId]);
+            }else{
+                $pdo->prepare('UPDATE tp_users SET name=?,phone=?,updated_at=NOW() WHERE id=?')->execute([$name,$phone,$userId]);
+            }
             $pdo->prepare('UPDATE tp_companies SET legal_name=?,trade_name=?,cnpj=?,address=?,city=?,state=? WHERE id=?')->execute([$legal,$trade,$cnpj,$address,$city,$state,$companyId]);
             self::audit($userId,'account.company_updated','company',$companyId);
             $pdo->commit();
@@ -926,6 +1247,17 @@ final class Data
     public static function setCompanyVerification(int $adminUserId,int $companyId,string $decision): void
     {
         if(!in_array($decision,['verified','rejected'],true))throw new InvalidArgumentException('Decisão inválida.');
+        if($decision==='verified'){
+            self::ensureCompanyVerificationSchema();
+            $owner=Database::connection()->prepare("SELECT user_id FROM tp_company_members WHERE company_id=? ORDER BY (member_role='owner') DESC,id ASC LIMIT 1");
+            $owner->execute([$companyId]);
+            $ownerUserId=(int)$owner->fetchColumn();
+            if(!$ownerUserId) throw new RuntimeException('A empresa não possui responsável vinculado.');
+            $summary=self::companyVerificationSummary($ownerUserId);
+            if(!$summary['ready_for_final']){
+                throw new RuntimeException('A empresa ainda possui etapas pendentes: WhatsApp, dados cadastrais ou documentos obrigatórios.');
+            }
+        }
         $st=Database::connection()->prepare('UPDATE tp_companies SET status=? WHERE id=? AND status="pending"');
         $st->execute([$decision,$companyId]);
         if($st->rowCount()===0)throw new RuntimeException('Empresa pendente não encontrada.');
