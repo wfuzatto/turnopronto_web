@@ -74,19 +74,28 @@
   });
 
   qa('input[type="password"]').forEach(input=>{
+    if(input.closest('.password-field')) return;
+
+    const wrapper=document.createElement('span');
+    wrapper.className='password-field';
+    input.parentNode?.insertBefore(wrapper,input);
+    wrapper.appendChild(input);
+
     const button=document.createElement('button');
     button.type='button';
     button.className='password-toggle';
     button.setAttribute('aria-label','Mostrar senha');
-    button.textContent='👁';
-    input.parentElement?.classList.add('has-password-toggle');
-    input.insertAdjacentElement('afterend',button);
+    button.setAttribute('aria-pressed','false');
+    button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.25 12s3.5-6 9.75-6 9.75 6 9.75 6-3.5 6-9.75 6S2.25 12 2.25 12Z"/><circle cx="12" cy="12" r="2.75"/></svg>';
+    wrapper.appendChild(button);
+
     button.addEventListener('click',()=>{
       const show=input.type==='password';
       input.type=show?'text':'password';
       button.setAttribute('aria-label',show?'Ocultar senha':'Mostrar senha');
-      button.textContent=show?'🙈':'👁';
-      input.focus();
+      button.setAttribute('aria-pressed',show?'true':'false');
+      button.classList.toggle('is-visible',show);
+      input.focus({preventScroll:true});
     });
   });
 
