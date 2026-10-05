@@ -5,3 +5,10 @@
 .location-card-link:focus-visible{outline:2px solid var(--blue);outline-offset:5px}
 .location-card-link .mini-map{transition:box-shadow .16s ease}
 .location-card-link:hover .mini-map{box-shadow:0 5px 16px rgba(11,103,255,.12)}
+
+
+.mini-map-real{background:#eef3f7;position:relative;isolation:isolate}
+.mini-map-real iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;pointer-events:none;filter:saturate(.92) contrast(.98)}
+.mini-map-real:before,.mini-map-real:after{display:none}
+.mini-map-real .mini-map-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#fff;color:var(--blue);box-shadow:0 3px 10px rgba(13,52,105,.22);z-index:2}
+.mini-map-real .mini-map-pin .tp-icon{display:block}
