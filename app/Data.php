@@ -1511,19 +1511,21 @@ final class Data
         }
         unset($company);
 
-        $professionals=$pdo->query("SELECT p.*,u.name,u.email,u.phone,
-                                    MAX(CASE WHEN d.type='identity' THEN d.status END) identity_status,
-                                    MAX(CASE WHEN d.type='cpf' THEN d.status END) cpf_status
+        $professionals=$pdo->query("SELECT p.*,u.name,u.email,u.phone
                                     FROM tp_professionals p
                                     JOIN tp_users u ON u.id=p.user_id
-                                    LEFT JOIN tp_documents d ON d.professional_id=p.id AND d.type IN ('identity','cpf')
                                     WHERE p.status='pending'
-                                    GROUP BY p.id,u.id
                                     ORDER BY p.created_at ASC")->fetchAll();
 
+        $docStatus=$pdo->prepare("SELECT type,status FROM tp_documents WHERE professional_id=? AND type IN ('identity','cpf') ORDER BY created_at DESC,id DESC");
         foreach($professionals as &$professional){
-            $identityVerified=($professional['identity_status']??'')==='verified';
-            $cpfVerified=($professional['cpf_status']??'')==='verified';
+            $docStatus->execute([(int)$professional['id']]);
+            $latest=[];
+            foreach($docStatus->fetchAll() as $doc){
+                if(!isset($latest[$doc['type']])) $latest[$doc['type']]=$doc['status'];
+            }
+            $identityVerified=($latest['identity']??'')==='verified';
+            $cpfVerified=($latest['cpf']??'')==='verified';
             $professional['verification_kind']='Cadastro profissional';
             $professional['verification_purpose']='Liberação do profissional para aceitar e se candidatar a turnos';
             $professional['verification_checks']=[
