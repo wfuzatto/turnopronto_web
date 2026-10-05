@@ -33,3 +33,59 @@
 /* public/assets/css/app-part9.css */
 .app-downloads{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}.app-downloads-title{font-size:11px;font-weight:800;color:var(--text);margin-bottom:9px;text-align:center}.store-badges{display:grid;grid-template-columns:1fr 1fr;gap:8px}.store-badge{min-height:58px;border-radius:12px;padding:8px 11px;display:flex;align-items:center;gap:9px;background:#101820;color:#fff;border:1px solid #101820;box-shadow:0 5px 14px rgba(15,31,50,.10);transition:transform .16s ease,box-shadow .16s ease,opacity .16s ease}.store-badge.android:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(15,31,50,.16)}.store-badge .store-icon{width:30px;height:30px;display:grid;place-items:center;flex:none}.store-badge span:last-child{display:flex;flex-direction:column;line-height:1.05}.store-badge small{font-size:7px;letter-spacing:.65px;font-weight:750;opacity:.78;margin-bottom:4px}.store-badge strong{font-size:15px;font-weight:850;letter-spacing:-.2px}.store-badge.ios.disabled{background:#f6f8fb;border-color:#dce4ee;color:#7a889c;box-shadow:none;cursor:not-allowed}.store-badge.ios.disabled small{color:#8e9caf}.app-download-note{text-align:center;color:var(--muted);font-size:8.5px;margin-top:7px}@media(max-width:420px){.store-badges{grid-template-columns:1fr}.store-badge{min-height:56px}}
 
+
+
+/* Password field: keeps the visibility control centered inside the input. */
+.password-field{
+  position:relative;
+  display:block;
+  width:100%;
+  margin-top:5px;
+}
+.password-field>input{
+  display:block;
+  width:100%;
+  margin-top:0!important;
+  padding-right:48px!important;
+}
+.password-toggle{
+  position:absolute;
+  top:50%;
+  right:6px;
+  transform:translateY(-50%);
+  width:34px;
+  height:34px;
+  padding:0;
+  margin:0;
+  border:0;
+  border-radius:8px;
+  background:#f3f7fc;
+  color:#607895;
+  display:grid;
+  place-items:center;
+  line-height:1;
+  cursor:pointer;
+  z-index:2;
+  transition:background .16s ease,color .16s ease,box-shadow .16s ease;
+}
+.password-toggle svg{
+  width:16px;
+  height:16px;
+  display:block;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.password-toggle:hover{
+  background:#eaf2fb;
+  color:var(--blue);
+}
+.password-toggle:focus-visible{
+  outline:0;
+  box-shadow:0 0 0 3px #dceaff;
+}
+.password-toggle.is-visible{
+  color:var(--blue);
+}
