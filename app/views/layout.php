@@ -8,7 +8,7 @@ $me=$user??Auth::user();
 $role=$me['role']??null;
 $companyName=$role==='company'?(Data::companyProfile((int)$me['id'])['trade_name']??$me['name']):($me['name']??'TurnoPronto');
 $navCompany=[
- ['empresa/dashboard','home','Dashboard'],['empresa/vagas/nova','plus','Publicar vaga'],['empresa/vagas','briefcase','Minhas vagas'],['empresa/profissionais','users','Profissionais'],['empresa/escalas','calendar','Escalas'],['empresa/financeiro','wallet','Financeiro'],['empresa/avaliacoes','star','Avaliações'],['suporte','help','Suporte']
+ ['empresa/dashboard','home','Dashboard'],['empresa/verificacao','shield','Verificação'],['empresa/vagas/nova','plus','Publicar vaga'],['empresa/vagas','briefcase','Minhas vagas'],['empresa/profissionais','users','Profissionais'],['empresa/escalas','calendar','Escalas'],['empresa/financeiro','wallet','Financeiro'],['empresa/avaliacoes','star','Avaliações'],['suporte','help','Suporte']
 ];
 $navPro=[
  ['profissional/inicio','home','Início'],['profissional/oportunidades','briefcase','Oportunidades'],['profissional/turnos','calendar','Meus turnos'],['profissional/agenda','calendar','Agenda'],['profissional/ganhos','chart','Ganhos'],['profissional/reputacao','star','Reputação'],['profissional/documentos','file','Documentos'],['suporte','help','Suporte']

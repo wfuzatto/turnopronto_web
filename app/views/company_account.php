@@ -4,7 +4,7 @@
     <div class="panel-head"><div><h2>Responsável pela conta</h2><p>Informações usadas no acesso e contato operacional.</p></div></div>
     <div class="form-grid">
       <div><label>Nome *</label><input name="name" value="<?=e($_POST['name']??$user['name'])?>" required></div>
-      <div><label>Telefone</label><input name="phone" value="<?=e($_POST['phone']??$user['phone']??'')?>"></div>
+      <div><label>WhatsApp *</label><input name="phone" value="<?=e($_POST['phone']??$user['phone']??'')?>" required><small class="field-note">Se o número for alterado, ele precisará ser validado novamente.</small></div>
       <div class="full"><label>E-mail</label><input value="<?=e($user['email'])?>" disabled><small class="field-note">Alteração de e-mail será liberada junto com a verificação por e-mail.</small></div>
     </div>
   </section>

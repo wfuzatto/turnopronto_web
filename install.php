@@ -37,7 +37,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
       }
 
       $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
-      foreach(['tp_notifications','tp_reputation_events','tp_reviews','tp_ledger','tp_assignments','tp_shift_applications','tp_shifts','tp_professional_categories','tp_documents','tp_company_members','tp_professionals','tp_companies','tp_api_tokens','tp_audit_logs','tp_users','tp_job_categories'] as $table){ $pdo->exec('TRUNCATE TABLE '.$table); }
+      foreach(['tp_notifications','tp_reputation_events','tp_reviews','tp_ledger','tp_assignments','tp_shift_applications','tp_shifts','tp_professional_categories','tp_documents','tp_company_documents','tp_company_phone_verifications','tp_company_members','tp_professionals','tp_companies','tp_api_tokens','tp_audit_logs','tp_users','tp_job_categories'] as $table){ $pdo->exec('TRUNCATE TABLE '.$table); }
       $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
       $pdo->beginTransaction();
       $categories=['Garçom'=>'garcom','Recepcionista'=>'recepcionista','Aux. Cozinha'=>'aux-cozinha','Aux. Limpeza'=>'aux-limpeza','Bartender'=>'bartender','Camareira'=>'camareira','Promotor'=>'promotor','Aux. Eventos'=>'aux-eventos'];
