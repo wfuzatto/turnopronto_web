@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS tp_companies (
   postal_code VARCHAR(12) NULL,
   city VARCHAR(120) NULL,
   state CHAR(2) NULL,
+  maps_url VARCHAR(1000) NULL,
   pix_key_type VARCHAR(30) NULL,
   pix_key VARCHAR(190) NULL,
   pix_holder_name VARCHAR(190) NULL,

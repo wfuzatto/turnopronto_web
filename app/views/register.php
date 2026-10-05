@@ -45,6 +45,9 @@
           <label>UF *<input name="state" maxlength="2" value="<?=e($_POST['state']??'MG')?>" required></label>
           <label class="wide">Endereço *<input name="address" value="<?=e($_POST['address']??'')?>" autocomplete="street-address" required></label>
           <label class="wide">Cidade *<input name="city" value="<?=e($_POST['city']??'')?>" required></label>
+          <?php if($kind==='company'):?>
+            <label class="wide">Link do Google Maps<input type="url" name="maps_url" value="<?=e($_POST['maps_url']??'')?>" placeholder="https://maps.app.goo.gl/..." autocomplete="url"><small class="field-note">Cole o link compartilhado da localização principal da empresa. Ele será usado no painel para abrir o mapa.</small></label>
+          <?php endif;?>
 
           <?php if($kind==='professional'):?>
             <fieldset class="wide category-checks"><legend>Em quais funções você quer trabalhar? *</legend><?php foreach($categories as $cat):?><label><input type="checkbox" name="categories[]" value="<?=$cat['id']?>" <?=in_array((string)$cat['id'],array_map('strval',(array)($_POST['categories']??[])),true)?'checked':''?>> <span><?=e($cat['name'])?></span></label><?php endforeach;?></fieldset>

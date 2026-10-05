@@ -43,8 +43,27 @@ final class Data
         return $v ? (int)$v : null;
     }
 
+    private static function ensureCompanyMapsColumn(): void
+    {
+        if(self::hasColumn('tp_companies','maps_url')) return;
+        Database::connection()->exec('ALTER TABLE tp_companies ADD COLUMN maps_url VARCHAR(1000) NULL AFTER state');
+        self::$columnCache['tp_companies.maps_url']=true;
+    }
+
+    private static function normalizeCompanyMapsUrl(string $value): string
+    {
+        $value=trim($value);
+        if($value==='') return '';
+        if(mb_strlen($value)>1000) throw new InvalidArgumentException('O link do Google Maps é muito longo.');
+        if(!filter_var($value,FILTER_VALIDATE_URL)) throw new InvalidArgumentException('Informe um link válido do Google Maps.');
+        $scheme=mb_strtolower((string)parse_url($value,PHP_URL_SCHEME));
+        if(!in_array($scheme,['http','https'],true)) throw new InvalidArgumentException('O link do Google Maps precisa começar com http:// ou https://.');
+        return $value;
+    }
+
     public static function companyProfile(int $userId): array
     {
+        self::ensureCompanyMapsColumn();
         $companyId=self::companyIdForUser($userId);
         $s=Database::connection()->prepare('SELECT * FROM tp_companies WHERE id=?');
         $s->execute([$companyId]);
@@ -1025,10 +1044,12 @@ final class Data
         $trade=trim((string)($data['trade_name']??''));
         $cnpj=trim((string)($data['cnpj']??''));
         $address=trim((string)($data['address']??''));
+        $mapsUrl=self::normalizeCompanyMapsUrl((string)($data['maps_url']??''));
         $city=trim((string)($data['city']??''));
         $state=mb_strtoupper(trim((string)($data['state']??'')));
         if($name===''||$legal===''||$trade===''||$cnpj===''||$address===''||$city===''||strlen($state)!==2) throw new InvalidArgumentException('Preencha todos os campos obrigatórios.');
 
+        self::ensureCompanyMapsColumn();
         $pdo=Database::connection();
         $current=$pdo->prepare('SELECT phone FROM tp_users WHERE id=? LIMIT 1');
         $current->execute([$userId]);
@@ -1042,7 +1063,7 @@ final class Data
             }else{
                 $pdo->prepare('UPDATE tp_users SET name=?,phone=?,updated_at=NOW() WHERE id=?')->execute([$name,$phone,$userId]);
             }
-            $pdo->prepare('UPDATE tp_companies SET legal_name=?,trade_name=?,cnpj=?,address=?,city=?,state=? WHERE id=?')->execute([$legal,$trade,$cnpj,$address,$city,$state,$companyId]);
+            $pdo->prepare('UPDATE tp_companies SET legal_name=?,trade_name=?,cnpj=?,address=?,city=?,state=?,maps_url=? WHERE id=?')->execute([$legal,$trade,$cnpj,$address,$city,$state,$mapsUrl,$companyId]);
             self::audit($userId,'account.company_updated','company',$companyId);
             $pdo->commit();
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
