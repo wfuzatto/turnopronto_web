@@ -79,7 +79,7 @@ $challenge=$v['phone_challenge']??null;
     <?php $step=3; foreach($v['required_documents'] as $type=>$label):
       $doc=$v['documents'][$type]??null;
       $docStatus=$doc['status']??'missing';
-      $isVerified=$docStatus==='verified'||($v['company_verified']&&!$doc);
+      $isVerified=$v['company_verified']||$docStatus==='verified';
       $isRejected=$docStatus==='rejected';
       $cardClass=$isVerified?'complete':($isRejected?'rejected':'');
       $statusText=$isVerified?'Verificado':($docStatus==='pending'?'Em análise':($isRejected?'Rejeitado':'Não enviado'));
