@@ -36,10 +36,60 @@
 </section>
 
 <section class="panel verification-panel">
-  <div class="panel-head"><div><h2>Verificações pendentes</h2><p>Libere publicação de vagas e aceite de turnos somente após a checagem operacional.</p></div><span class="candidate-total"><?=count($verification['companies'])+count($verification['professionals'])?> pendente(s)</span></div>
+  <div class="panel-head"><div><h2>Cadastros aguardando aprovação final</h2><p>Esta fila é de <strong>cadastros</strong>, não de vagas. Veja o tipo, a finalidade e o que já foi verificado antes de liberar.</p></div><span class="candidate-total"><?=count($verification['companies'])+count($verification['professionals'])?> pendente(s)</span></div>
   <?php if(!$verification['companies'] && !$verification['professionals']):?><div class="mini-empty">Nenhum cadastro aguardando verificação.</div><?php endif;?>
-  <?php foreach($verification['companies'] as $item):?><article class="verification-row"><span class="verification-type company"><?=icon('briefcase',18)?></span><div><strong><?=e($item['trade_name'])?></strong><span><?=e($item['cnpj'])?> · <?=e($item['city'].' - '.$item['state'])?></span><small>Responsável: <?=e($item['owner_name']?:'—')?> · <?=e($item['owner_email']?:'—')?></small></div><div class="verification-actions"><form method="post" action="<?=e(url('admin/verificacao/empresa/'.$item['id'].'/aprovar'))?>"><?=csrf_field()?><button class="btn btn-primary btn-sm">Aprovar</button></form><form method="post" action="<?=e(url('admin/verificacao/empresa/'.$item['id'].'/rejeitar'))?>" data-confirm="Rejeitar este cadastro empresarial?"><?=csrf_field()?><button class="btn btn-ghost btn-sm">Rejeitar</button></form></div></article><?php endforeach;?>
-  <?php foreach($verification['professionals'] as $item):?><article class="verification-row"><span class="verification-type professional"><?=icon('users',18)?></span><div><strong><?=e($item['name'])?></strong><span><?=e($item['headline'])?> · <?=e($item['city'].' - '.$item['state'])?></span><small>CPF: <?=e($item['cpf'])?> · <?=e($item['email'])?></small></div><div class="verification-actions"><form method="post" action="<?=e(url('admin/verificacao/profissional/'.$item['id'].'/aprovar'))?>"><?=csrf_field()?><button class="btn btn-primary btn-sm">Aprovar</button></form><form method="post" action="<?=e(url('admin/verificacao/profissional/'.$item['id'].'/rejeitar'))?>" data-confirm="Rejeitar este cadastro profissional?"><?=csrf_field()?><button class="btn btn-ghost btn-sm">Rejeitar</button></form></div></article><?php endforeach;?>
+
+  <?php foreach($verification['companies'] as $item):?>
+    <article class="verification-row verification-row-detailed">
+      <span class="verification-type company"><?=icon('briefcase',18)?></span>
+      <div class="verification-copy">
+        <div class="verification-row-title"><strong><?=e($item['trade_name'])?></strong><span class="verification-kind company">Cadastro empresarial</span></div>
+        <span><?=e($item['cnpj'])?> · <?=e($item['city'].' - '.$item['state'])?></span>
+        <small>Responsável: <?=e($item['owner_name']?:'—')?> · <?=e($item['owner_email']?:'—')?></small>
+        <div class="verification-purpose"><b>O que será aprovado:</b> <?=e($item['verification_purpose'])?></div>
+        <div class="verification-checks">
+          <?php foreach($item['verification_checks'] as $check):?>
+            <span class="verification-check <?=$check['ok']?'ok':'missing'?>"><?=$check['ok']?'✓':'!'?> <?=e($check['label'])?></span>
+          <?php endforeach;?>
+        </div>
+        <div class="verification-readiness <?=$item['ready_for_final']?'ready':'blocked'?>">
+          <?=$item['ready_for_final']?'Pronto para aprovação final.':'Ainda existem pré-requisitos pendentes. Aprove os itens faltantes antes de liberar a empresa.'?>
+        </div>
+      </div>
+      <div class="verification-actions verification-actions-stacked">
+        <form method="post" action="<?=e(url('admin/verificacao/empresa/'.$item['id'].'/aprovar'))?>"><?=csrf_field()?>
+          <button class="btn btn-primary btn-sm" <?=$item['ready_for_final']?'':'disabled title="Conclua os pré-requisitos antes da aprovação final"'?>>Aprovar cadastro</button>
+        </form>
+        <form method="post" action="<?=e(url('admin/verificacao/empresa/'.$item['id'].'/rejeitar'))?>" data-confirm="Rejeitar este cadastro empresarial?"><?=csrf_field()?><button class="btn btn-ghost btn-sm">Rejeitar cadastro</button></form>
+      </div>
+    </article>
+  <?php endforeach;?>
+
+  <?php foreach($verification['professionals'] as $item):?>
+    <article class="verification-row verification-row-detailed">
+      <span class="verification-type professional"><?=icon('users',18)?></span>
+      <div class="verification-copy">
+        <div class="verification-row-title"><strong><?=e($item['name'])?></strong><span class="verification-kind professional">Cadastro profissional</span></div>
+        <span><?=e($item['headline'])?> · <?=e($item['city'].' - '.$item['state'])?></span>
+        <small>CPF: <?=e($item['cpf'])?> · <?=e($item['email'])?></small>
+        <div class="verification-purpose"><b>O que será aprovado:</b> <?=e($item['verification_purpose'])?></div>
+        <div class="verification-checks">
+          <?php foreach($item['verification_checks'] as $check):?>
+            <span class="verification-check <?=$check['ok']?'ok':'missing'?>"><?=$check['ok']?'✓':'!'?> <?=e($check['label'])?></span>
+          <?php endforeach;?>
+        </div>
+        <div class="verification-readiness <?=$item['ready_for_final']?'ready':'blocked'?>">
+          <?=$item['ready_for_final']?'Pronto para aprovação final.':'Documento de identidade e CPF precisam estar aprovados antes da liberação.'?>
+        </div>
+      </div>
+      <div class="verification-actions verification-actions-stacked">
+        <form method="post" action="<?=e(url('admin/verificacao/profissional/'.$item['id'].'/aprovar'))?>"><?=csrf_field()?>
+          <button class="btn btn-primary btn-sm" <?=$item['ready_for_final']?'':'disabled title="Aprove os documentos obrigatórios antes da aprovação final"'?>>Aprovar cadastro</button>
+        </form>
+        <form method="post" action="<?=e(url('admin/verificacao/profissional/'.$item['id'].'/rejeitar'))?>" data-confirm="Rejeitar este cadastro profissional?"><?=csrf_field()?><button class="btn btn-ghost btn-sm">Rejeitar cadastro</button></form>
+      </div>
+    </article>
+  <?php endforeach;?>
 </section>
 
 <div class="admin-grid">
