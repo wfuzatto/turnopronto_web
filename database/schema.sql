@@ -257,6 +257,37 @@ CREATE TABLE IF NOT EXISTS tp_registration_requests (
   INDEX idx_reg_expiry (status,code_expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS tp_company_documents (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  company_id BIGINT UNSIGNED NOT NULL,
+  type VARCHAR(80) NOT NULL,
+  label VARCHAR(150) NOT NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'pending',
+  file_path VARCHAR(500) NULL,
+  original_name VARCHAR(255) NULL,
+  mime_type VARCHAR(100) NULL,
+  rejection_reason VARCHAR(500) NULL,
+  verified_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_company_doc_company FOREIGN KEY (company_id) REFERENCES tp_companies(id) ON DELETE CASCADE,
+  INDEX idx_company_doc_status (company_id,type,status,created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS tp_company_phone_verifications (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  phone VARCHAR(30) NOT NULL,
+  code_hash VARCHAR(255) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  status VARCHAR(30) NOT NULL DEFAULT 'pending',
+  last_sent_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  verified_at DATETIME NULL,
+  CONSTRAINT fk_company_phone_verification_user FOREIGN KEY (user_id) REFERENCES tp_users(id) ON DELETE CASCADE,
+  INDEX idx_company_phone_verification (user_id,status,created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS tp_consents (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT UNSIGNED NOT NULL,
