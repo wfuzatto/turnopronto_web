@@ -230,10 +230,13 @@ CREATE TABLE IF NOT EXISTS tp_notifications (
   type VARCHAR(50) NOT NULL,
   title VARCHAR(190) NOT NULL,
   body TEXT NOT NULL,
+  action_url VARCHAR(500) NULL,
+  dedupe_key VARCHAR(190) NULL,
   read_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES tp_users(id) ON DELETE CASCADE,
-  INDEX idx_notification_user (user_id,read_at,created_at)
+  INDEX idx_notification_user (user_id,read_at,created_at),
+  UNIQUE KEY uq_notification_dedupe (user_id,dedupe_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS tp_registration_requests (
