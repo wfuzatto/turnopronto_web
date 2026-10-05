@@ -187,7 +187,7 @@ final class Data
         }
 
         $total=6;
-        $completed=($phoneVerified?1:0)+($dataComplete?1:0)+$verifiedDocuments+($companyVerified?1:0);
+        $completed=$companyVerified?$total:(($phoneVerified?1:0)+($dataComplete?1:0)+$verifiedDocuments);
         $progress=$companyVerified?100:(int)round(($completed/$total)*100);
 
         return [
