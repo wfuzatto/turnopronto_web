@@ -17,6 +17,7 @@
       <div><label>UF *</label><input name="state" maxlength="2" value="<?=e($_POST['state']??$company['state']??'MG')?>" required></div>
       <div class="full"><label>Endereço *</label><input name="address" value="<?=e($_POST['address']??$company['address']??'')?>" required></div>
       <div class="full"><label>Cidade *</label><input name="city" value="<?=e($_POST['city']??$company['city']??'')?>" required></div>
+      <div class="full"><label>Link do Google Maps</label><input type="url" name="maps_url" value="<?=e($_POST['maps_url']??$company['maps_url']??'')?>" placeholder="https://maps.app.goo.gl/..." autocomplete="url"><small class="field-note">Cole o link compartilhado da localização principal. Ao clicar no cartão “Sua localização”, o mapa será aberto em uma nova aba.</small></div>
     </div>
   </section>
   <div class="account-save"><button class="btn btn-primary" type="submit">Salvar alterações</button></div>
