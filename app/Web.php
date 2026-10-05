@@ -123,7 +123,7 @@ final class Web
             View::render('not_installed',['title'=>'Serviço indisponível']);
         }
 
-        if ($path === '/api/v1/notifications') {
+        if ($path === '/notificacoes/feed') {
             $u=Auth::requireRole('company','professional','admin');
             $menu=Data::notificationMenu((int)$u['id'],6);
             foreach($menu['items'] as &$item){
