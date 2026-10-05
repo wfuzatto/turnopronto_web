@@ -27,6 +27,176 @@ final class Data
         }
     }
 
+    private static function ensureNotificationSchema(): void
+    {
+        static $ready=false;
+        if($ready) return;
+        $pdo=Database::connection();
+        $pdo->exec("CREATE TABLE IF NOT EXISTS tp_notifications (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            user_id BIGINT UNSIGNED NOT NULL,
+            type VARCHAR(50) NOT NULL,
+            title VARCHAR(190) NOT NULL,
+            body TEXT NOT NULL,
+            action_url VARCHAR(500) NULL,
+            dedupe_key VARCHAR(190) NULL,
+            read_at DATETIME NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES tp_users(id) ON DELETE CASCADE,
+            INDEX idx_notification_user (user_id,read_at,created_at),
+            UNIQUE KEY uq_notification_dedupe (user_id,dedupe_key)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        if(!self::hasColumn('tp_notifications','action_url')){
+            $pdo->exec('ALTER TABLE tp_notifications ADD COLUMN action_url VARCHAR(500) NULL AFTER body');
+            self::$columnCache['tp_notifications.action_url']=true;
+        }
+        if(!self::hasColumn('tp_notifications','dedupe_key')){
+            $pdo->exec('ALTER TABLE tp_notifications ADD COLUMN dedupe_key VARCHAR(190) NULL AFTER action_url');
+            self::$columnCache['tp_notifications.dedupe_key']=true;
+        }
+
+        $idx=$pdo->prepare("SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tp_notifications' AND INDEX_NAME='uq_notification_dedupe'");
+        $idx->execute();
+        if(!(int)$idx->fetchColumn()){
+            $pdo->exec('ALTER TABLE tp_notifications ADD UNIQUE KEY uq_notification_dedupe (user_id,dedupe_key)');
+        }
+        $ready=true;
+    }
+
+    private static function notificationActionPath(string $path): string
+    {
+        $path=ltrim(trim($path),'/');
+        if($path==='' || str_contains($path,'://') || str_starts_with($path,'//')) return '';
+        if(!preg_match('#^[a-zA-Z0-9/_?&=.%+-]+$#',$path)) return '';
+        return mb_substr($path,0,500);
+    }
+
+    private static function createNotification(int $userId,string $type,string $title,string $body,string $actionPath='',?string $dedupeKey=null): void
+    {
+        if($userId<=0) return;
+        self::ensureNotificationSchema();
+        $action=self::notificationActionPath($actionPath);
+        $key=$dedupeKey!==null?mb_substr(trim($dedupeKey),0,190):null;
+        $st=Database::connection()->prepare('INSERT IGNORE INTO tp_notifications (user_id,type,title,body,action_url,dedupe_key,created_at) VALUES (?,?,?,?,?,?,NOW())');
+        $st->execute([
+            $userId,
+            mb_substr(trim($type),0,50),
+            mb_substr(trim($title),0,190),
+            trim($body),
+            $action!==''?$action:null,
+            $key!==''?$key:null
+        ]);
+    }
+
+    private static function professionalUserId(int $professionalId): ?int
+    {
+        $st=Database::connection()->prepare('SELECT user_id FROM tp_professionals WHERE id=? LIMIT 1');
+        $st->execute([$professionalId]);
+        $value=$st->fetchColumn();
+        return $value?(int)$value:null;
+    }
+
+    private static function notifyProfessionalsForShift(int $shiftId): void
+    {
+        $pdo=Database::connection();
+        $st=$pdo->prepare("SELECT s.id,s.title,s.starts_at,s.city,s.state,s.shift_value,s.category_id,
+                                  jc.name category_name,c.trade_name company_name
+                           FROM tp_shifts s
+                           JOIN tp_job_categories jc ON jc.id=s.category_id
+                           JOIN tp_companies c ON c.id=s.company_id
+                           WHERE s.id=? AND s.status IN ('published','filling') LIMIT 1");
+        $st->execute([$shiftId]);
+        $shift=$st->fetch();
+        if(!$shift) return;
+
+        $targets=$pdo->prepare("SELECT DISTINCT u.id
+                               FROM tp_professional_categories pc
+                               JOIN tp_professionals p ON p.id=pc.professional_id
+                               JOIN tp_users u ON u.id=p.user_id
+                               WHERE pc.category_id=? AND p.status='verified' AND u.status='active'");
+        $targets->execute([(int)$shift['category_id']]);
+        $when=date('d/m/Y H:i',strtotime((string)$shift['starts_at']));
+        $body='Nova vaga de '.$shift['category_name'].' em '.$shift['city'].' - '.$shift['state'].' para '.$when.', por '.money($shift['shift_value']).'. Empresa: '.$shift['company_name'].'.';
+        foreach($targets->fetchAll(PDO::FETCH_COLUMN) as $targetUserId){
+            self::createNotification(
+                (int)$targetUserId,
+                'matching_shift',
+                'Nova vaga do seu interesse',
+                $body,
+                'profissional/vagas/'.$shiftId,
+                'matching_shift:'.$shiftId
+            );
+        }
+    }
+
+    private static function notifyCompanyMembersOfApplication(int $shiftId,int $professionalId): void
+    {
+        $pdo=Database::connection();
+        $st=$pdo->prepare("SELECT s.title,s.company_id,jc.name category_name,u.name professional_name
+                           FROM tp_shifts s
+                           JOIN tp_job_categories jc ON jc.id=s.category_id
+                           JOIN tp_professionals p ON p.id=?
+                           JOIN tp_users u ON u.id=p.user_id
+                           WHERE s.id=? LIMIT 1");
+        $st->execute([$professionalId,$shiftId]);
+        $data=$st->fetch();
+        if(!$data) return;
+
+        $members=$pdo->prepare("SELECT DISTINCT u.id
+                                FROM tp_company_members cm
+                                JOIN tp_users u ON u.id=cm.user_id
+                                WHERE cm.company_id=? AND u.status='active'");
+        $members->execute([(int)$data['company_id']]);
+        foreach($members->fetchAll(PDO::FETCH_COLUMN) as $memberUserId){
+            self::createNotification(
+                (int)$memberUserId,
+                'application',
+                'Nova candidatura recebida',
+                $data['professional_name'].' se candidatou para '.$data['category_name'].' · '.$data['title'].'.',
+                'empresa/vagas/'.$shiftId,
+                'application:'.$shiftId.':'.$professionalId
+            );
+        }
+    }
+
+    public static function notificationMenu(int $userId,int $limit=6): array
+    {
+        self::ensureNotificationSchema();
+        $pdo=Database::connection();
+        $count=$pdo->prepare('SELECT COUNT(*) FROM tp_notifications WHERE user_id=? AND read_at IS NULL');
+        $count->execute([$userId]);
+        $st=$pdo->prepare('SELECT id,type,title,body,action_url,read_at,created_at FROM tp_notifications WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT '.max(1,min(20,$limit)));
+        $st->execute([$userId]);
+        return ['unread'=>(int)$count->fetchColumn(),'items'=>$st->fetchAll()];
+    }
+
+    public static function notifications(int $userId,int $limit=100): array
+    {
+        self::ensureNotificationSchema();
+        $st=Database::connection()->prepare('SELECT id,type,title,body,action_url,read_at,created_at FROM tp_notifications WHERE user_id=? ORDER BY created_at DESC,id DESC LIMIT '.max(1,min(200,$limit)));
+        $st->execute([$userId]);
+        return $st->fetchAll();
+    }
+
+    public static function openNotification(int $userId,int $notificationId): string
+    {
+        self::ensureNotificationSchema();
+        $pdo=Database::connection();
+        $st=$pdo->prepare('SELECT action_url FROM tp_notifications WHERE id=? AND user_id=? LIMIT 1');
+        $st->execute([$notificationId,$userId]);
+        $row=$st->fetch();
+        if(!$row) throw new RuntimeException('Notificação não encontrada.');
+        $pdo->prepare('UPDATE tp_notifications SET read_at=COALESCE(read_at,NOW()) WHERE id=? AND user_id=?')->execute([$notificationId,$userId]);
+        return self::notificationActionPath((string)($row['action_url']??''));
+    }
+
+    public static function markAllNotificationsRead(int $userId): void
+    {
+        self::ensureNotificationSchema();
+        Database::connection()->prepare('UPDATE tp_notifications SET read_at=COALESCE(read_at,NOW()) WHERE user_id=?')->execute([$userId]);
+    }
+
     public static function companyIdForUser(int $userId): ?int
     {
         $s=Database::connection()->prepare('SELECT company_id FROM tp_company_members WHERE user_id=? LIMIT 1');
@@ -631,6 +801,7 @@ final class Data
         $st->execute($params);
         $id=(int)$pdo->lastInsertId();
         self::audit($userId,'shift.created','shift',$id,['title'=>$d['title'],'acceptance_mode'=>$d['acceptance_mode']]);
+        self::notifyProfessionalsForShift($id);
         return $id;
     }
 
@@ -654,6 +825,7 @@ final class Data
 
         $pdo->prepare($sql)->execute($params);
         self::audit($userId,'shift.updated','shift',$shiftId,['title'=>$d['title']]);
+        if((int)$current['category_id']!==(int)$d['category_id']) self::notifyProfessionalsForShift($shiftId);
     }
 
     public static function cancelShift(int $userId, int $shiftId, string $reason=''): void
@@ -717,6 +889,18 @@ final class Data
 
             self::audit($userId,'application.approved','shift_application',$applicationId,['shift_id'=>$shiftId,'assignment_id'=>$assignmentId]);
             $pdo->commit();
+
+            $professionalUserId=self::professionalUserId((int)$application['professional_id']);
+            if($professionalUserId){
+                self::createNotification(
+                    $professionalUserId,
+                    'application_approved',
+                    'Sua candidatura foi aprovada',
+                    'Você foi confirmado para '.$shift['title'].'. Consulte os detalhes do turno.',
+                    'profissional/turno/'.$assignmentId,
+                    'application_approved:'.$applicationId
+                );
+            }
             return $assignmentId;
         } catch(Throwable $e){
             if($pdo->inTransaction()) $pdo->rollBack();
@@ -728,13 +912,24 @@ final class Data
     {
         if(!self::companyShift($userId,$shiftId)) throw new RuntimeException('Vaga não encontrada.');
         $pdo=Database::connection();
-        $st=$pdo->prepare('SELECT x.id assignment_id FROM tp_shift_applications a LEFT JOIN tp_assignments x ON x.shift_id=a.shift_id AND x.professional_id=a.professional_id AND x.status<>"cancelled" WHERE a.id=? AND a.shift_id=?');
+        $st=$pdo->prepare('SELECT a.professional_id,x.id assignment_id FROM tp_shift_applications a LEFT JOIN tp_assignments x ON x.shift_id=a.shift_id AND x.professional_id=a.professional_id AND x.status<>"cancelled" WHERE a.id=? AND a.shift_id=?');
         $st->execute([$applicationId,$shiftId]);
         $row=$st->fetch();
         if(!$row) throw new RuntimeException('Candidatura não encontrada.');
         if(!empty($row['assignment_id'])) throw new RuntimeException('O profissional já está confirmado neste turno.');
         $pdo->prepare('UPDATE tp_shift_applications SET status="rejected" WHERE id=? AND shift_id=?')->execute([$applicationId,$shiftId]);
         self::audit($userId,'application.rejected','shift_application',$applicationId,['shift_id'=>$shiftId]);
+        $professionalUserId=self::professionalUserId((int)$row['professional_id']);
+        if($professionalUserId){
+            self::createNotification(
+                $professionalUserId,
+                'application_rejected',
+                'Atualização sobre sua candidatura',
+                'A empresa não confirmou sua candidatura para esta vaga.',
+                'profissional/vagas/'.$shiftId,
+                'application_rejected:'.$applicationId
+            );
+        }
     }
 
     public static function inviteProfessional(int $userId, int $professionalId, int $shiftId): void
@@ -743,13 +938,32 @@ final class Data
         if(!$shift) throw new RuntimeException('Selecione uma vaga válida.');
         if(!in_array($shift['status'],['published','filling'],true) || strtotime($shift['starts_at'])<=time()) throw new RuntimeException('Esta vaga não está aberta para convites.');
 
-        $st=Database::connection()->prepare('SELECT id FROM tp_professionals WHERE id=? AND status="verified"');
+        $pdo=Database::connection();
+        $st=$pdo->prepare('SELECT p.id,p.user_id FROM tp_professionals p JOIN tp_users u ON u.id=p.user_id WHERE p.id=? AND p.status="verified" AND u.status="active"');
         $st->execute([$professionalId]);
-        if(!$st->fetchColumn()) throw new RuntimeException('Profissional indisponível.');
+        $professional=$st->fetch();
+        if(!$professional) throw new RuntimeException('Profissional indisponível.');
 
-        Database::connection()->prepare('INSERT INTO tp_shift_applications (shift_id,professional_id,status,applied_at) VALUES (?,?,"invited",NOW())
+        $existing=$pdo->prepare('SELECT status FROM tp_shift_applications WHERE shift_id=? AND professional_id=? LIMIT 1');
+        $existing->execute([$shiftId,$professionalId]);
+        $previousStatus=$existing->fetchColumn();
+
+        $pdo->prepare('INSERT INTO tp_shift_applications (shift_id,professional_id,status,applied_at) VALUES (?,?,"invited",NOW())
             ON DUPLICATE KEY UPDATE status=IF(status IN ("accepted","applied"),status,"invited"),applied_at=NOW()')->execute([$shiftId,$professionalId]);
         self::audit($userId,'professional.invited','professional',$professionalId,['shift_id'=>$shiftId]);
+
+        if(!in_array($previousStatus,['accepted','applied'],true)){
+            $company=self::companyProfile($userId);
+            $body=($company['trade_name']??'Uma empresa').' convidou você para '.$shift['category_name'].' · '.$shift['title'].', em '.date('d/m/Y H:i',strtotime($shift['starts_at'])).'.';
+            self::createNotification(
+                (int)$professional['user_id'],
+                'invitation',
+                'Você recebeu um convite',
+                $body,
+                'profissional/vagas/'.$shiftId,
+                'invitation:'.$shiftId
+            );
+        }
     }
 
     public static function companySchedule(int $userId): array
@@ -917,6 +1131,7 @@ final class Data
                 $pdo->prepare('UPDATE tp_shifts SET status="filling" WHERE id=? AND status="published"')->execute([$shiftId]);
                 self::audit($userId,'shift.applied','shift',$shiftId);
                 $pdo->commit();
+                self::notifyCompanyMembersOfApplication($shiftId,$pid);
                 return ['status'=>'applied','assignment_id'=>null];
             }
 
@@ -1525,6 +1740,31 @@ final class Data
             if($pdo->inTransaction()) $pdo->rollBack();
             throw $e;
         }
+    }
+
+    public static function updateAdminAccount(int $userId,array $data): void
+    {
+        $name=trim((string)($data['name']??''));
+        if(mb_strlen($name)<3) throw new InvalidArgumentException('Informe o nome do administrador.');
+
+        $pdo=Database::connection();
+        $st=$pdo->prepare('SELECT id,password_hash FROM tp_users WHERE id=? AND role="admin" AND status="active" LIMIT 1');
+        $st->execute([$userId]);
+        $admin=$st->fetch();
+        if(!$admin) throw new RuntimeException('Conta administrativa não encontrada.');
+
+        $newPassword=(string)($data['new_password']??'');
+        $confirm=(string)($data['new_password_confirm']??'');
+        if($newPassword!==''){
+            if(strlen($newPassword)<8) throw new InvalidArgumentException('A nova senha deve ter pelo menos 8 caracteres.');
+            if($newPassword!==$confirm) throw new InvalidArgumentException('A confirmação da nova senha não confere.');
+            $current=(string)($data['current_password']??'');
+            if(!password_verify($current,(string)$admin['password_hash'])) throw new InvalidArgumentException('Senha atual incorreta.');
+            $pdo->prepare('UPDATE tp_users SET name=?,password_hash=?,updated_at=NOW() WHERE id=?')->execute([$name,password_hash($newPassword,PASSWORD_DEFAULT),$userId]);
+        }else{
+            $pdo->prepare('UPDATE tp_users SET name=?,updated_at=NOW() WHERE id=?')->execute([$name,$userId]);
+        }
+        self::audit($userId,'account.admin_updated','user',$userId,['password_changed'=>$newPassword!=='']);
     }
 
     public static function adminStats(): array
