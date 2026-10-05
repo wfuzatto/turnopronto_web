@@ -123,6 +123,44 @@ final class Web
             View::render('not_installed',['title'=>'Serviço indisponível']);
         }
 
+        if ($path === '/api/v1/notifications') {
+            $u=Auth::requireRole('company','professional','admin');
+            $menu=Data::notificationMenu((int)$u['id'],6);
+            foreach($menu['items'] as &$item){
+                $item['open_url']=url('notificacoes/'.$item['id'].'/abrir');
+            }
+            unset($item);
+            json_response(['ok'=>true,'data'=>$menu]);
+        }
+
+        if ($path === '/notificacoes') {
+            $u=Auth::requireRole('company','professional','admin');
+            View::render('notifications',[
+                'title'=>'Notificações',
+                'notifications'=>Data::notifications((int)$u['id']),
+                'user'=>$u
+            ]);
+        }
+
+        if ($path === '/notificacoes/ler-todas' && $method==='POST') {
+            $u=Auth::requireRole('company','professional','admin');
+            verify_csrf();
+            Data::markAllNotificationsRead((int)$u['id']);
+            $back=trim((string)($_POST['back']??'notificacoes'));
+            redirect($back!==''?$back:'notificacoes');
+        }
+
+        if (preg_match('#^/notificacoes/(\d+)/abrir$#',$path,$m)) {
+            $u=Auth::requireRole('company','professional','admin');
+            try {
+                $target=Data::openNotification((int)$u['id'],(int)$m[1]);
+                redirect($target!==''?$target:Auth::dashboardPath($u));
+            } catch(Throwable $e){
+                flash('error',$e->getMessage());
+                redirect('notificacoes');
+            }
+        }
+
         if ($path === '/empresa/dashboard') {
             $u=Auth::requireRole('company');
             View::render('company_dashboard',['title'=>'Dashboard','data'=>Data::companyDashboard((int)$u['id']),'user'=>$u]);
@@ -604,6 +642,24 @@ final class Web
                 flash('error',$e->getMessage());
             }
             redirect('admin/dashboard');
+        }
+
+        if ($path === '/admin/conta') {
+            $u=Auth::requireRole('admin');
+            if($method==='POST'){
+                verify_csrf();
+                try {
+                    Data::updateAdminAccount((int)$u['id'],$_POST);
+                    flash('success','Conta administrativa atualizada.');
+                    redirect('admin/conta');
+                } catch(Throwable $e){
+                    flash('error',$e->getMessage());
+                }
+            }
+            View::render('admin_account',[
+                'title'=>'Minha conta',
+                'user'=>$u
+            ]);
         }
 
         if ($path === '/admin/dashboard') {
