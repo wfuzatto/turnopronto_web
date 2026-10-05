@@ -92,6 +92,8 @@ jobs:
           cat public/assets/css/app-part*.css > public/assets/css/app.css
           grep -q '.app-shell' public/assets/css/app.css
           grep -q '.login-page' public/assets/css/app.css
+          grep -q '.password-field' public/assets/css/app.css
+          grep -q '.password-toggle' public/assets/css/app.css
 
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -159,6 +161,13 @@ jobs:
           printf '%s' "$css" | grep -q '.topbar'
           printf '%s' "$css" | grep -q '.kpi-grid'
           printf '%s' "$css" | grep -q '.login-page'
+          printf '%s' "$css" | grep -q '.password-field'
+          printf '%s' "$css" | grep -q '.password-toggle'
+
+          echo "CHECKPOINT 4B: registration password controls"
+          register_html=$(curl --fail --silent --show-error --max-time 20 "$BASE_URL/cadastro/empresa")
+          printf '%s' "$register_html" | grep -q 'class="password-field"'
+          printf '%s' "$register_html" | grep -q 'data-password-toggle'
 
           echo "CHECKPOINT 5: shared renderer/layout"
           visual_headers=$(mktemp)
