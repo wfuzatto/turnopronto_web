@@ -9,6 +9,7 @@ if (isset($argv[1])) {
     }
     final class Data {
         public static function companyProfile(int $id): array { return ['trade_name'=>'Empresa Diagnóstico']; }
+        public static function notificationMenu(int $id,int $limit=6): array { return ['unread'=>0,'items'=>[]]; }
     }
     $_SESSION = [];
     $role = $argv[1];
