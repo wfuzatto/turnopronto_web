@@ -56,6 +56,7 @@ jobs:
           set -euo pipefail
           export TP_TEST_PASSWORD="$(openssl rand -hex 24)"
           php tests/setup_demo.php
+          php tests/notification_flow.php
           php -S 127.0.0.1:8080 -t . > /tmp/tp-http.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid"; rm -f config/config.local.php' EXIT

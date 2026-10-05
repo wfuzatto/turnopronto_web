@@ -7,6 +7,7 @@ $current=request_path();
 $me=$user??Auth::user();
 $role=$me['role']??null;
 $companyName=$role==='company'?(Data::companyProfile((int)$me['id'])['trade_name']??$me['name']):($me['name']??'TurnoPronto');
+$notificationMenu=$me?Data::notificationMenu((int)$me['id'],6):['unread'=>0,'items'=>[]];
 $navCompany=[
  ['empresa/dashboard','home','Dashboard'],['empresa/verificacao','shield','Verificação'],['empresa/vagas/nova','plus','Publicar vaga'],['empresa/vagas','briefcase','Minhas vagas'],['empresa/profissionais','users','Profissionais'],['empresa/escalas','calendar','Escalas'],['empresa/financeiro','wallet','Financeiro'],['empresa/avaliacoes','star','Avaliações'],['suporte','help','Suporte']
 ];
@@ -39,7 +40,47 @@ $nav=$role==='company'?$navCompany:($role==='professional'?$navPro:[['admin/dash
     <header class="topbar">
       <button class="mobile-menu" data-sidebar-toggle aria-label="Menu">☰</button>
       <div class="top-search"><?=icon('search',18)?><input placeholder="<?=$role==='company'?'Buscar profissionais, vagas ou palavras-chave...':'Buscar oportunidades, cidades ou estabelecimentos...'?>"></div>
-      <?php $accountHref=$role==='company'?'empresa/conta':($role==='professional'?'profissional/perfil':'admin/dashboard'); ?><div class="top-actions"><button class="icon-btn"><?=icon('bell',21)?><span class="notif">3</span></button><a class="user-chip" href="<?=e(url($accountHref))?>"><div class="avatar-sm"><?=e(mb_strtoupper(mb_substr($companyName,0,1)))?></div><div><strong><?=e($companyName)?></strong><small><?=$role==='company'?'Conta Empresarial':($role==='professional'?'Profissional':'Administrador')?></small></div></a><a class="icon-btn" title="Sair" href="<?=e(url('logout'))?>"><?=icon('logout',19)?></a></div>
+      <?php
+        $accountHref=$role==='company'?'empresa/conta':($role==='professional'?'profissional/perfil':'admin/conta');
+        $notificationIcon=function(string $type): string {
+            return match($type){
+                'matching_shift'=>'briefcase',
+                'invitation','application'=>'users',
+                'application_approved'=>'check',
+                'application_rejected'=>'file',
+                default=>'bell',
+            };
+        };
+      ?>
+      <div class="top-actions">
+        <div class="notification-shell" data-notifications>
+          <button class="icon-btn notification-toggle" type="button" data-notifications-toggle aria-label="Notificações" aria-expanded="false">
+            <?=icon('bell',21)?>
+            <span class="notif" data-notification-badge <?=$notificationMenu['unread']<=0?'hidden':''?>><?=$notificationMenu['unread']>99?'99+':(int)$notificationMenu['unread']?></span>
+          </button>
+          <div class="notification-dropdown" data-notifications-panel hidden>
+            <div class="notification-dropdown-head">
+              <div><strong>Notificações</strong><small data-notification-summary><?=$notificationMenu['unread']?> não lida(s)</small></div>
+              <?php if($notificationMenu['unread']>0):?><form method="post" action="<?=e(url('notificacoes/ler-todas'))?>"><?=csrf_field()?><input type="hidden" name="back" value="<?=e(ltrim($current,'/'))?>"><button type="submit">Marcar todas como lidas</button></form><?php endif;?>
+            </div>
+            <div class="notification-dropdown-list" data-notification-list>
+              <?php if(!$notificationMenu['items']):?><div class="notification-empty">Nenhuma notificação por enquanto.</div><?php endif;?>
+              <?php foreach($notificationMenu['items'] as $n):?>
+                <a class="notification-item <?=empty($n['read_at'])?'unread':''?>" href="<?=e(url('notificacoes/'.$n['id'].'/abrir'))?>">
+                  <span class="notification-item-icon"><?=icon($notificationIcon((string)$n['type']),17)?></span>
+                  <span class="notification-item-copy"><strong><?=e($n['title'])?></strong><span><?=e($n['body'])?></span><small><?=date('d/m/Y H:i',strtotime($n['created_at']))?></small></span>
+                </a>
+              <?php endforeach;?>
+            </div>
+            <a class="notification-all-link" href="<?=e(url('notificacoes'))?>">Ver todas as notificações →</a>
+          </div>
+        </div>
+        <a class="user-chip" href="<?=e(url($accountHref))?>" title="Abrir meu cadastro">
+          <div class="avatar-sm"><?=e(mb_strtoupper(mb_substr($companyName,0,1)))?></div>
+          <div><strong><?=e($companyName)?></strong><small><?=$role==='company'?'Conta Empresarial':($role==='professional'?'Profissional':'Administrador')?></small></div>
+        </a>
+        <a class="icon-btn" title="Sair" href="<?=e(url('logout'))?>"><?=icon('logout',19)?></a>
+      </div>
     </header>
     <main class="main-content">
       <?php if($msg=flash('success')):?><div class="alert success"><?=e($msg)?></div><?php endif;?>
