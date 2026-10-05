@@ -300,7 +300,7 @@
     const refreshNotifications=async()=>{
       if(document.hidden) return;
       try{
-        const response=await fetch((window.TP_BASE||'')+'/api/v1/notifications',{
+        const response=await fetch((window.TP_BASE||'')+'/notificacoes/feed',{
           headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},
           cache:'no-store'
         });
