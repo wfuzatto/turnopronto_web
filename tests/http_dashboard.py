@@ -106,6 +106,8 @@ for marker in ['Revisar Cadastro profissional', 'Dados do profissional', 'Docume
                'Documento oficial com foto', 'Decisão final']:
     assert marker in professional_review, 'professional admin review missing ' + marker
 assert 'admin-support-upload' not in professional_review or 'enctype="multipart/form-data"' in professional_review
+assert 'data-inline-field="name"' in professional_review, 'professional admin review missing inline editing'
+assert 'data-inline-field="company_email"' in company_review, 'company admin review missing inline editing'
 
 admin_support = admin.open(base + '/admin/suporte', timeout=20).read().decode()
 for marker in ['Central de suporte', 'Fila de atendimento', 'Empresas', 'Profissionais']:
