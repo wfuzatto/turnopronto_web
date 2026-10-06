@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS tp_companies (
   trade_name VARCHAR(150) NOT NULL,
   cnpj VARCHAR(20) NULL,
   responsible_cpf VARCHAR(20) NULL,
+  company_email VARCHAR(190) NULL,
   address VARCHAR(255) NULL,
   postal_code VARCHAR(12) NULL,
   city VARCHAR(120) NULL,
