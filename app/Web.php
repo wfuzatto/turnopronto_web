@@ -578,6 +578,34 @@ final class Web
             View::render('documents',['title'=>'Documentos','documents'=>Data::documents((int)$u['id']),'user'=>$u]);
         }
 
+        if (preg_match('#^/admin/verificacao/empresa/(\d+)$#',$path,$m) && $method==='GET') {
+            $u=Auth::requireRole('admin');
+            try{
+                View::render('admin_verification_detail',[
+                    'title'=>'Revisar cadastro empresarial',
+                    'detail'=>Data::adminCompanyVerificationDetail((int)$m[1]),
+                    'user'=>$u
+                ]);
+            }catch(Throwable $e){
+                flash('error',$e->getMessage());
+                redirect('admin/dashboard');
+            }
+        }
+
+        if (preg_match('#^/admin/verificacao/profissional/(\d+)$#',$path,$m) && $method==='GET') {
+            $u=Auth::requireRole('admin');
+            try{
+                View::render('admin_verification_detail',[
+                    'title'=>'Revisar cadastro profissional',
+                    'detail'=>Data::adminProfessionalVerificationDetail((int)$m[1]),
+                    'user'=>$u
+                ]);
+            }catch(Throwable $e){
+                flash('error',$e->getMessage());
+                redirect('admin/dashboard');
+            }
+        }
+
         if (preg_match('#^/admin/documentos/empresa/(\d+)/arquivo$#',$path,$m) && $method==='GET') {
             Auth::requireRole('admin');
             $doc=Data::adminCompanyDocument((int)$m[1]);
@@ -601,7 +629,8 @@ final class Web
             } catch(Throwable $e){
                 flash('error',$e->getMessage());
             }
-            redirect('admin/dashboard');
+            $back=trim((string)($_POST['back']??''));
+            redirect(preg_match('#^admin/verificacao/empresa/\d+$#',$back)?$back:'admin/dashboard');
         }
 
         if (preg_match('#^/admin/documentos/(\d+)/arquivo$#',$path,$m) && $method==='GET') {
@@ -627,7 +656,8 @@ final class Web
             } catch(Throwable $e){
                 flash('error',$e->getMessage());
             }
-            redirect('admin/dashboard');
+            $back=trim((string)($_POST['back']??''));
+            redirect(preg_match('#^admin/verificacao/profissional/\d+$#',$back)?$back:'admin/dashboard');
         }
 
         if (preg_match('#^/admin/verificacao/(empresa|profissional)/(\d+)/(aprovar|rejeitar)$#',$path,$m) && $method==='POST') {
@@ -637,11 +667,13 @@ final class Web
                 $decision=$m[3]==='aprovar'?'verified':'rejected';
                 if($m[1]==='empresa') Data::setCompanyVerification((int)$u['id'],(int)$m[2],$decision);
                 else Data::setProfessionalVerification((int)$u['id'],(int)$m[2],$decision);
-                flash('success','Verificação atualizada.');
+                flash('success',$decision==='verified'?'Cadastro aprovado e liberado.':'Cadastro rejeitado.');
             } catch(Throwable $e){
                 flash('error',$e->getMessage());
             }
-            redirect('admin/dashboard');
+            $back=trim((string)($_POST['back']??''));
+            $expected='admin/verificacao/'.$m[1].'/'.$m[2];
+            redirect($back===$expected?$back:'admin/dashboard');
         }
 
         if ($path === '/admin/conta') {
