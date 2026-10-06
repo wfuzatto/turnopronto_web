@@ -67,7 +67,7 @@ $nav=$role==='company'?$navCompany:($role==='professional'?$navPro:[['admin/dash
             <div class="notification-dropdown-list" data-notification-list>
               <?php if(!$notificationMenu['items']):?><div class="notification-empty">Nenhuma notificação por enquanto.</div><?php endif;?>
               <?php foreach($notificationMenu['items'] as $n):?>
-                <a class="notification-item <?=empty($n['read_at'])?'unread':''?>" href="<?=e(url('notificacoes/'.$n['id'].'/abrir'))?>">
+                <a class="notification-item <?=empty($n['read_at'])?'unread':''?>" data-notification-id="<?=e((string)$n['id'])?>" href="<?=e(url('notificacoes/'.$n['id'].'/abrir'))?>">
                   <span class="notification-item-icon"><?=icon($notificationIcon((string)$n['type']),17)?></span>
                   <span class="notification-item-copy"><strong><?=e($n['title'])?></strong><span><?=e($n['body'])?></span><small><?=date('d/m/Y H:i',strtotime($n['created_at']))?></small></span>
                 </a>

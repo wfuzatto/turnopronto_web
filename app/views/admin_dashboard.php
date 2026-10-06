@@ -107,7 +107,7 @@
 <section class="panel">
   <div class="panel-head"><div><h2>Auditoria recente</h2><p>Ações críticas registradas pelo backend.</p></div></div>
   <div class="audit-list">
-    <?php foreach($audit as $log):?><div class="audit-row"><span class="audit-dot"></span><div><strong><?=e($log['action'])?></strong><small><?=e($log['user_name']?:'Sistema')?> · <?=e($log['entity_type']?:'evento')?> #<?=e($log['entity_id']?:'—')?></small></div><time><?=br_date($log['created_at'],'d/m H:i')?></time></div><?php endforeach;?>
+    <?php foreach($audit as $log):?><div class="audit-row"><span class="audit-dot"></span><div><strong><?=e(Data::auditActionLabel((string)$log['action'],$log['metadata_json']??null))?></strong><small><?=e($log['user_name']?:'Sistema')?> · <?=e(Data::auditEntityLabel($log['entity_type']??null))?> #<?=e($log['entity_id']?:'—')?></small></div><time><?=br_date($log['created_at'],'d/m H:i')?></time></div><?php endforeach;?>
     <?php if(!$audit):?><div class="mini-empty">A auditoria começará a aparecer conforme as ações forem executadas.</div><?php endif;?>
   </div>
 </section>
