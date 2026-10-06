@@ -29,6 +29,7 @@
       <button class="btn btn-primary btn-block application-next" type="submit">Continuar → contato</button>
     </form>
     <div class="application-why">Não pediremos RG, endereço ou documento nesta etapa. Isso só será necessário depois para liberar sua confirmação em um turno.</div>
+    <div class="application-existing-account">Já tem conta? <a href="<?=e(url('login'))?>">Entrar e continuar nesta vaga</a></div>
   </section>
 </div>
 <script src="<?=e(asset('js/app.js'))?>"></script></body></html>
