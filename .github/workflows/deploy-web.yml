@@ -90,6 +90,14 @@ jobs:
           grep -q 'adminUploadCompanyVerificationDocument' app/Data.php
           grep -q 'adminUploadProfessionalDocument' app/Data.php
           grep -q 'prepareProfessionalDraft' app/Registration.php
+          grep -q 'prepareProfessionalApplicationDraft' app/Registration.php
+          grep -q 'publicOpportunities' app/Data.php
+          grep -q 'publicShift' app/Data.php
+          grep -q "path === '/vagas'" app/Web.php
+          test -f app/views/public_opportunities.php
+          test -f app/views/public_shift_detail.php
+          test -f app/views/professional_application_basic.php
+          test -f app/views/professional_application_payment.php
           grep -q 'professionalOnboardingState' app/Data.php
           grep -q 'shift.applied_pending_verification' app/Data.php
           test -f app/views/professional_register_phone.php
@@ -140,6 +148,9 @@ jobs:
           grep -q '.progressive-registration-note' public/assets/css/app.css
           grep -q '.professional-contact-shell' public/assets/css/app.css
           grep -q '.contact-form-grid' public/assets/css/app.css
+          grep -q '.public-jobs-page' public/assets/css/app.css
+          grep -q '.application-onboarding-shell' public/assets/css/app.css
+          grep -q '.application-stepper' public/assets/css/app.css
           grep -q '.support-page' public/assets/css/app.css
           grep -q '.support-ticket-row' public/assets/css/app.css
           grep -q '.support-message' public/assets/css/app.css
