@@ -9,7 +9,7 @@ final class Auth
         $cpf=preg_replace('/\D+/','',$identifier);
 
         if(strlen($cpf)===11){
-            $stmt=$pdo->prepare('SELECT u.* FROM tp_users u JOIN tp_professionals p ON p.user_id=u.id WHERE p.cpf=? AND u.status="active" LIMIT 1');
+            $stmt=$pdo->prepare('SELECT u.* FROM tp_users u JOIN tp_professionals p ON p.user_id=u.id WHERE REPLACE(REPLACE(REPLACE(p.cpf,".",""),"-","")," ","")=? AND u.status="active" LIMIT 1');
             $stmt->execute([$cpf]);
         }else{
             $stmt=$pdo->prepare('SELECT * FROM tp_users WHERE email=? AND status="active" LIMIT 1');
