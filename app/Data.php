@@ -1485,11 +1485,13 @@ final class Data
         $trade=trim((string)($data['trade_name']??''));
         $cnpj=trim((string)($data['cnpj']??''));
         $companyEmail=mb_strtolower(trim((string)($data['company_email']??'')));
+        $postalCode=self::adminNormalizeDigits((string)($data['postal_code']??''));
         $address=trim((string)($data['address']??''));
         $mapsUrl=self::normalizeCompanyMapsUrl((string)($data['maps_url']??''));
         $city=trim((string)($data['city']??''));
         $state=mb_strtoupper(trim((string)($data['state']??'')));
         if($name===''||$legal===''||$trade===''||$cnpj===''||$address===''||$city===''||strlen($state)!==2) throw new InvalidArgumentException('Preencha todos os campos obrigatórios.');
+        if(strlen($postalCode)!==8) throw new InvalidArgumentException('Informe um CEP válido.');
         if(!filter_var($companyEmail,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe o e-mail da empresa.');
 
         self::ensureCompanyMapsColumn();
@@ -1507,7 +1509,7 @@ final class Data
             }else{
                 $pdo->prepare('UPDATE tp_users SET name=?,phone=?,updated_at=NOW() WHERE id=?')->execute([$name,$phone,$userId]);
             }
-            $pdo->prepare('UPDATE tp_companies SET legal_name=?,trade_name=?,cnpj=?,company_email=?,address=?,city=?,state=?,maps_url=? WHERE id=?')->execute([$legal,$trade,$cnpj,$companyEmail,$address,$city,$state,$mapsUrl,$companyId]);
+            $pdo->prepare('UPDATE tp_companies SET legal_name=?,trade_name=?,cnpj=?,company_email=?,postal_code=?,address=?,city=?,state=?,maps_url=? WHERE id=?')->execute([$legal,$trade,$cnpj,$companyEmail,$postalCode,$address,$city,$state,$mapsUrl,$companyId]);
             self::audit($userId,'account.company_updated','company',$companyId);
             $pdo->commit();
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
