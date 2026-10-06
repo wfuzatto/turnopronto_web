@@ -2007,7 +2007,7 @@ final class Data
             'documents'=>$documents,
             'latest_documents'=>$latest,
             'onboarding'=>$state,
-            'ready_for_final'=>$state['application_data_complete']&&$state['identity_verified'],
+            'ready_for_final'=>$state['verification_data_complete']&&$state['identity_verified'],
         ];
     }
 
