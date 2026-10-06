@@ -19,7 +19,7 @@ if (isset($argv[1])) {
         : ['profile'=>['name'=>'Profissional Diagnóstico','status'=>'verified','headline'=>'Atendimento',
                       'attendance_score'=>98,'punctuality_score'=>99],
            'onboarding'=>[
-               'can_apply'=>true,'profile_verified'=>true,'progress'=>100,'next_step'=>'done',
+               'can_apply'=>true,'application_ready'=>true,'profile_verified'=>true,'identity_submitted'=>true,'progress'=>100,'next_step'=>'done',
                'steps'=>['account'=>true,'whatsapp'=>true,'interests'=>true,'identity_data'=>true,'location'=>true,'payment'=>true,'identity_document'=>true]
            ],
            'kpis'=>['week'=>7,'earnings'=>123.45,'reliability'=>98,'punctuality'=>99],
