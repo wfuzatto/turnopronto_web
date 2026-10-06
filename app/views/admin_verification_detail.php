@@ -20,6 +20,15 @@ $statusClass=function(string $status): string {
     };
 };
 
+$editableField=function(string $label,string $field,mixed $value,?string $display=null,string $type='text',array $options=[]): string {
+    $raw=(string)($value??'');
+    $shown=$display!==null?$display:($raw!==''?$raw:'—');
+    $attrs=' class="admin-editable-field" data-admin-inline-edit data-field="'.e($field).'" data-value="'.e($raw).'" data-input-type="'.e($type).'"';
+    if($options) $attrs.=' data-options="'.e(json_encode($options,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)).'"';
+    $attrs.=' tabindex="0" title="Clique duas vezes para editar"';
+    return '<div'.$attrs.'><small>'.e($label).'</small><strong data-inline-display>'.e($shown).'</strong><span class="admin-edit-hint">Duplo clique para editar</span></div>';
+};
+
 if($isCompany){
     $record=$detail['company'];
     $summary=$detail['summary']??[];
@@ -37,7 +46,7 @@ if($isCompany){
     $subtitle='Cadastro profissional';
 }
 ?>
-<div class="admin-review-page">
+<div class="admin-review-page" data-admin-inline-root data-endpoint="<?=e(url($back.'/campo'))?>" data-csrf="<?=e(csrf_token())?>">
   <div class="page-head admin-review-head">
     <div>
       <a class="admin-review-back" href="<?=e(url('admin/dashboard'))?>">← Voltar para aprovações</a>
@@ -74,19 +83,26 @@ if($isCompany){
   <section class="panel admin-review-section">
     <div class="panel-head"><div><h2>Dados da empresa</h2><p>Informações empresariais e do responsável pelo cadastro.</p></div></div>
     <div class="admin-review-grid">
-      <div><small>Nome fantasia</small><strong><?=e($record['trade_name']??'—')?></strong></div>
-      <div><small>Razão social</small><strong><?=e($record['legal_name']??'—')?></strong></div>
-      <div><small>CNPJ</small><strong><?=e($record['cnpj']??'—')?></strong></div>
-      <div><small>CPF do responsável</small><strong><?=e($record['responsible_cpf']??'—')?></strong></div>
-      <div><small>Responsável</small><strong><?=e($record['owner_name']??'—')?></strong></div>
-      <div><small>E-mail do responsável / usuário</small><strong><?=e($record['owner_email']??'—')?></strong></div>
-      <div><small>E-mail da empresa</small><strong><?=e($record['company_email']??'—')?></strong></div>
-      <div><small>WhatsApp</small><strong><?=e($record['owner_phone']??'—')?></strong><span class="review-inline-status <?=!empty($record['phone_verified_at'])?'ok':'missing'?>"><?=!empty($record['phone_verified_at'])?'Verificado':'Não verificado'?></span></div>
-      <div><small>Endereço</small><strong><?=e(trim(($record['address']??'').' · '.($record['postal_code']??''),' ·'))?></strong></div>
-      <div><small>Cidade / UF</small><strong><?=e(($record['city']??'—').' / '.($record['state']??'—'))?></strong></div>
-      <div><small>Pix</small><strong><?=e(($record['pix_key_type']??'—').' · '.($record['pix_key']??'—'))?></strong></div>
-      <div><small>Titular Pix</small><strong><?=e($record['pix_holder_name']??'—')?></strong></div>
-      <div><small>Documento titular Pix</small><strong><?=e($record['pix_holder_document']??'—')?></strong></div>
+      <?=$editableField('Nome fantasia','trade_name',$record['trade_name']??'')?>
+      <?=$editableField('Razão social','legal_name',$record['legal_name']??'')?>
+      <?=$editableField('CNPJ','cnpj',$record['cnpj']??'','','text')?>
+      <?=$editableField('CPF do responsável','responsible_cpf',$record['responsible_cpf']??'')?>
+      <?=$editableField('Responsável','owner_name',$record['owner_name']??'')?>
+      <?=$editableField('E-mail do responsável / usuário','owner_email',$record['owner_email']??'',null,'email')?>
+      <?=$editableField('E-mail da empresa','company_email',$record['company_email']??'',null,'email')?>
+      <div class="admin-editable-field" data-admin-inline-edit data-field="owner_phone" data-value="<?=e($record['owner_phone']??'')?>" data-input-type="tel" tabindex="0" title="Clique duas vezes para editar">
+        <small>WhatsApp</small><strong data-inline-display><?=e($record['owner_phone']??'—')?></strong>
+        <span class="review-inline-status <?=!empty($record['phone_verified_at'])?'ok':'missing'?>"><?=!empty($record['phone_verified_at'])?'Verificado':'Não verificado'?></span>
+        <span class="admin-edit-hint">Duplo clique para editar</span>
+      </div>
+      <?=$editableField('CEP','postal_code',$record['postal_code']??'',null,'text')?>
+      <?=$editableField('Endereço','address',$record['address']??'')?>
+      <?=$editableField('Cidade','city',$record['city']??'')?>
+      <?=$editableField('UF','state',$record['state']??'')?>
+      <?=$editableField('Tipo da chave Pix','pix_key_type',$record['pix_key_type']??'',null,'select',['cpf'=>'CPF','cnpj'=>'CNPJ','email'=>'E-mail','phone'=>'Telefone','random'=>'Chave aleatória'])?>
+      <?=$editableField('Chave Pix','pix_key',$record['pix_key']??'')?>
+      <?=$editableField('Titular Pix','pix_holder_name',$record['pix_holder_name']??'')?>
+      <?=$editableField('Documento titular Pix','pix_holder_document',$record['pix_holder_document']??'')?>
     </div>
     <?php if(!empty($record['maps_url'])):?><a class="btn btn-soft btn-sm admin-review-map" target="_blank" rel="noopener noreferrer" href="<?=e($record['maps_url'])?>">Abrir localização no Google Maps ↗</a><?php endif;?>
     <?php if(!empty($summary['missing_data'])):?><div class="admin-review-warning"><strong>Dados obrigatórios ainda ausentes:</strong> <?=e(implode(', ',$summary['missing_data']))?></div><?php endif;?>
@@ -137,18 +153,21 @@ if($isCompany){
   <section class="panel admin-review-section">
     <div class="panel-head"><div><h2>Dados do profissional</h2><p>Confira os dados pessoais, profissionais e de pagamento.</p></div></div>
     <div class="admin-review-grid">
-      <div><small>Nome</small><strong><?=e($record['name']??'—')?></strong></div>
-      <div><small>E-mail</small><strong><?=e($record['email']??'—')?></strong></div>
-      <div><small>WhatsApp</small><strong><?=e($record['phone']??'—')?></strong></div>
-      <div><small>CPF</small><strong><?=e($record['cpf']??'—')?></strong></div>
-      <div><small>RG</small><strong><?=e($record['rg']??'—')?></strong></div>
-      <div><small>Data de nascimento</small><strong><?=!empty($record['birth_date'])?br_date($record['birth_date'],'d/m/Y'):'—'?></strong></div>
-      <div><small>Atividade principal</small><strong><?=e($record['headline']??'—')?></strong></div>
-      <div><small>Cidade / UF</small><strong><?=e(($record['city']??'—').' / '.($record['state']??'—'))?></strong></div>
-      <div><small>Endereço</small><strong><?=e(trim(($record['address']??'').' · '.($record['postal_code']??''),' ·'))?></strong></div>
-      <div><small>Pix</small><strong><?=e(($record['pix_key_type']??'—').' · '.($record['pix_key']??'—'))?></strong></div>
-      <div><small>Titular Pix</small><strong><?=e($record['pix_holder_name']??'—')?></strong></div>
-      <div><small>Documento titular Pix</small><strong><?=e($record['pix_holder_document']??'—')?></strong></div>
+      <?=$editableField('Nome','name',$record['name']??'')?>
+      <?=$editableField('E-mail','email',$record['email']??'',null,'email')?>
+      <?=$editableField('WhatsApp','phone',$record['phone']??'',null,'tel')?>
+      <?=$editableField('CPF','cpf',$record['cpf']??'')?>
+      <?=$editableField('RG / CIN','rg',$record['rg']??'')?>
+      <?=$editableField('Data de nascimento','birth_date',$record['birth_date']??'',!empty($record['birth_date'])?br_date($record['birth_date'],'d/m/Y'):'—','date')?>
+      <?=$editableField('Atividade principal','headline',$record['headline']??'')?>
+      <?=$editableField('CEP','postal_code',$record['postal_code']??'')?>
+      <?=$editableField('Endereço','address',$record['address']??'')?>
+      <?=$editableField('Cidade','city',$record['city']??'')?>
+      <?=$editableField('UF','state',$record['state']??'')?>
+      <?=$editableField('Tipo da chave Pix','pix_key_type',$record['pix_key_type']??'',null,'select',['cpf'=>'CPF','email'=>'E-mail','phone'=>'Telefone','random'=>'Chave aleatória'])?>
+      <?=$editableField('Chave Pix','pix_key',$record['pix_key']??'')?>
+      <?=$editableField('Titular Pix','pix_holder_name',$record['pix_holder_name']??'')?>
+      <?=$editableField('Documento titular Pix','pix_holder_document',$record['pix_holder_document']??'')?>
     </div>
     <?php if(!empty($detail['categories'])):?><div class="admin-review-categories"><small>Áreas de interesse</small><div><?php foreach($detail['categories'] as $cat):?><span><?=e($cat['name'])?></span><?php endforeach;?></div></div><?php endif;?>
     <?php if(!empty($record['bio'])):?><div class="admin-review-bio"><small>Apresentação</small><p><?=nl2br(e($record['bio']))?></p></div><?php endif;?>
