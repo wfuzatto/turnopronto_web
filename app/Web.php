@@ -744,6 +744,23 @@ final class Web
             View::render('documents',['title'=>'Documentos','documents'=>Data::documents((int)$u['id']),'user'=>$u]);
         }
 
+        if (preg_match('#^/admin/verificacao/(empresa|profissional)/(\d+)/campo$#',$path,$m) && $method==='POST') {
+            $u=Auth::requireRole('admin');
+            verify_csrf();
+            try{
+                $result=Data::adminUpdateVerificationField(
+                    (int)$u['id'],
+                    $m[1]==='empresa'?'company':'professional',
+                    (int)$m[2],
+                    (string)($_POST['field']??''),
+                    (string)($_POST['value']??'')
+                );
+                json_response(['ok'=>true,'field'=>$result]);
+            }catch(Throwable $e){
+                json_response(['ok'=>false,'error'=>$e->getMessage()],422);
+            }
+        }
+
         if (preg_match('#^/admin/verificacao/empresa/(\d+)$#',$path,$m) && $method==='GET') {
             $u=Auth::requireRole('admin');
             try{
