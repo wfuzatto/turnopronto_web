@@ -7,16 +7,18 @@ $firstName=$displayName!=='' ? explode(' ',$displayName)[0] : 'Profissional';
 ?>
 <?php if(!$onboarding['profile_verified']):?>
   <div class="verification-banner professional-onboarding-banner">
-    <?=icon($onboarding['can_apply']?'clock':'shield',22)?>
+    <?=icon($onboarding['identity_submitted']?'clock':'shield',22)?>
     <div>
-      <strong><?=$onboarding['can_apply']?'Identidade em análise':'Cadastro rápido concluído'?></strong>
-      <p><?=$onboarding['can_apply']
-        ?'Você já pode demonstrar interesse nas vagas. A confirmação do turno será liberada após a validação da sua identidade.'
-        :'Você já pode explorar oportunidades. Quando quiser se candidatar, pediremos somente os dados que ainda faltam.'?></p>
+      <strong><?=$onboarding['identity_submitted']?'Identidade em análise':($onboarding['application_ready']?'Candidaturas liberadas':'Perfil em construção')?></strong>
+      <p><?=$onboarding['identity_submitted']
+        ?'Seu documento foi enviado. A confirmação do turno será liberada após a validação da identidade.'
+        :($onboarding['application_ready']
+          ?'Você já pode se candidatar. Complete identidade e endereço antes de ser confirmado para trabalhar.'
+          :'Você pode explorar oportunidades. Os dados essenciais serão solicitados quando você se candidatar pela primeira vez.')?></p>
     </div>
     <div class="verification-banner-actions">
       <span class="status filling"><?=$onboarding['progress']?>% completo</span>
-      <a class="btn btn-primary btn-sm" href="<?=e(url('profissional/completar?step='.$onboarding['next_step']))?>"><?=$onboarding['can_apply']?'Ver verificação':'Completar perfil'?></a>
+      <a class="btn btn-primary btn-sm" href="<?=e(url('profissional/completar?step='.$onboarding['next_step']))?>"><?=$onboarding['identity_submitted']?'Ver verificação':'Completar verificação'?></a>
     </div>
   </div>
 <?php endif;?><div class="page-head"><div><h1>Olá, <?=e($firstName)?>! <span>👋</span></h1><p>Aqui está o seu resumo de hoje. Vamos para mais um grande dia?</p></div><div class="date-chip"><?=icon('calendar',18)?> <?=strftime('%A, %d de %B de %Y')?>⌄</div></div>
