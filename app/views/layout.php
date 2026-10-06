@@ -49,6 +49,7 @@ $nav=$role==='company'?$navCompany:($role==='professional'?$navPro:[['admin/dash
                 'application_approved'=>'check',
                 'application_rejected'=>'file',
                 'support_ticket','support_reply'=>'help',
+                'document_verified'=>'check',
                 default=>'bell',
             };
         };
