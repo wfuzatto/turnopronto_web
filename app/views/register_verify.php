@@ -2,6 +2,7 @@
 <div class="register-shell">
   <section class="register-brand"><a href="<?=e(url('login'))?>"><img src="<?=e(asset('img/logo.svg'))?>" alt="TurnoPronto"></a><h1>Confirme seu WhatsApp.</h1><p>Isso garante que o contato usado para oportunidades e segurança realmente pertence a você.</p></section>
   <section class="register-card">
+    <?php if(($pending['role']??'')==='professional' && !empty($_SESSION['professional_target_shift'])):?><div class="onboarding-kicker">Etapa 2 de 3 · confirmar contato</div><?php endif;?>
     <h2>Código de verificação</h2>
     <?php if(!empty($pending['development_bypass'])):?>
       <div class="alert success"><strong>Modo de desenvolvimento:</strong> nenhum WhatsApp foi enviado. Use o código fixo <strong><?=e($pending['development_code']??'000111')?></strong>.</div>
@@ -16,10 +17,10 @@
       <label class="verify-code-field" for="verification-code">Código recebido
         <input id="verification-code" class="verify-code-input" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000" required autofocus>
       </label>
-      <button class="btn btn-primary btn-block" type="submit"><?=($pending['role']??'')==='professional'?'Validar e ver oportunidades':'Validar e concluir cadastro'?></button>
+      <button class="btn btn-primary btn-block" type="submit"><?=($pending['role']??'')==='professional'?'Validar e continuar para pagamento':'Validar e concluir cadastro'?></button>
     </form>
     <form method="post" style="margin-top:12px"><?=csrf_field()?><input type="hidden" name="action" value="resend"><button class="btn btn-soft btn-block" type="submit">Reenviar código</button></form>
-    <p class="register-login"><a href="<?=e(url(($pending['role']??'')==='professional'?'cadastro/profissional':'cadastro'))?>">Começar novamente</a></p>
+    <p class="register-login"><a href="<?=e(url(($pending['role']??'')==='professional'?'cadastro/profissional/contato':'cadastro'))?>">Começar novamente</a></p>
   </section>
 </div>
 </body></html>
