@@ -115,6 +115,16 @@ if($isCompany){
           <?php if($doc && $status==='pending'):?>
             <form method="post" action="<?=e(url('admin/documentos/empresa/'.$doc['id'].'/aprovar'))?>"><?=csrf_field()?><input type="hidden" name="back" value="<?=e($back)?>"><button class="btn btn-primary btn-sm" type="submit">Aprovar documento</button></form>
             <form method="post" action="<?=e(url('admin/documentos/empresa/'.$doc['id'].'/rejeitar'))?>" data-confirm="Rejeitar este documento?"><?=csrf_field()?><input type="hidden" name="back" value="<?=e($back)?>"><input class="admin-reject-reason" name="reason" placeholder="Motivo da rejeição" required><button class="btn btn-ghost btn-sm" type="submit">Rejeitar</button></form>
+          <?php elseif(in_array($status,['missing','rejected'],true)):?>
+            <form class="admin-support-upload" method="post" enctype="multipart/form-data" action="<?=e(url('admin/verificacao/empresa/'.$entityId.'/documentos/enviar'))?>">
+              <?=csrf_field()?>
+              <input type="hidden" name="type" value="<?=e($type)?>">
+              <label>
+                <span>Recebeu pelo suporte?</span>
+                <input type="file" name="document" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required>
+              </label>
+              <button class="btn btn-primary btn-sm" type="submit"><?=$status==='rejected'?'Substituir arquivo':'Anexar documento'?></button>
+            </form>
           <?php endif;?>
         </div>
       </article>
@@ -167,6 +177,16 @@ if($isCompany){
           <?php if($doc && $status==='pending'):?>
             <form method="post" action="<?=e(url('admin/documentos/'.$doc['id'].'/aprovar'))?>"><?=csrf_field()?><input type="hidden" name="back" value="<?=e($back)?>"><button class="btn btn-primary btn-sm" type="submit">Aprovar documento</button></form>
             <form method="post" action="<?=e(url('admin/documentos/'.$doc['id'].'/rejeitar'))?>" data-confirm="Rejeitar este documento?"><?=csrf_field()?><input type="hidden" name="back" value="<?=e($back)?>"><input class="admin-reject-reason" name="reason" placeholder="Motivo da rejeição" required><button class="btn btn-ghost btn-sm" type="submit">Rejeitar</button></form>
+          <?php elseif(in_array($status,['missing','rejected'],true)):?>
+            <form class="admin-support-upload" method="post" enctype="multipart/form-data" action="<?=e(url('admin/verificacao/profissional/'.$entityId.'/documentos/enviar'))?>">
+              <?=csrf_field()?>
+              <input type="hidden" name="type" value="<?=e($type)?>">
+              <label>
+                <span>Recebeu pelo suporte?</span>
+                <input type="file" name="document" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required>
+              </label>
+              <button class="btn btn-primary btn-sm" type="submit"><?=$status==='rejected'?'Substituir arquivo':'Anexar documento'?></button>
+            </form>
           <?php endif;?>
         </div>
       </article>
