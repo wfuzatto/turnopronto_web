@@ -772,6 +772,24 @@ final class Web
             }
         }
 
+        if (preg_match('#^/admin/verificacao/(empresa|profissional)/(\d+)/campo$#',$path,$m) && $method==='POST') {
+            $u=Auth::requireRole('admin');
+            verify_csrf();
+            try{
+                $kind=$m[1]==='empresa'?'company':'professional';
+                $result=Data::adminUpdateVerificationField(
+                    (int)$u['id'],
+                    $kind,
+                    (int)$m[2],
+                    (string)($_POST['field']??''),
+                    (string)($_POST['value']??'')
+                );
+                json_response(['ok'=>true,'data'=>$result]);
+            }catch(Throwable $e){
+                json_response(['ok'=>false,'error'=>$e->getMessage()],422);
+            }
+        }
+
         if (preg_match('#^/admin/verificacao/empresa/(\d+)/documentos/enviar$#',$path,$m) && $method==='POST') {
             $u=Auth::requireRole('admin');
             verify_csrf();
