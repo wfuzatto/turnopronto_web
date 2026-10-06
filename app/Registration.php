@@ -67,6 +67,7 @@ final class Registration
             ['tp_professionals','pix_holder_name','VARCHAR(190) NULL AFTER pix_key_type'],
             ['tp_professionals','pix_holder_document','VARCHAR(30) NULL AFTER pix_holder_name'],
             ['tp_companies','responsible_cpf','VARCHAR(20) NULL AFTER cnpj'],
+            ['tp_companies','company_email','VARCHAR(190) NULL AFTER responsible_cpf'],
             ['tp_companies','postal_code','VARCHAR(12) NULL AFTER address'],
             ['tp_companies','maps_url','VARCHAR(1000) NULL AFTER state'],
             ['tp_companies','pix_key_type','VARCHAR(30) NULL AFTER maps_url'],
@@ -120,9 +121,10 @@ final class Registration
         ];
     }
 
-    public static function startProfessionalFromDraft(array $draft,string $phone): array
+    public static function startProfessionalFromDraft(array $draft,string $phone,string $email): array
     {
         $draft['phone']=$phone;
+        $draft['email']=$email;
         $draft['whatsapp_consent']=1;
         return self::start($draft,'professional');
     }
@@ -150,6 +152,10 @@ final class Registration
             $st=$pdo->prepare('SELECT id FROM tp_professionals WHERE cpf=? LIMIT 1');
             $st->execute([$payload['cpf']]);
             if($st->fetchColumn()) throw new RuntimeException('Já existe uma conta com este CPF.');
+
+            $st=$pdo->prepare('SELECT id FROM tp_users WHERE email=? LIMIT 1');
+            $st->execute([$payload['email']]);
+            if($st->fetchColumn()) throw new RuntimeException('Já existe uma conta com este e-mail.');
 
             $pdo->prepare("UPDATE tp_registration_requests SET status='superseded' WHERE role='professional' AND document=? AND status IN ('pending','delivery_failed')")
                 ->execute([$payload['cpf']]);
@@ -292,10 +298,10 @@ final class Registration
             foreach($p['categories'] as $categoryId) $cat->execute([$professionalId,$categoryId]);
         }else{
             $st=$pdo->prepare('INSERT INTO tp_companies
-                (legal_name,trade_name,cnpj,responsible_cpf,address,postal_code,city,state,maps_url,pix_key_type,pix_key,pix_holder_name,pix_holder_document,status,created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,"pending",NOW())');
+                (legal_name,trade_name,cnpj,responsible_cpf,company_email,address,postal_code,city,state,maps_url,pix_key_type,pix_key,pix_holder_name,pix_holder_document,status,created_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,"pending",NOW())');
             $st->execute([
-                $p['legal_name'],$p['trade_name'],$p['cnpj'],$p['responsible_cpf'],$p['address'],$p['postal_code'],$p['city'],$p['state'],$p['maps_url'],
+                $p['legal_name'],$p['trade_name'],$p['cnpj'],$p['responsible_cpf'],$p['company_email'],$p['address'],$p['postal_code'],$p['city'],$p['state'],$p['maps_url'],
                 $p['pix_key_type'],$p['pix_key'],$p['pix_holder_name'],$p['pix_holder_document']
             ]);
             $companyId=(int)$pdo->lastInsertId();
@@ -333,7 +339,7 @@ final class Registration
             if(!self::truthy($d['whatsapp_consent']??false)) throw new InvalidArgumentException('Autorize o uso do WhatsApp para validar sua conta e receber comunicações transacionais.');
 
             $email=mb_strtolower(trim((string)($d['email']??'')));
-            if($email!=='' && !filter_var($email,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe um e-mail válido.');
+            if(!filter_var($email,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe um e-mail válido.');
 
             $categories=array_values(array_unique(array_filter(array_map('intval',(array)($d['categories']??[])))));
             if(!$categories) throw new InvalidArgumentException('Selecione pelo menos uma área de interesse.');
@@ -356,6 +362,7 @@ final class Registration
         }
 
         $email=mb_strtolower(trim((string)($d['email']??'')));
+        $companyEmail=mb_strtolower(trim((string)($d['company_email']??'')));
         $phone=self::normalizePhone((string)($d['phone']??''));
         $address=trim((string)($d['address']??''));
         $postal=preg_replace('/\D+/','',(string)($d['postal_code']??''));
@@ -366,7 +373,8 @@ final class Registration
         $pixHolder=trim((string)($d['pix_holder_name']??''));
         $pixDoc=preg_replace('/\D+/','',(string)($d['pix_holder_document']??''));
 
-        if(!filter_var($email,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe um e-mail válido.');
+        if(!filter_var($email,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe o e-mail do responsável.');
+        if(!filter_var($companyEmail,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe o e-mail da empresa.');
         if($address===''||$city===''||strlen($state)!==2||strlen($postal)!==8) throw new InvalidArgumentException('Informe endereço, CEP, cidade e UF.');
         if(!in_array($pixType,['cpf','cnpj','email','phone','random'],true)||$pixKey===''||$pixHolder===''||$pixDoc==='') throw new InvalidArgumentException('Preencha os dados completos da chave Pix.');
         if(strlen($pixDoc)===11 && !self::validCpf($pixDoc)) throw new InvalidArgumentException('CPF do titular do Pix inválido.');
@@ -387,7 +395,7 @@ final class Registration
             'name'=>$name,'email'=>$email,'password'=>$password,'phone'=>$phone,
             'address'=>$address,'postal_code'=>$postal,'city'=>$city,'state'=>$state,
             'pix_key_type'=>$pixType,'pix_key'=>$pixKey,'pix_holder_name'=>$pixHolder,'pix_holder_document'=>$pixDoc,
-            'cnpj'=>$cnpj,'responsible_cpf'=>$responsibleCpf,'legal_name'=>$legal,'trade_name'=>$trade,'maps_url'=>$mapsUrl,
+            'cnpj'=>$cnpj,'responsible_cpf'=>$responsibleCpf,'company_email'=>$companyEmail,'legal_name'=>$legal,'trade_name'=>$trade,'maps_url'=>$mapsUrl,
             'terms_accepted'=>1,'privacy_accepted'=>1,'whatsapp_consent'=>1,
         ];
     }
