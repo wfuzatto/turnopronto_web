@@ -23,7 +23,35 @@ final class Web
                 }
                 $identifier=(string)($_POST['identifier'] ?? $_POST['email'] ?? '');
                 if (Auth::attempt($identifier,(string)($_POST['password'] ?? ''))) {
-                    redirect(Auth::dashboardPath(Auth::user()));
+                    $logged=Auth::user();
+                    $targetShift=(int)($_SESSION['professional_target_shift']??0);
+                    if(($logged['role']??'')==='professional' && $targetShift>0){
+                        $shift=Data::publicShift($targetShift);
+                        if($shift){
+                            $state=Data::professionalOnboardingState((int)$logged['id']);
+                            if($state['application_ready']){
+                                try{
+                                    $result=Data::acceptShift((int)$logged['id'],$targetShift);
+                                    unset($_SESSION['professional_target_shift']);
+                                    flash('success',($result['status']??'')==='verification_pending'
+                                        ?'Candidatura enviada. Complete sua verificação antes de ser confirmado para o turno.'
+                                        :'Candidatura enviada com sucesso.');
+                                    redirect('profissional/vagas/'.$targetShift);
+                                }catch(Throwable $e){
+                                    flash('error',$e->getMessage());
+                                    redirect('profissional/vagas/'.$targetShift);
+                                }
+                            }
+                            if($state['basic_complete'] && $state['contact_complete']){
+                                flash('success','Sua conta foi encontrada. Falta apenas confirmar os dados de pagamento para enviar esta candidatura.');
+                                redirect('cadastro/profissional/pagamento');
+                            }
+                            $_SESSION['professional_after_onboarding']='profissional/vagas/'.$targetShift;
+                            flash('success','Sua conta foi encontrada. Complete os dados que faltam para continuar com esta vaga.');
+                            redirect('profissional/completar?step='.$state['next_step']);
+                        }
+                    }
+                    redirect(Auth::dashboardPath($logged));
                 }
                 flash('error','CPF/e-mail ou senha inválidos.');
                 redirect('login');
@@ -47,18 +75,106 @@ final class Web
             ],false);
         }
 
-        if ($path === '/cadastro/profissional/whatsapp') {
+        if ($path === '/vagas' && $method==='GET') {
+            if(!Database::available()) View::render('not_installed',['title'=>'Serviço indisponível'],false);
+            View::render('public_opportunities',[
+                'title'=>'Vagas',
+                'opportunities'=>Data::publicOpportunities(),
+                'user'=>Auth::check()?Auth::user():null,
+            ],false);
+        }
+
+        if (preg_match('#^/vagas/(\d+)$#',$path,$m) && $method==='GET') {
+            if(!Database::available()) View::render('not_installed',['title'=>'Serviço indisponível'],false);
+            $shift=Data::publicShift((int)$m[1]);
+            if(!$shift){
+                http_response_code(404);
+                View::render('public_not_found',['title'=>'Vaga não encontrada'],false);
+            }
+            View::render('public_shift_detail',[
+                'title'=>$shift['category_name'],
+                'shift'=>$shift,
+                'user'=>Auth::check()?Auth::user():null,
+            ],false);
+        }
+
+        if (preg_match('#^/vagas/(\d+)/interesse$#',$path,$m) && $method==='POST') {
+            verify_csrf();
+            $shift=Data::publicShift((int)$m[1]);
+            if(!$shift){
+                flash('error','Esta vaga não está mais disponível.');
+                redirect('vagas');
+            }
+
+            if(Auth::check()){
+                $u=Auth::user();
+                if(($u['role']??'')!=='professional'){
+                    flash('error','Para se candidatar, entre com uma conta de profissional.');
+                    redirect('vagas/'.$m[1]);
+                }
+                $state=Data::professionalOnboardingState((int)$u['id']);
+                if(!$state['application_ready']){
+                    $_SESSION['professional_target_shift']=(int)$m[1];
+                    flash('success','Complete as informações que faltam para enviar sua candidatura.');
+                    redirect('cadastro/profissional/pagamento');
+                }
+                try{
+                    $result=Data::acceptShift((int)$u['id'],(int)$m[1]);
+                    flash('success',($result['status']??'')==='verification_pending'
+                        ?'Candidatura enviada. Você já demonstrou interesse; conclua sua verificação antes da confirmação do turno.'
+                        :'Candidatura enviada com sucesso.');
+                }catch(Throwable $e){
+                    flash('error',$e->getMessage());
+                }
+                redirect('profissional/vagas/'.$m[1]);
+            }
+
+            $_SESSION['professional_target_shift']=(int)$m[1];
+            unset($_SESSION['professional_registration_draft'],$_SESSION['registration_pending']);
+            redirect('cadastro/profissional');
+        }
+
+        if ($path === '/cadastro/profissional') {
+            if (!Database::available()) redirect('login');
+            $shiftId=(int)($_SESSION['professional_target_shift']??($_GET['shift']??0));
+            $shift=$shiftId>0?Data::publicShift($shiftId):null;
+            if(!$shift){
+                flash('success','Escolha uma vaga primeiro. Você só precisará se cadastrar quando quiser se candidatar.');
+                redirect('vagas');
+            }
+            $_SESSION['professional_target_shift']=$shiftId;
+
+            if($method==='POST'){
+                verify_csrf();
+                try{
+                    $_SESSION['professional_registration_draft']=Registration::prepareProfessionalApplicationDraft($_POST,(int)$shift['category_id']);
+                    redirect('cadastro/profissional/contato');
+                }catch(Throwable $e){
+                    flash('error',$e->getMessage());
+                }
+            }
+
+            View::render('professional_application_basic',[
+                'title'=>'Informações básicas',
+                'shift'=>$shift,
+            ],false);
+        }
+
+        if (in_array($path,['/cadastro/profissional/contato','/cadastro/profissional/whatsapp'],true)) {
             if (!Database::available()) redirect('login');
             $draft=(array)($_SESSION['professional_registration_draft']??[]);
-            if(empty($draft['cpf'])){
-                flash('error','Comece pelo cadastro rápido do profissional.');
-                redirect('cadastro/profissional');
+            $shiftId=(int)($_SESSION['professional_target_shift']??0);
+            $shift=$shiftId>0?Data::publicShift($shiftId):null;
+            if(empty($draft['cpf']) || !$shift){
+                flash('error','Escolha uma vaga e comece pelas informações básicas.');
+                redirect('vagas');
             }
             if($method==='POST'){
                 verify_csrf();
                 try{
                     $pending=Registration::startProfessionalFromDraft($draft,(string)($_POST['phone']??''),(string)($_POST['email']??''));
                     $_SESSION['registration_pending']=$pending;
+                    $_SESSION['registration_after_verify']='cadastro/profissional/pagamento';
                     unset($_SESSION['professional_registration_draft']);
                     redirect('cadastro/verificar');
                 }catch(Throwable $e){
@@ -66,24 +182,22 @@ final class Web
                 }
             }
             View::render('professional_register_phone',[
-                'title'=>'Confirmar WhatsApp',
+                'title'=>'Informações de contato',
                 'draft'=>$draft,
+                'shift'=>$shift,
+                'step_total'=>3,
             ],false);
         }
 
-        if (in_array($path,['/cadastro','/cadastro/empresa','/cadastro/profissional'],true)) {
+        if (in_array($path,['/cadastro','/cadastro/empresa'],true)) {
             if (!Database::available()) {
                 flash('error','Serviço temporariamente indisponível. Tente novamente em alguns instantes.');
                 redirect('login');
             }
-            $kind=$path==='/cadastro/empresa'?'company':($path==='/cadastro/profissional'?'professional':'choice');
+            $kind=$path==='/cadastro/empresa'?'company':'choice';
             if($method==='POST' && $kind!=='choice'){
                 verify_csrf();
                 try {
-                    if($kind==='professional'){
-                        $_SESSION['professional_registration_draft']=Registration::prepareProfessionalDraft($_POST);
-                        redirect('cadastro/profissional/whatsapp');
-                    }
                     $pending=Registration::start($_POST,$kind);
                     $_SESSION['registration_pending']=$pending;
                     redirect('cadastro/verificar');
@@ -126,6 +240,12 @@ final class Web
                         throw new RuntimeException('Cadastro concluído, mas não foi possível iniciar a sessão automaticamente.');
                     }
                     unset($_SESSION['registration_pending']);
+                    $after=(string)($_SESSION['registration_after_verify']??'');
+                    unset($_SESSION['registration_after_verify']);
+                    if(($verified['user']['role']??'')==='professional' && $after==='cadastro/profissional/pagamento' && !empty($_SESSION['professional_target_shift'])){
+                        flash('success','WhatsApp confirmado. Falta apenas a etapa de pagamento para enviar sua candidatura.');
+                        redirect('cadastro/profissional/pagamento');
+                    }
                     flash('success','Cadastro concluído. Bem-vindo ao TurnoPronto!');
                     redirect(Auth::dashboardPath(Auth::user()));
                 } catch(Throwable $e){
@@ -138,13 +258,44 @@ final class Web
             ],false);
         }
 
+        if ($path === '/cadastro/profissional/pagamento') {
+            $u=Auth::requireRole('professional');
+            $shiftId=(int)($_SESSION['professional_target_shift']??0);
+            $shift=$shiftId>0?Data::publicShift($shiftId):null;
+            if(!$shift){
+                flash('success','Seu cadastro foi salvo. Escolha uma vaga para continuar.');
+                redirect('profissional/oportunidades');
+            }
+
+            $state=Data::professionalOnboardingState((int)$u['id']);
+            if($method==='POST'){
+                verify_csrf();
+                try{
+                    Data::updateProfessionalOnboardingStep((int)$u['id'],'payment',$_POST);
+                    $result=Data::acceptShift((int)$u['id'],$shiftId);
+                    unset($_SESSION['professional_target_shift']);
+                    flash('success',($result['status']??'')==='verification_pending'
+                        ?'Candidatura enviada! Seu cadastro básico está pronto. A verificação de identidade pode ser concluída depois, antes da confirmação do turno.'
+                        :'Candidatura enviada com sucesso.');
+                    redirect('profissional/vagas/'.$shiftId);
+                }catch(Throwable $e){
+                    flash('error',$e->getMessage());
+                }
+            }
+            View::render('professional_application_payment',[
+                'title'=>'Informações de pagamento',
+                'shift'=>$shift,
+                'profile'=>$state['profile'],
+            ],false);
+        }
+
         if ($path === '/logout') {
             Auth::logout();
             redirect('login');
         }
 
         if ($path === '/' || $path === '') {
-            if(!Auth::check()) redirect('login');
+            if(!Auth::check()) redirect('vagas');
             redirect(Auth::dashboardPath(Auth::user()));
         }
 
@@ -611,10 +762,10 @@ final class Web
             verify_csrf();
 
             $state=Data::professionalOnboardingState((int)$u['id']);
-            if(!$state['can_apply']){
-                $_SESSION['professional_after_onboarding']='profissional/vagas/'.$m[1];
-                flash('success','Falta pouco. Complete somente os dados necessários para esta candidatura.');
-                redirect('profissional/completar?step='.$state['next_step']);
+            if(!$state['application_ready']){
+                $_SESSION['professional_target_shift']=(int)$m[1];
+                flash('success','Falta pouco. Complete as informações de pagamento para enviar sua candidatura.');
+                redirect('cadastro/profissional/pagamento');
             }
 
             try {

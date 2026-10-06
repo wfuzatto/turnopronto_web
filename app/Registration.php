@@ -81,6 +81,49 @@ final class Registration
             }
         }
     }
+    public static function prepareProfessionalApplicationDraft(array $input,int $categoryId): array
+    {
+        self::ensureSchema();
+        $name=trim((string)($input['name']??''));
+        $cpf=preg_replace('/\D+/','',(string)($input['cpf']??''));
+        $birth=trim((string)($input['birth_date']??''));
+        $password=(string)($input['password']??'');
+        $confirm=(string)($input['password_confirm']??'');
+        $legalAccepted=self::truthy($input['legal_accepted']??false)
+            || (self::truthy($input['terms_accepted']??false) && self::truthy($input['privacy_accepted']??false));
+
+        if(mb_strlen($name)<3) throw new InvalidArgumentException('Informe seu nome completo.');
+        if(!self::validCpf($cpf)) throw new InvalidArgumentException('CPF inválido.');
+        $date=DateTime::createFromFormat('Y-m-d',$birth);
+        if(!$date || $date->format('Y-m-d')!==$birth) throw new InvalidArgumentException('Informe sua data de nascimento.');
+        $today=new DateTime('today');
+        if($date>$today || $today->diff($date)->y<18) throw new InvalidArgumentException('É necessário ter pelo menos 18 anos.');
+        if(strlen($password)<8) throw new InvalidArgumentException('A senha deve ter pelo menos 8 caracteres.');
+        if($password!==$confirm) throw new InvalidArgumentException('As senhas não coincidem.');
+        if(!$legalAccepted) throw new InvalidArgumentException('É necessário aceitar os Termos de Uso e a Política de Privacidade.');
+
+        $pdo=Database::connection();
+        $st=$pdo->prepare('SELECT id FROM tp_professionals WHERE REPLACE(REPLACE(REPLACE(cpf,".",""),"-","")," ","")=? LIMIT 1');
+        $st->execute([$cpf]);
+        if($st->fetchColumn()) throw new RuntimeException('Já existe uma conta com este CPF. Entre com CPF e senha para continuar.');
+
+        $st=$pdo->prepare('SELECT id FROM tp_job_categories WHERE id=? AND active=1 LIMIT 1');
+        $st->execute([$categoryId]);
+        if(!$st->fetchColumn()) throw new InvalidArgumentException('A área desta vaga não está mais disponível.');
+
+        return [
+            'name'=>$name,
+            'cpf'=>$cpf,
+            'birth_date'=>$birth,
+            'password'=>$password,
+            'password_confirm'=>$confirm,
+            'categories'=>[$categoryId],
+            'legal_accepted'=>1,
+            'terms_accepted'=>1,
+            'privacy_accepted'=>1,
+        ];
+    }
+
     public static function prepareProfessionalDraft(array $input): array
     {
         self::ensureSchema();
@@ -290,8 +333,8 @@ final class Registration
 
             $st=$pdo->prepare('INSERT INTO tp_professionals
                 (user_id,cpf,rg,birth_date,headline,address,postal_code,city,state,pix_key,pix_key_type,pix_holder_name,pix_holder_document,status,created_at)
-                VALUES (?,?,NULL,NULL,?,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,"pending",NOW())');
-            $st->execute([$userId,$p['cpf'],$headline]);
+                VALUES (?,?,NULL,?,?,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,"pending",NOW())');
+            $st->execute([$userId,$p['cpf'],$p['birth_date']??null,$headline]);
             $professionalId=(int)$pdo->lastInsertId();
 
             $cat=$pdo->prepare('INSERT IGNORE INTO tp_professional_categories (professional_id,category_id,experience_level) SELECT ?,id,"initial" FROM tp_job_categories WHERE id=? AND active=1');
@@ -341,6 +384,14 @@ final class Registration
             $email=mb_strtolower(trim((string)($d['email']??'')));
             if(!filter_var($email,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe um e-mail válido.');
 
+            $birth=trim((string)($d['birth_date']??''));
+            if($birth!==''){
+                $date=DateTime::createFromFormat('Y-m-d',$birth);
+                if(!$date || $date->format('Y-m-d')!==$birth) throw new InvalidArgumentException('Informe uma data de nascimento válida.');
+                $today=new DateTime('today');
+                if($date>$today || $today->diff($date)->y<18) throw new InvalidArgumentException('É necessário ter pelo menos 18 anos.');
+            }
+
             $categories=array_values(array_unique(array_filter(array_map('intval',(array)($d['categories']??[])))));
             if(!$categories) throw new InvalidArgumentException('Selecione pelo menos uma área de interesse.');
 
@@ -354,6 +405,7 @@ final class Registration
                 'password'=>$password,
                 'phone'=>$phone,
                 'cpf'=>$cpf,
+                'birth_date'=>$birth!==''?$birth:null,
                 'categories'=>$categories,
                 'terms_accepted'=>1,
                 'privacy_accepted'=>1,

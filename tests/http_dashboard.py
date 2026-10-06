@@ -117,28 +117,43 @@ print('ADMIN segmented support center: PASS')
 print('ADMIN verification review pages: PASS')
 
 
-# Public professional registration must stay intentionally short.
+# Professionals browse vacancies before any signup.
 public = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
-fast_signup = public.open(base + '/cadastro/profissional', timeout=20).read().decode()
-for marker in ['name="name"', 'name="cpf"', 'name="categories[]"', 'name="password"', 'name="password_confirm"', 'name="legal_accepted"']:
-    assert marker in fast_signup, 'fast professional signup missing ' + marker
-for forbidden in ['name="email"', 'name="rg"', 'name="birth_date"', 'name="postal_code"', 'name="address"', 'name="pix_key"']:
-    assert forbidden not in fast_signup, 'fast professional signup asks too much: ' + forbidden
-assert 'Seu CPF será seu login' in fast_signup
-print('FAST professional registration: PASS')
+jobs = public.open(base + '/vagas', timeout=20).read().decode()
+for marker in ['Veja as vagas primeiro', 'Vagas disponíveis', 'Tenho interesse']:
+    assert marker in jobs, 'public vacancy page missing ' + marker
+assert 'name="cpf"' not in jobs and 'name="password"' not in jobs, 'public browsing unexpectedly asks for registration data'
+
+direct_signup = public.open(base + '/cadastro/profissional', timeout=20)
+assert urllib.parse.urlparse(direct_signup.url).path == '/vagas', 'professional signup must not start before vacancy interest'
+
+match = re.search(r'action="(/vagas/(\d+)/interesse)"', jobs)
+assert match, 'no public vacancy interest action found'
+interest_path = match.group(1)
+shift_id = match.group(2)
+csrf = re.search(r'name="_csrf" value="([^"]+)"', jobs).group(1)
+request = urllib.request.Request(
+    base + interest_path,
+    data=urllib.parse.urlencode({'_csrf': csrf}).encode(),
+    headers={'Content-Type':'application/x-www-form-urlencoded'}
+)
+response = public.open(request, timeout=20)
+assert urllib.parse.urlparse(response.url).path == '/cadastro/profissional', 'first interest did not start professional onboarding'
+
+basic = response.read().decode()
+for marker in ['Etapa 1 de 3', 'Informações básicas', 'name="name"', 'name="cpf"', 'name="birth_date"', 'name="password"', 'name="password_confirm"']:
+    assert marker in basic, 'basic application step missing ' + marker
+for forbidden in ['name="email"', 'name="phone"', 'name="pix_key"', 'name="address"', 'name="rg"']:
+    assert forbidden not in basic, 'basic application step asks too much: ' + forbidden
+
+detail = public.open(base + '/vagas/' + shift_id, timeout=20).read().decode()
+assert 'Tenho interesse nesta vaga' in detail and '3 etapas curtas' in detail
+print('GUEST vacancy-first onboarding: PASS')
 
 login_page = public.open(base + '/login', timeout=20).read().decode()
 assert 'name="identifier"' in login_page and 'CPF ou e-mail' in login_page
-print('CPF/email login UI: PASS')
-
-
-company_signup = public.open(base + '/cadastro/empresa', timeout=20).read().decode()
-assert 'name="email"' in company_signup, 'company signup missing responsible/user email'
-assert 'name="company_email"' in company_signup, 'company signup missing institutional company email'
-assert 'E-mail do responsável / usuário' in company_signup
-assert 'E-mail da empresa' in company_signup
-print('COMPANY separate emails: PASS')
-
+assert 'Ver vagas sem cadastro' in login_page
+print('CPF/email login and guest browsing CTA: PASS')
 
 company_signup = public.open(base + '/cadastro/empresa', timeout=20).read().decode()
 assert 'name="email"' in company_signup, 'company signup missing responsible/user email'
@@ -146,3 +161,6 @@ assert 'name="company_email"' in company_signup, 'company signup missing institu
 assert 'E-mail do responsável / usuário' in company_signup
 assert 'E-mail da empresa' in company_signup
 print('COMPANY separate emails: PASS')
+
+
+

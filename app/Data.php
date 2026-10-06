@@ -1097,7 +1097,6 @@ final class Data
         $s->execute([$userId]);
         return $s->fetch() ?: [];
     }
-
     public static function professionalOnboardingState(int $userId): array
     {
         $profile=self::professionalProfile($userId);
@@ -1106,16 +1105,23 @@ final class Data
 
         $categories=self::professionalCategoryIds($userId);
         $emailComplete=filter_var((string)($profile['email']??''),FILTER_VALIDATE_EMAIL)!==false;
-        $identityComplete=$emailComplete && trim((string)($profile['rg']??''))!=='' && !empty($profile['birth_date']);
-        $locationComplete=trim((string)($profile['address']??''))!=='' 
-            && strlen(preg_replace('/\D+/','',(string)($profile['postal_code']??'')))===8
-            && trim((string)($profile['city']??''))!==''
-            && strlen(trim((string)($profile['state']??'')))===2;
+        $birthComplete=!empty($profile['birth_date']);
+        $phoneVerified=!empty($profile['phone_verified_at']);
+        $basicComplete=trim((string)($profile['name']??''))!=='' 
+            && strlen(preg_replace('/\D+/','',(string)($profile['cpf']??'')))===11
+            && $birthComplete;
+        $contactComplete=$emailComplete && $phoneVerified;
+
         $paymentComplete=trim((string)($profile['pix_key_type']??''))!==''
             && trim((string)($profile['pix_key']??''))!==''
             && trim((string)($profile['pix_holder_name']??''))!==''
             && trim((string)($profile['pix_holder_document']??''))!=='';
-        $phoneVerified=!empty($profile['phone_verified_at']);
+
+        $identityComplete=trim((string)($profile['rg']??''))!=='';
+        $locationComplete=trim((string)($profile['address']??''))!=='' 
+            && strlen(preg_replace('/\D+/','',(string)($profile['postal_code']??'')))===8
+            && trim((string)($profile['city']??''))!==''
+            && strlen(trim((string)($profile['state']??'')))===2;
 
         $docs=Database::connection()->prepare("SELECT * FROM tp_documents WHERE professional_id=? AND type='identity' ORDER BY created_at DESC,id DESC LIMIT 1");
         $docs->execute([$pid]);
@@ -1123,26 +1129,28 @@ final class Data
         $identitySubmitted=$identityDoc!==null && in_array((string)$identityDoc['status'],['pending','verified'],true);
         $identityVerified=($identityDoc['status']??'')==='verified';
 
-        $applicationDataComplete=$phoneVerified && $identityComplete && $locationComplete && $paymentComplete && !empty($categories);
-        $canApply=$applicationDataComplete && $identitySubmitted;
+        // A primeira candidatura exige apenas as três etapas leves:
+        // dados básicos, contato validado e pagamento. Verificação documental vem depois.
+        $applicationReady=$basicComplete && $contactComplete && $paymentComplete && !empty($categories);
+        $verificationDataComplete=$applicationReady && $identityComplete && $locationComplete;
         $profileVerified=($profile['status']??'pending')==='verified';
 
         $steps=[
-            'account'=>true,
+            'account'=>$basicComplete,
             'whatsapp'=>$phoneVerified,
             'interests'=>!empty($categories),
+            'payment'=>$paymentComplete,
             'identity_data'=>$identityComplete,
             'location'=>$locationComplete,
-            'payment'=>$paymentComplete,
             'identity_document'=>$identitySubmitted,
         ];
         $done=count(array_filter($steps));
         $progress=(int)round(($done/count($steps))*100);
 
         $nextStep='done';
-        if(!$identityComplete) $nextStep='identity';
-        elseif(!$locationComplete) $nextStep='location';
+        if(!$identityComplete || !$basicComplete || !$contactComplete) $nextStep='identity';
         elseif(!$paymentComplete) $nextStep='payment';
+        elseif(!$locationComplete) $nextStep='location';
         elseif(!$identitySubmitted) $nextStep='document';
         elseif(!$identityVerified) $nextStep='review';
         elseif(!$profileVerified) $nextStep='final_review';
@@ -1152,6 +1160,8 @@ final class Data
             'categories'=>$categories,
             'steps'=>$steps,
             'progress'=>$progress,
+            'basic_complete'=>$basicComplete,
+            'contact_complete'=>$contactComplete,
             'identity_complete'=>$identityComplete,
             'location_complete'=>$locationComplete,
             'payment_complete'=>$paymentComplete,
@@ -1159,8 +1169,10 @@ final class Data
             'identity_document'=>$identityDoc,
             'identity_submitted'=>$identitySubmitted,
             'identity_verified'=>$identityVerified,
-            'application_data_complete'=>$applicationDataComplete,
-            'can_apply'=>$canApply,
+            'application_ready'=>$applicationReady,
+            'application_data_complete'=>$applicationReady,
+            'verification_data_complete'=>$verificationDataComplete,
+            'can_apply'=>$applicationReady,
             'profile_verified'=>$profileVerified,
             'next_step'=>$nextStep,
         ];
@@ -1268,9 +1280,12 @@ final class Data
               JOIN tp_job_categories jc ON jc.id=s.category_id
               JOIN tp_companies co ON co.id=s.company_id
               WHERE s.status IN ('published','filling') AND s.starts_at>NOW()
-                AND EXISTS (
-                    SELECT 1 FROM tp_professional_categories pc
-                    WHERE pc.professional_id=? AND pc.category_id=s.category_id
+                AND (
+                    NOT EXISTS (SELECT 1 FROM tp_professional_categories pc0 WHERE pc0.professional_id=?)
+                    OR EXISTS (
+                        SELECT 1 FROM tp_professional_categories pc
+                        WHERE pc.professional_id=? AND pc.category_id=s.category_id
+                    )
                 )
                 AND NOT EXISTS (
                     SELECT 1 FROM tp_assignments x
@@ -1278,12 +1293,50 @@ final class Data
                 )
               ORDER BY s.starts_at ASC LIMIT ".max(1,(int)$limit);
         $st=Database::connection()->prepare($sql);
-        $st->execute([$pid,$pid]);
+        $st->execute([$pid,$pid,$pid]);
         $rows=$st->fetchAll();
         foreach($rows as &$row){
             if(!array_key_exists('acceptance_mode',$row)) $row['acceptance_mode']='automatic';
         }
         return $rows;
+    }
+
+    public static function publicOpportunities(int $limit=80): array
+    {
+        $mode=self::hasColumn('tp_shifts','acceptance_mode') ? ',s.acceptance_mode' : '';
+        $sql="SELECT s.id,s.title,s.category_id,s.starts_at,s.ends_at,s.city,s.state,s.shift_value,s.required_workers,
+                     jc.name category_name,co.trade_name company_name,co.rating company_rating $mode,
+                     TIMESTAMPDIFF(MINUTE,s.starts_at,s.ends_at) duration_minutes,
+                     (SELECT COUNT(*) FROM tp_shift_applications a WHERE a.shift_id=s.id AND a.status IN ('applied','invited','accepted')) candidates
+              FROM tp_shifts s
+              JOIN tp_job_categories jc ON jc.id=s.category_id
+              JOIN tp_companies co ON co.id=s.company_id
+              WHERE s.status IN ('published','filling') AND s.starts_at>NOW() AND co.status='verified'
+              ORDER BY s.starts_at ASC
+              LIMIT ".max(1,min(200,$limit));
+        $rows=Database::connection()->query($sql)->fetchAll();
+        foreach($rows as &$row){
+            if(!array_key_exists('acceptance_mode',$row)) $row['acceptance_mode']='automatic';
+        }
+        return $rows;
+    }
+
+    public static function publicShift(int $id): ?array
+    {
+        $mode=self::hasColumn('tp_shifts','acceptance_mode') ? ',s.acceptance_mode' : '';
+        $sql="SELECT s.*,jc.name category_name,co.trade_name company_name,co.rating company_rating,co.logo_url company_logo $mode,
+                     TIMESTAMPDIFF(MINUTE,s.starts_at,s.ends_at) duration_minutes,
+                     (SELECT COUNT(*) FROM tp_shift_applications a WHERE a.shift_id=s.id AND a.status IN ('applied','invited','accepted')) candidates
+              FROM tp_shifts s
+              JOIN tp_job_categories jc ON jc.id=s.category_id
+              JOIN tp_companies co ON co.id=s.company_id
+              WHERE s.id=? AND s.status IN ('published','filling') AND s.starts_at>NOW() AND co.status='verified'
+              LIMIT 1";
+        $st=Database::connection()->prepare($sql);
+        $st->execute([$id]);
+        $row=$st->fetch() ?: null;
+        if($row && !array_key_exists('acceptance_mode',$row)) $row['acceptance_mode']='automatic';
+        return $row;
     }
 
     public static function shift(int $id): ?array
@@ -1308,8 +1361,8 @@ final class Data
         if(!$pid) throw new RuntimeException('Perfil profissional não encontrado.');
 
         $readiness=self::professionalOnboardingState($userId);
-        if(!$readiness['can_apply']){
-            throw new RuntimeException('Complete os dados necessários para se candidatar a esta vaga.');
+        if(!$readiness['application_ready']){
+            throw new RuntimeException('Conclua as informações básicas, de contato e de pagamento para enviar sua candidatura.');
         }
 
         $pdo->beginTransaction();
@@ -1319,6 +1372,9 @@ final class Data
             $shift=$st->fetch();
             if(!$shift || !in_array($shift['status'],['published','filling'],true)) throw new RuntimeException('Esta vaga não está mais disponível.');
             if(strtotime($shift['starts_at'])<=time()) throw new RuntimeException('Este turno já iniciou.');
+
+            $pdo->prepare('INSERT IGNORE INTO tp_professional_categories (professional_id,category_id,experience_level) VALUES (?,?,"initial")')
+                ->execute([$pid,(int)$shift['category_id']]);
 
             $st=$pdo->prepare('SELECT id FROM tp_assignments WHERE shift_id=? AND professional_id=? AND status<>"cancelled" LIMIT 1');
             $st->execute([$shiftId,$pid]);
@@ -1330,8 +1386,8 @@ final class Data
 
             $mode=$shift['acceptance_mode']??'automatic';
 
-            // O profissional pode demonstrar interesse enquanto a identidade está em análise.
-            // A confirmação automática só acontece depois da aprovação final do perfil.
+            // Candidatura pode ser enviada antes da verificação documental.
+            // A empresa só consegue confirmar o turno depois que o TurnoPronto liberar o perfil.
             if(!$readiness['profile_verified']){
                 $pdo->prepare('INSERT INTO tp_shift_applications (shift_id,professional_id,status,applied_at) VALUES (?,?,"applied",NOW())
                                ON DUPLICATE KEY UPDATE status=IF(status="accepted","accepted","applied"),applied_at=NOW()')
@@ -1602,7 +1658,7 @@ final class Data
             ]);
 
             $state=self::professionalOnboardingState((int)$profile['user_id']);
-            if($state['application_data_complete'] && $state['identity_verified']){
+            if($state['verification_data_complete'] && $state['identity_verified']){
                 $pdo->prepare('UPDATE tp_professionals SET status="verified" WHERE id=? AND status="pending"')->execute([$professionalId]);
                 if($pdo->query('SELECT ROW_COUNT()')->fetchColumn()){
                     self::audit($actorUserId,'verification.professional_auto','professional',$professionalId,['document_id'=>$documentId]);
@@ -1872,10 +1928,11 @@ final class Data
             $professional['verification_purpose']='Liberação final para confirmação automática e realização de turnos';
             $professional['verification_checks']=[
                 ['label'=>'WhatsApp','ok'=>$state['phone_verified']],
-                ['label'=>'Dados para candidatura','ok'=>$state['application_data_complete']],
+                ['label'=>'Cadastro para candidatura','ok'=>$state['application_ready']],
+                ['label'=>'Identidade e endereço','ok'=>$state['verification_data_complete']],
                 ['label'=>'Documento de identidade','ok'=>$state['identity_verified']],
             ];
-            $professional['ready_for_final']=$state['application_data_complete']&&$state['identity_verified'];
+            $professional['ready_for_final']=$state['verification_data_complete']&&$state['identity_verified'];
         }
         unset($professional);
 
@@ -1950,7 +2007,7 @@ final class Data
             'documents'=>$documents,
             'latest_documents'=>$latest,
             'onboarding'=>$state,
-            'ready_for_final'=>$state['application_data_complete']&&$state['identity_verified'],
+            'ready_for_final'=>$state['verification_data_complete']&&$state['identity_verified'],
         ];
     }
 
@@ -2167,7 +2224,7 @@ final class Data
 
         if($decision==='verified'){
             $state=self::professionalOnboardingState((int)$professional['user_id']);
-            if(!$state['application_data_complete']) throw new RuntimeException('O profissional ainda não concluiu os dados necessários para trabalhar.');
+            if(!$state['verification_data_complete']) throw new RuntimeException('O profissional ainda não concluiu os dados de identidade e endereço necessários para trabalhar.');
             if(!$state['identity_verified']) throw new RuntimeException('Verifique o documento de identidade antes de liberar o profissional.');
         }
 

@@ -3,12 +3,12 @@
   <section class="register-brand professional-contact-brand">
     <a href="<?=e(url('login'))?>"><img src="<?=e(asset('img/logo.svg'))?>" alt="TurnoPronto"></a>
     <div class="contact-brand-copy">
-      <span class="onboarding-kicker">Etapa 2 de 2</span>
-      <h1>Seu cadastro está<br>quase pronto.</h1>
-      <p>Agora precisamos apenas dos seus canais oficiais de contato para segurança, vagas e pagamentos.</p>
+      <span class="onboarding-kicker">Etapa 2 de 3</span>
+      <h1>Sua candidatura está<br>quase pronta.</h1>
+      <p>Agora confirmamos seus canais oficiais de contato. Depois disso faltará somente informar o pagamento.</p>
       <div class="register-points">
         <span>✓ CPF validado</span>
-        <span>✓ Áreas de interesse salvas</span>
+        <span>✓ Vaga escolhida e dados básicos salvos</span>
         <span>✓ Falta confirmar seu contato</span>
       </div>
     </div>
@@ -18,15 +18,15 @@
     <img class="login-mobile-logo" src="<?=e(asset('img/logo.svg'))?>" alt="TurnoPronto">
 
     <div class="contact-step-top">
-      <a class="back-login" href="<?=e(url('cadastro/profissional'))?>">← Voltar</a>
-      <span class="onboarding-kicker">Etapa 2 de 2</span>
+      <a class="back-login" href="<?=e(url('cadastro/profissional'))?>">← Voltar aos dados básicos</a>
+      <span class="onboarding-kicker">Etapa 2 de 3</span>
     </div>
 
     <div class="contact-heading">
       <span class="contact-icon"><?=icon('shield',22)?></span>
       <div>
         <h2>Contato e validação</h2>
-        <p>Informe seu e-mail e WhatsApp. Depois do código, você entra direto na plataforma.</p>
+        <p>Informe seu e-mail e WhatsApp. Depois do código, você seguirá para a última etapa: pagamento.</p>
       </div>
     </div>
 
@@ -57,7 +57,7 @@
       <button class="btn btn-primary btn-block contact-submit" type="submit">Enviar código por WhatsApp</button>
     </form>
 
-    <div class="contact-login-note">Seu login será feito com <strong>CPF + senha</strong>.</div>
+    <div class="contact-login-note">Após validar o WhatsApp, você seguirá para <strong>Etapa 3 · pagamento</strong>.</div>
   </section>
 </div>
 <script src="<?=e(asset('js/app.js'))?>"></script></body></html>
