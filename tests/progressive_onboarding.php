@@ -27,7 +27,7 @@ $draft=Registration::prepareProfessionalDraft([
     'legal_accepted'=>'1',
 ]);
 
-$pending=Registration::startProfessionalFromDraft($draft,'+5535999990001');
+$pending=Registration::startProfessionalFromDraft($draft,'+5535999990001','progressive-ci@turnopronto.local');
 if(($pending['role']??'')!=='professional') throw new RuntimeException('Pending role is not professional.');
 if(empty($pending['registration_id'])) throw new RuntimeException('Registration request was not created.');
 
@@ -38,7 +38,7 @@ if(!$userId) throw new RuntimeException('Professional account was not created.')
 $user=$pdo->query("SELECT * FROM tp_users WHERE id=".$userId)->fetch();
 $professional=$pdo->query("SELECT * FROM tp_professionals WHERE user_id=".$userId)->fetch();
 if(!$user||!$professional) throw new RuntimeException('Professional records missing.');
-if($user['email']!==null && $user['email']!=='') throw new RuntimeException('Initial professional account unexpectedly requires email.');
+if((string)$user['email']!=='progressive-ci@turnopronto.local') throw new RuntimeException('Professional email was not stored in the second registration stage.');
 if(empty($user['phone_verified_at'])) throw new RuntimeException('WhatsApp was not marked verified.');
 if((string)$professional['cpf']!==$cpf) throw new RuntimeException('CPF was not stored as login identity.');
 foreach(['rg','birth_date','address','postal_code','city','state','pix_key','pix_key_type','pix_holder_name','pix_holder_document'] as $field){
