@@ -1,0 +1,22 @@
+name: Build system_old.zip
+on:
+  push:
+    branches:
+      - backup/build-system-old-zip-20261006
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact rollback snapshot
+        uses: actions/checkout@v4
+        with:
+          ref: 66e0fd777e2bdd769c3f9203a43f2a5930823269
+      - name: Create rollback ZIP
+        run: |
+          zip -qr system_old.zip . -x ".git/*" "system_old.zip"
+      - name: Upload rollback ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: system_old
+          path: system_old.zip
+          if-no-files-found: error
