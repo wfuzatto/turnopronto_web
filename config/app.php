@@ -22,6 +22,15 @@ return [
         'development_code' => '000111',
     ],
 
+    // OCR de documentos via microserviço face_scanner.
+    // A URL e a credencial reais ficam somente em config/config.local.php.
+    'document_recognition' => [
+        'enabled' => false,
+        'url' => '',
+        'api_key' => '',
+        'timeout_seconds' => 25,
+    ],
+
     // Configure em config.local.php. Nunca versionar tokens reais.
     'whatsapp' => [
         'driver' => 'disabled', // disabled | meta_cloud | webhook | debug
