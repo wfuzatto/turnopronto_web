@@ -306,6 +306,34 @@ CREATE TABLE IF NOT EXISTS tp_consents (
   CONSTRAINT fk_consents_user FOREIGN KEY (user_id) REFERENCES tp_users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS tp_support_tickets (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  requester_user_id BIGINT UNSIGNED NOT NULL,
+  segment VARCHAR(30) NOT NULL,
+  category VARCHAR(60) NOT NULL,
+  subject VARCHAR(190) NOT NULL,
+  context_ref VARCHAR(190) NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'open',
+  last_message_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_support_ticket_requester FOREIGN KEY (requester_user_id) REFERENCES tp_users(id) ON DELETE CASCADE,
+  INDEX idx_support_requester (requester_user_id,status,last_message_at),
+  INDEX idx_support_segment_status (segment,status,last_message_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS tp_support_messages (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  ticket_id BIGINT UNSIGNED NOT NULL,
+  user_id BIGINT UNSIGNED NULL,
+  author_role VARCHAR(30) NOT NULL,
+  body TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_support_message_ticket FOREIGN KEY (ticket_id) REFERENCES tp_support_tickets(id) ON DELETE CASCADE,
+  CONSTRAINT fk_support_message_user FOREIGN KEY (user_id) REFERENCES tp_users(id) ON DELETE SET NULL,
+  INDEX idx_support_message_ticket (ticket_id,created_at,id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS tp_api_tokens (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT UNSIGNED NOT NULL,
