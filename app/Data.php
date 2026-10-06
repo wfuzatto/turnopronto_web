@@ -1396,7 +1396,7 @@ final class Data
     public static function assignment(int $userId, int $assignmentId): ?array
     {
         $pid=self::professionalIdForUser($userId);
-        $sql='SELECT a.*,s.title,s.starts_at,s.ends_at,s.address,s.city,s.state,s.shift_value,s.dress_code,s.notes,jc.name category_name,co.trade_name company_name
+        $sql='SELECT a.*,TIMESTAMPDIFF(SECOND,a.checkin_at,NOW()) checkout_elapsed_seconds,s.title,s.starts_at,s.ends_at,s.address,s.city,s.state,s.shift_value,s.dress_code,s.notes,jc.name category_name,co.trade_name company_name
               FROM tp_assignments a
               JOIN tp_shifts s ON s.id=a.shift_id
               JOIN tp_job_categories jc ON jc.id=s.category_id
@@ -1427,11 +1427,11 @@ final class Data
         $a=self::assignment($userId,$assignmentId);
         if(!$a) throw new RuntimeException('Turno não encontrado.');
         if($a['status']!=='checked_in') throw new RuntimeException('Faça o check-in antes de encerrar.');
-        $checkinAt=strtotime((string)($a['checkin_at']??''));
-        if(!$checkinAt) throw new RuntimeException('Horário do check-in não encontrado.');
-        $unlockAt=$checkinAt+(15*60);
-        if(time()<$unlockAt){
-            $remaining=max(1,$unlockAt-time());
+        $elapsed=$a['checkout_elapsed_seconds'];
+        if($elapsed===null) throw new RuntimeException('Horário do check-in não encontrado.');
+        $elapsed=max(0,(int)$elapsed);
+        if($elapsed<15*60){
+            $remaining=(15*60)-$elapsed;
             $minutes=(int)ceil($remaining/60);
             throw new RuntimeException('O check-out será liberado 15 minutos após o check-in. Aguarde cerca de '.$minutes.' minuto(s).');
         }
