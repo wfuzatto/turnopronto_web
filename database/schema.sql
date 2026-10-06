@@ -202,6 +202,10 @@ CREATE TABLE IF NOT EXISTS tp_documents (
   rejection_reason VARCHAR(500) NULL,
   expires_at DATE NULL,
   verified_at DATETIME NULL,
+  auto_verification_status VARCHAR(30) NULL,
+  auto_verification_provider VARCHAR(60) NULL,
+  auto_verification_detail VARCHAR(500) NULL,
+  auto_verified_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_doc_prof FOREIGN KEY (professional_id) REFERENCES tp_professionals(id) ON DELETE CASCADE,
   INDEX idx_doc_prof_status (professional_id,status)
