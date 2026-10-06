@@ -166,46 +166,46 @@ jobs:
           echo "CHECKPOINT 1: API health"
           response=$(curl --fail --silent --show-error --max-time 20 "$HEALTH_URL")
           printf '%s\n' "$response"
-          printf '%s' "$response" | grep -q '"ok":true'
-          printf '%s' "$response" | grep -q '"public_base_path":""'
-          printf '%s' "$response" | grep -q '"css_asset":"/public/assets/css/app.css?v='
+          grep -q '"ok":true' <<<"$response"
+          grep -q '"public_base_path":""' <<<"$response"
+          grep -q '"css_asset":"/public/assets/css/app.css?v=' <<<"$response"
 
           echo "CHECKPOINT 2: database-backed API"
           categories=$(curl --fail --silent --show-error --max-time 20 "$BASE_URL/api/v1/categories")
           printf '%s\n' "$categories"
-          printf '%s' "$categories" | grep -q '"ok":true'
-          printf '%s' "$categories" | grep -q '"data":\['
+          grep -q '"ok":true' <<<"$categories"
+          grep -q '"data":\[' <<<"$categories"
 
           echo "CHECKPOINT 3: login asset path"
           login_html=$(curl --fail --silent --show-error --max-time 20 "$BASE_URL/login")
-          printf '%s' "$login_html" | grep -q 'href="/public/assets/css/app.css?v='
+          grep -q 'href="/public/assets/css/app.css?v=' <<<"$login_html"
 
           echo "CHECKPOINT 4: production CSS"
           css=$(curl --fail --silent --show-error --max-time 20 "$BASE_URL/public/assets/css/app.css")
-          printf '%s' "$css" | grep -q '.app-shell'
-          printf '%s' "$css" | grep -q '.sidebar'
-          printf '%s' "$css" | grep -q '.topbar'
-          printf '%s' "$css" | grep -q '.kpi-grid'
-          printf '%s' "$css" | grep -q '.login-page'
-          printf '%s' "$css" | grep -q '.password-field'
-          printf '%s' "$css" | grep -q '.password-toggle'
+          grep -q '.app-shell' <<<"$css"
+          grep -q '.sidebar' <<<"$css"
+          grep -q '.topbar' <<<"$css"
+          grep -q '.kpi-grid' <<<"$css"
+          grep -q '.login-page' <<<"$css"
+          grep -q '.password-field' <<<"$css"
+          grep -q '.password-toggle' <<<"$css"
 
           echo "CHECKPOINT 4B: registration password controls"
           register_html=$(curl --fail --silent --show-error --max-time 20 "$BASE_URL/cadastro/empresa")
-          printf '%s' "$register_html" | grep -q 'class="password-field"'
-          printf '%s' "$register_html" | grep -q 'data-password-toggle'
+          grep -q 'class="password-field"' <<<"$register_html"
+          grep -q 'data-password-toggle' <<<"$register_html"
 
           echo "CHECKPOINT 5: shared renderer/layout"
           visual_headers=$(mktemp)
           visual_html=$(curl --fail --silent --show-error --max-time 20 -D "$visual_headers" "$BASE_URL/visual-check")
           cat "$visual_headers"
-          printf '%s' "$visual_html" | grep -q 'name="turnopronto-layout-build" content="2026.10.02.data-fix"'
-          printf '%s' "$visual_html" | grep -q 'data-tp-layout="2026.10.02.data-fix"'
-          printf '%s' "$visual_html" | grep -q '<div class="app-shell">'
-          printf '%s' "$visual_html" | grep -q 'class="sidebar"'
-          printf '%s' "$visual_html" | grep -q 'class="topbar"'
-          printf '%s' "$visual_html" | grep -q 'id="tp-visual-smoke"'
-          printf '%s' "$visual_html" | grep -q 'href="/public/assets/css/app.css?v='
+          grep -q 'name="turnopronto-layout-build" content="2026.10.02.data-fix"' <<<"$visual_html"
+          grep -q 'data-tp-layout="2026.10.02.data-fix"' <<<"$visual_html"
+          grep -q '<div class="app-shell">' <<<"$visual_html"
+          grep -q 'class="sidebar"' <<<"$visual_html"
+          grep -q 'class="topbar"' <<<"$visual_html"
+          grep -q 'id="tp-visual-smoke"' <<<"$visual_html"
+          grep -q 'href="/public/assets/css/app.css?v=' <<<"$visual_html"
 
           echo "CHECKPOINT 6: authenticated routes use front controller"
           company_headers=$(mktemp)
