@@ -85,7 +85,7 @@ if($isCompany){
     <div class="admin-review-grid">
       <?=$editableField('Nome fantasia','trade_name',$record['trade_name']??'')?>
       <?=$editableField('Razão social','legal_name',$record['legal_name']??'')?>
-      <?=$editableField('CNPJ','cnpj',$record['cnpj']??'','','text')?>
+      <?=$editableField('CNPJ','cnpj',$record['cnpj']??'',null,'text')?>
       <?=$editableField('CPF do responsável','responsible_cpf',$record['responsible_cpf']??'')?>
       <?=$editableField('Responsável','owner_name',$record['owner_name']??'')?>
       <?=$editableField('E-mail do responsável / usuário','owner_email',$record['owner_email']??'',null,'email')?>
