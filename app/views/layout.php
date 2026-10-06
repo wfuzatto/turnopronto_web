@@ -9,12 +9,12 @@ $role=$me['role']??null;
 $companyName=$role==='company'?(Data::companyProfile((int)$me['id'])['trade_name']??$me['name']):($me['name']??'TurnoPronto');
 $notificationMenu=$me?Data::notificationMenu((int)$me['id'],6):['unread'=>0,'items'=>[]];
 $navCompany=[
- ['empresa/dashboard','home','Dashboard'],['empresa/verificacao','shield','Verificação'],['empresa/vagas/nova','plus','Publicar vaga'],['empresa/vagas','briefcase','Minhas vagas'],['empresa/profissionais','users','Profissionais'],['empresa/escalas','calendar','Escalas'],['empresa/financeiro','wallet','Financeiro'],['empresa/avaliacoes','star','Avaliações'],['suporte','help','Suporte']
+ ['empresa/dashboard','home','Dashboard'],['empresa/verificacao','shield','Verificação'],['empresa/vagas/nova','plus','Publicar vaga'],['empresa/vagas','briefcase','Minhas vagas'],['empresa/profissionais','users','Profissionais'],['empresa/escalas','calendar','Escalas'],['empresa/financeiro','wallet','Financeiro'],['empresa/avaliacoes','star','Avaliações'],['empresa/suporte','help','Suporte']
 ];
 $navPro=[
- ['profissional/inicio','home','Início'],['profissional/oportunidades','briefcase','Oportunidades'],['profissional/turnos','calendar','Meus turnos'],['profissional/agenda','calendar','Agenda'],['profissional/ganhos','chart','Ganhos'],['profissional/reputacao','star','Reputação'],['profissional/documentos','file','Documentos'],['suporte','help','Suporte']
+ ['profissional/inicio','home','Início'],['profissional/oportunidades','briefcase','Oportunidades'],['profissional/turnos','calendar','Meus turnos'],['profissional/agenda','calendar','Agenda'],['profissional/ganhos','chart','Ganhos'],['profissional/reputacao','star','Reputação'],['profissional/documentos','file','Documentos'],['profissional/suporte','help','Suporte']
 ];
-$nav=$role==='company'?$navCompany:($role==='professional'?$navPro:[['admin/dashboard','home','Dashboard'],['suporte','help','Suporte']]);
+$nav=$role==='company'?$navCompany:($role==='professional'?$navPro:[['admin/dashboard','home','Dashboard'],['admin/suporte','help','Suporte']]);
 ?><!doctype html><html lang="pt-BR"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?=e($title??'TurnoPronto')?> • TurnoPronto</title>
@@ -48,6 +48,7 @@ $nav=$role==='company'?$navCompany:($role==='professional'?$navPro:[['admin/dash
                 'invitation','application'=>'users',
                 'application_approved'=>'check',
                 'application_rejected'=>'file',
+                'support_ticket','support_reply'=>'help',
                 default=>'bell',
             };
         };
