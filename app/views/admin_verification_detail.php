@@ -154,9 +154,10 @@ if($isCompany){
   </section>
 
   <section class="panel admin-review-section">
-    <div class="panel-head"><div><h2>Documentação do profissional</h2><p>Documento de identidade e CPF precisam ser conferidos antes da aprovação final.</p></div></div>
+    <div class="panel-head"><div><h2>Documentação do profissional</h2><p>O CPF já passou pela validação cadastral. Para a liberação final, confira o documento oficial com foto e compare os dados com o cadastro.</p></div></div>
+    <div class="admin-cpf-validation"><?=icon('check',17)?><div><strong>CPF validado no cadastro</strong><span><?=e($record['cpf']??'—')?> passou pela validação matemática e é usado como login do profissional.</span></div></div>
     <div class="admin-doc-list">
-      <?php foreach(['identity'=>'Documento de identidade','cpf'=>'CPF'] as $type=>$label):
+      <?php foreach(['identity'=>'Documento oficial com foto'] as $type=>$label):
         $doc=$detail['latest_documents'][$type]??null;
         $status=$doc['status']??'missing';
       ?>
