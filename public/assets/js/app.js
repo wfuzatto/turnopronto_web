@@ -588,5 +588,4 @@
     window.setInterval(refreshNotifications,20000);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshNotifications();});
   }
-  }
 })();
