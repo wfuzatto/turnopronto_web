@@ -1554,8 +1554,97 @@ final class Data
         return array_map('intval',array_column($st->fetchAll(),'category_id'));
     }
 
+    private static function ensureProfessionalDocumentAutoSchema(): void
+    {
+        $pdo=Database::connection();
+        $columns=[
+            'auto_verification_status'=>'VARCHAR(30) NULL AFTER verified_at',
+            'auto_verification_provider'=>'VARCHAR(60) NULL AFTER auto_verification_status',
+            'auto_verification_detail'=>'VARCHAR(500) NULL AFTER auto_verification_provider',
+            'auto_verified_at'=>'DATETIME NULL AFTER auto_verification_detail',
+        ];
+        foreach($columns as $column=>$definition){
+            if(!self::hasColumn('tp_documents',$column)){
+                $pdo->exec("ALTER TABLE tp_documents ADD COLUMN {$column} {$definition}");
+                self::$columnCache['tp_documents.'.$column]=true;
+            }
+        }
+    }
+
+    private static function autoVerifyProfessionalIdentityDocument(int $actorUserId,int $professionalId,int $documentId,string $absolute,string $mime): array
+    {
+        self::ensureProfessionalDocumentAutoSchema();
+        $pdo=Database::connection();
+
+        $st=$pdo->prepare('SELECT p.id,p.user_id,p.cpf,p.status,u.name FROM tp_professionals p JOIN tp_users u ON u.id=p.user_id WHERE p.id=? LIMIT 1');
+        $st->execute([$professionalId]);
+        $professional=$st->fetch();
+        if(!$professional) return ['available'=>false,'decision'=>'manual','detail'=>'Profissional não encontrado para validação automática.'];
+
+        try{
+            $result=DocumentRecognition::analyze(
+                $absolute,
+                $mime,
+                (string)$professional['name'],
+                (string)$professional['cpf'],
+                'turnopronto-professional-'.$professionalId.'-document-'.$documentId
+            );
+        }catch(Throwable $e){
+            $result=[
+                'available'=>false,
+                'decision'=>'manual',
+                'provider'=>'face_scanner',
+                'detail'=>'Reconhecimento automático indisponível; o documento permanece para análise manual.',
+            ];
+        }
+
+        $provider=mb_substr((string)($result['provider']??'face_scanner'),0,60);
+        $detail=mb_substr((string)($result['detail']??'Análise automática não concluída.'),0,500);
+
+        if(empty($result['available'])){
+            $pdo->prepare('UPDATE tp_documents SET auto_verification_status="unavailable",auto_verification_provider=?,auto_verification_detail=? WHERE id=?')
+                ->execute([$provider,$detail,$documentId]);
+            return $result;
+        }
+
+        if(($result['decision']??'manual')==='verified'){
+            $pdo->beginTransaction();
+            try{
+                $pdo->prepare('UPDATE tp_documents SET status="verified",verified_at=NOW(),auto_verification_status="verified",auto_verification_provider=?,auto_verification_detail=?,auto_verified_at=NOW() WHERE id=?')
+                    ->execute([$provider,$detail,$documentId]);
+                self::audit($actorUserId,'document.auto_verified','document',$documentId,['provider'=>$provider]);
+
+                $state=self::professionalOnboardingState((int)$professional['user_id']);
+                if($state['application_data_complete'] && $state['identity_verified'] && $professional['status']==='pending'){
+                    $pdo->prepare('UPDATE tp_professionals SET status="verified" WHERE id=? AND status="pending"')->execute([$professionalId]);
+                    self::audit($actorUserId,'verification.professional_auto','professional',$professionalId,['provider'=>$provider]);
+                }
+                $pdo->commit();
+            }catch(Throwable $e){
+                if($pdo->inTransaction()) $pdo->rollBack();
+                throw $e;
+            }
+
+            self::createNotification(
+                (int)$professional['user_id'],
+                'document_verified',
+                'Documento aprovado automaticamente',
+                'Nome e CPF conferiram com o documento enviado. Seu cadastro foi liberado quando todos os demais dados estavam completos.',
+                'profissional/perfil',
+                'document_auto_verified:'.$documentId
+            );
+            return $result;
+        }
+
+        $pdo->prepare('UPDATE tp_documents SET auto_verification_status="manual_review",auto_verification_provider=?,auto_verification_detail=? WHERE id=?')
+            ->execute([$provider,$detail,$documentId]);
+        self::audit($actorUserId,'document.auto_review_required','document',$documentId,['provider'=>$provider]);
+        return $result;
+    }
+
     public static function uploadProfessionalDocument(int $userId, string $type, array $file): int
     {
+        self::ensureProfessionalDocumentAutoSchema();
         $pid=self::professionalIdForUser($userId);
         if(!$pid) throw new RuntimeException('Perfil profissional não encontrado.');
         $labels=[
@@ -1590,11 +1679,13 @@ final class Data
         $st->execute([$pid,$type,$labels[$type],$relative,mb_substr((string)($file['name']??'documento'),0,255),$mime]);
         $id=(int)$pdo->lastInsertId();
         self::audit($userId,'document.uploaded','document',$id,['type'=>$type,'mime'=>$mime]);
+        if($type==='identity') self::autoVerifyProfessionalIdentityDocument($userId,$pid,$id,$absolute,$mime);
         return $id;
     }
 
     public static function adminUploadProfessionalDocument(int $adminUserId,int $professionalId,string $type,array $file): int
     {
+        self::ensureProfessionalDocumentAutoSchema();
         $labels=[
             'identity'=>'Documento de identidade',
             'cpf'=>'CPF',
@@ -1639,11 +1730,13 @@ final class Data
         self::audit($adminUserId,'verification.professional_document_uploaded_by_admin','document',$id,[
             'professional_id'=>$professionalId,'type'=>$type,'mime'=>$mime
         ]);
+        if($type==='identity') self::autoVerifyProfessionalIdentityDocument($adminUserId,$professionalId,$id,$absolute,$mime);
         return $id;
     }
 
     public static function adminDocument(int $documentId): ?array
     {
+        self::ensureProfessionalDocumentAutoSchema();
         $sql="SELECT d.*,u.name professional_name FROM tp_documents d JOIN tp_professionals p ON p.id=d.professional_id JOIN tp_users u ON u.id=p.user_id WHERE d.id=? LIMIT 1";
         $st=Database::connection()->prepare($sql);
         $st->execute([$documentId]);
@@ -1652,6 +1745,7 @@ final class Data
 
     public static function adminPendingDocuments(): array
     {
+        self::ensureProfessionalDocumentAutoSchema();
         $sql="SELECT d.*,u.name professional_name,u.email,p.status professional_status
               FROM tp_documents d
               JOIN tp_professionals p ON p.id=d.professional_id
@@ -2001,6 +2095,7 @@ final class Data
     }
     public static function adminProfessionalVerificationDetail(int $professionalId): array
     {
+        self::ensureProfessionalDocumentAutoSchema();
         $pdo=Database::connection();
         $st=$pdo->prepare("SELECT p.*,u.name,u.email,u.phone,u.phone_verified_at,u.avatar_url
                            FROM tp_professionals p
@@ -2321,6 +2416,7 @@ final class Data
             'verification.company_phone_code_sent'=>'Código de verificação enviado ao WhatsApp da empresa',
             'verification.company_phone_verified'=>'WhatsApp da empresa verificado',
             'verification.professional'=>'Verificação final do profissional concluída',
+            'verification.professional_auto'=>'Cadastro do profissional aprovado automaticamente',
             'verification.professional_document_uploaded_by_admin'=>'Administrador anexou documento do profissional',
             'document.auto_verified'=>'Documento aprovado automaticamente',
             'document.auto_review_required'=>'Documento enviado para análise manual',
