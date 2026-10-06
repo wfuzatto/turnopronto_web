@@ -1148,8 +1148,8 @@ final class Data
         $progress=(int)round(($done/count($steps))*100);
 
         $nextStep='done';
-        if(!$applicationReady) $nextStep='application';
-        elseif(!$identityComplete) $nextStep='identity';
+        if(!$identityComplete || !$basicComplete || !$contactComplete) $nextStep='identity';
+        elseif(!$paymentComplete) $nextStep='payment';
         elseif(!$locationComplete) $nextStep='location';
         elseif(!$identitySubmitted) $nextStep='document';
         elseif(!$identityVerified) $nextStep='review';
