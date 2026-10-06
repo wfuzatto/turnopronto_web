@@ -1198,6 +1198,7 @@ final class Data
                 self::audit($userId,'onboarding.professional_identity','professional',$pid);
                 $pdo->commit();
             }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+            self::maybeFinalizeProfessionalFromAutomaticIdentity($userId,$pid);
             return;
         }
 
@@ -1210,6 +1211,7 @@ final class Data
             $pdo->prepare('UPDATE tp_professionals SET postal_code=?,address=?,city=?,state=? WHERE id=?')
                 ->execute([$postal,$address,$city,$state,$pid]);
             self::audit($userId,'onboarding.professional_location','professional',$pid);
+            self::maybeFinalizeProfessionalFromAutomaticIdentity($userId,$pid);
             return;
         }
 
@@ -1224,6 +1226,7 @@ final class Data
             $pdo->prepare('UPDATE tp_professionals SET pix_key_type=?,pix_key=?,pix_holder_name=?,pix_holder_document=? WHERE id=?')
                 ->execute([$type,$key,$holder,$holderDoc,$pid]);
             self::audit($userId,'onboarding.professional_payment','professional',$pid);
+            self::maybeFinalizeProfessionalFromAutomaticIdentity($userId,$pid);
             return;
         }
 
@@ -1573,6 +1576,36 @@ final class Data
         }
     }
 
+    private static function maybeFinalizeProfessionalFromAutomaticIdentity(int $actorUserId,int $professionalId): bool
+    {
+        self::ensureProfessionalDocumentAutoSchema();
+        $pdo=Database::connection();
+        $st=$pdo->prepare('SELECT p.user_id,p.status FROM tp_professionals p WHERE p.id=? LIMIT 1');
+        $st->execute([$professionalId]);
+        $professional=$st->fetch();
+        if(!$professional || $professional['status']!=='pending') return false;
+
+        $doc=$pdo->prepare("SELECT status,auto_verification_status FROM tp_documents WHERE professional_id=? AND type='identity' ORDER BY created_at DESC,id DESC LIMIT 1");
+        $doc->execute([$professionalId]);
+        $identity=$doc->fetch();
+        if(!$identity || $identity['status']!=='verified' || $identity['auto_verification_status']!=='verified') return false;
+
+        $state=self::professionalOnboardingState((int)$professional['user_id']);
+        if(!$state['application_data_complete'] || !$state['identity_verified']) return false;
+
+        $pdo->prepare('UPDATE tp_professionals SET status="verified" WHERE id=? AND status="pending"')->execute([$professionalId]);
+        self::audit($actorUserId,'verification.professional_auto','professional',$professionalId,['provider'=>'face_scanner']);
+        self::createNotification(
+            (int)$professional['user_id'],
+            'document_verified',
+            'Cadastro aprovado automaticamente',
+            'Seu documento, nome e CPF foram conferidos e seu cadastro está liberado para confirmação de turnos.',
+            'profissional/perfil',
+            'professional_auto_verified:'.$professionalId
+        );
+        return true;
+    }
+
     private static function autoVerifyProfessionalIdentityDocument(int $actorUserId,int $professionalId,int $documentId,string $absolute,string $mime): array
     {
         self::ensureProfessionalDocumentAutoSchema();
@@ -1616,25 +1649,25 @@ final class Data
                     ->execute([$provider,$detail,$documentId]);
                 self::audit($actorUserId,'document.auto_verified','document',$documentId,['provider'=>$provider]);
 
-                $state=self::professionalOnboardingState((int)$professional['user_id']);
-                if($state['application_data_complete'] && $state['identity_verified'] && $professional['status']==='pending'){
-                    $pdo->prepare('UPDATE tp_professionals SET status="verified" WHERE id=? AND status="pending"')->execute([$professionalId]);
-                    self::audit($actorUserId,'verification.professional_auto','professional',$professionalId,['provider'=>$provider]);
-                }
                 $pdo->commit();
+                self::maybeFinalizeProfessionalFromAutomaticIdentity($actorUserId,$professionalId);
             }catch(Throwable $e){
                 if($pdo->inTransaction()) $pdo->rollBack();
                 throw $e;
             }
 
-            self::createNotification(
-                (int)$professional['user_id'],
-                'document_verified',
-                'Documento aprovado automaticamente',
-                'Nome e CPF conferiram com o documento enviado. Seu cadastro foi liberado quando todos os demais dados estavam completos.',
-                'profissional/perfil',
-                'document_auto_verified:'.$documentId
-            );
+            $statusCheck=$pdo->prepare('SELECT status FROM tp_professionals WHERE id=? LIMIT 1');
+            $statusCheck->execute([$professionalId]);
+            if((string)$statusCheck->fetchColumn()!=='verified'){
+                self::createNotification(
+                    (int)$professional['user_id'],
+                    'document_verified',
+                    'Documento aprovado automaticamente',
+                    'Nome e CPF conferiram com o documento enviado. Complete os demais dados pendentes para liberar o cadastro.',
+                    'profissional/perfil',
+                    'document_auto_verified:'.$documentId
+                );
+            }
             return $result;
         }
 
@@ -2070,6 +2103,7 @@ final class Data
         }
 
         self::audit($adminUserId,'admin.verification_field_updated','professional',$entityId,['field'=>$field]);
+        self::maybeFinalizeProfessionalFromAutomaticIdentity($adminUserId,$entityId);
         return ['ok'=>true,'value'=>$value];
     }
 
