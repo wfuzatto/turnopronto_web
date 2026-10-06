@@ -18,6 +18,10 @@ if (isset($argv[1])) {
            'kpis'=>['open'=>7,'today'=>2,'fill_rate'=>80,'spend'=>123.45], 'shifts'=>[], 'professionals'=>[]]
         : ['profile'=>['name'=>'Profissional Diagnóstico','status'=>'verified','headline'=>'Atendimento',
                       'attendance_score'=>98,'punctuality_score'=>99],
+           'onboarding'=>[
+               'can_apply'=>true,'profile_verified'=>true,'progress'=>100,'next_step'=>'done',
+               'steps'=>['account'=>true,'whatsapp'=>true,'interests'=>true,'identity_data'=>true,'location'=>true,'payment'=>true,'identity_document'=>true]
+           ],
            'kpis'=>['week'=>7,'earnings'=>123.45,'reliability'=>98,'punctuality'=>99],
            'opportunities'=>[], 'assignments'=>[], 'documents'=>[]];
     View::render($role === 'company' ? 'company_dashboard' : 'professional_dashboard', [
