@@ -1,9 +1,9 @@
 <div class="page-head"><div><h1>Documentos</h1><p>Envie documentos para aumentar a confiança e liberar seu perfil para os turnos.</p></div></div>
-<div class="kyc-note"><strong>Para a primeira liberação:</strong> Documento de identidade e CPF precisam estar verificados. Os arquivos são privados e não ficam expostos às empresas contratantes.</div>
+<div class="kyc-note"><strong>Para a primeira liberação:</strong> basta um documento oficial com foto. O CPF já é validado no cadastro e não exige um segundo arquivo. Os documentos são privados e não ficam expostos às empresas contratantes.</div>
 <section class="panel">
   <div class="panel-head"><div><h2>Enviar documento</h2><p>Formatos aceitos: PDF, JPG e PNG, até 5 MB.</p></div></div>
   <form method="post" enctype="multipart/form-data" action="<?=e(url('profissional/documentos/enviar'))?>" class="document-upload-grid"><?=csrf_field()?>
-    <label>Tipo<select name="type" required><option value="identity">Documento de identidade</option><option value="cpf">CPF</option><option value="address">Comprovante de residência</option><option value="food">Manipulação de alimentos</option><option value="other">Outro</option></select></label>
+    <label>Tipo<select name="type" required><option value="identity">Documento oficial com foto</option><option value="address">Comprovante de residência</option><option value="food">Manipulação de alimentos</option><option value="other">Outro documento</option></select></label>
     <label>Arquivo<input type="file" name="document" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required></label>
     <button class="btn btn-primary" type="submit">Enviar para análise</button>
   </form>
