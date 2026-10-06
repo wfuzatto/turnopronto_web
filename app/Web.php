@@ -606,6 +606,23 @@ final class Web
             }
         }
 
+        if (preg_match('#^/admin/verificacao/empresa/(\d+)/documentos/enviar$#',$path,$m) && $method==='POST') {
+            $u=Auth::requireRole('admin');
+            verify_csrf();
+            try {
+                Data::adminUploadCompanyVerificationDocument(
+                    (int)$u['id'],
+                    (int)$m[1],
+                    (string)($_POST['type']??''),
+                    $_FILES['document']??[]
+                );
+                flash('success','Documento anexado pelo administrador. Revise o arquivo e aprove quando estiver correto.');
+            } catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('admin/verificacao/empresa/'.$m[1]);
+        }
+
         if (preg_match('#^/admin/documentos/empresa/(\d+)/arquivo$#',$path,$m) && $method==='GET') {
             Auth::requireRole('admin');
             $doc=Data::adminCompanyDocument((int)$m[1]);
@@ -631,6 +648,23 @@ final class Web
             }
             $back=trim((string)($_POST['back']??''));
             redirect(preg_match('#^admin/verificacao/empresa/\d+$#',$back)?$back:'admin/dashboard');
+        }
+
+        if (preg_match('#^/admin/verificacao/profissional/(\d+)/documentos/enviar$#',$path,$m) && $method==='POST') {
+            $u=Auth::requireRole('admin');
+            verify_csrf();
+            try {
+                Data::adminUploadProfessionalDocument(
+                    (int)$u['id'],
+                    (int)$m[1],
+                    (string)($_POST['type']??''),
+                    $_FILES['document']??[]
+                );
+                flash('success','Documento anexado pelo administrador. Revise o arquivo e aprove quando estiver correto.');
+            } catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('admin/verificacao/profissional/'.$m[1]);
         }
 
         if (preg_match('#^/admin/documentos/(\d+)/arquivo$#',$path,$m) && $method==='GET') {

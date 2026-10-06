@@ -84,6 +84,10 @@ jobs:
           test -f app/views/admin_verification_detail.php
           grep -q 'adminCompanyVerificationDetail' app/Data.php
           grep -q 'adminProfessionalVerificationDetail' app/Data.php
+          grep -q 'adminUploadCompanyVerificationDocument' app/Data.php
+          grep -q 'adminUploadProfessionalDocument' app/Data.php
+          grep -q 'admin-support-upload' app/views/admin_verification_detail.php
+          grep -q 'multipart/form-data' app/views/admin_verification_detail.php
           grep -q 'Revisar cadastro' app/views/admin_dashboard.php
 
   deploy:
