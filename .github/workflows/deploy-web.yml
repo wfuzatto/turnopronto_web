@@ -42,6 +42,12 @@ jobs:
             -not -path './vendor/*' \
             -print0 | xargs -0 -n1 php -l
 
+      - name: JavaScript syntax
+        run: node --check public/assets/js/app.js
+
+      - name: Document recognition policy
+        run: php tests/document_recognition.php
+
       - name: Base path regression tests
         run: |
           php tests/base_path_regression.php
@@ -67,6 +73,7 @@ jobs:
             sleep 1
           done
           python3 tests/http_dashboard.py
+          php tests/checkout_safety.php
 
       - name: Validate production tree
         shell: bash
@@ -104,6 +111,15 @@ jobs:
           grep -q 'empresa/suporte' app/views/layout.php
           grep -q 'profissional/suporte' app/views/layout.php
           grep -q 'admin/suporte' app/views/layout.php
+          test -f app/DocumentRecognition.php
+          test -f app/PostalCode.php
+          grep -q 'adminUpdateVerificationField' app/Data.php
+          grep -q 'minimumCheckoutAt' app/Data.php
+          grep -q 'autoVerifyProfessionalIdentityDocument' app/Data.php
+          grep -q 'data-admin-inline-root' app/views/admin_verification_detail.php
+          grep -q 'data-checkout-unlock-at' app/views/current_shift.php
+          grep -q 'notification-toast' public/assets/js/app.js
+          grep -q 'api/v1/cep' public/assets/js/app.js
 
   deploy:
     needs: validate
@@ -134,6 +150,10 @@ jobs:
           grep -q '.support-page' public/assets/css/app.css
           grep -q '.support-ticket-row' public/assets/css/app.css
           grep -q '.support-message' public/assets/css/app.css
+          grep -q '.admin-editable-field' public/assets/css/app.css
+          grep -q '.checkout-safety-note' public/assets/css/app.css
+          grep -q '.notification-toast' public/assets/css/app.css
+          grep -q '.admin-auto-doc-status' public/assets/css/app.css
 
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
