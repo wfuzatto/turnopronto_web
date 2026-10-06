@@ -146,6 +146,8 @@ jobs:
           grep -q '.admin-inline-editor' public/assets/css/app.css
           grep -q '.checkout-lock-note' public/assets/css/app.css
           grep -q '.notification-toast' public/assets/css/app.css
+          grep -q 'max-width:1360px' public/assets/css/app.css
+          grep -q '.main-content>\*{margin-left:auto;margin-right:auto}' public/assets/css/app.css
 
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
