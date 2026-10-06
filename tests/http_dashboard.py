@@ -119,3 +119,11 @@ assert 'name="company_email"' in company_signup, 'company signup missing institu
 assert 'E-mail do responsável / usuário' in company_signup
 assert 'E-mail da empresa' in company_signup
 print('COMPANY separate emails: PASS')
+
+
+company_signup = public.open(base + '/cadastro/empresa', timeout=20).read().decode()
+assert 'name="email"' in company_signup, 'company signup missing responsible/user email'
+assert 'name="company_email"' in company_signup, 'company signup missing institutional company email'
+assert 'E-mail do responsável / usuário' in company_signup
+assert 'E-mail da empresa' in company_signup
+print('COMPANY separate emails: PASS')
