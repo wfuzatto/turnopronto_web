@@ -98,22 +98,13 @@
       status.textContent='Buscando endereço pelo CEP...';
       status.classList.remove('error','success');
       try{
-        let data=null;
-        try{
-          const response=await fetch('https://viacep.com.br/ws/'+cep+'/json/',{headers:{'Accept':'application/json'}});
-          if(response.ok){
-            const via=await response.json();
-            if(!via.erro) data={street:via.logradouro||'',neighborhood:via.bairro||'',city:via.localidade||'',state:via.uf||''};
-          }
-        }catch(_){}
-        if(!data){
-          const response=await fetch('https://brasilapi.com.br/api/cep/v1/'+cep,{headers:{'Accept':'application/json'}});
-          if(response.ok){
-            const br=await response.json();
-            data={street:br.street||'',neighborhood:br.neighborhood||'',city:br.city||'',state:br.state||''};
-          }
-        }
-        if(!data) throw new Error('CEP não encontrado.');
+        const response=await fetch((window.TP_BASE||'')+'/api/v1/cep/'+cep,{
+          headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},
+          cache:'no-store'
+        });
+        const payload=await response.json().catch(()=>({}));
+        if(!response.ok||!payload.ok) throw new Error(payload.error||'CEP não encontrado.');
+        const data=payload.data||{};
         const street=[data.street,data.neighborhood].filter(Boolean).join(' · ');
         if(address&&street) address.value=street;
         if(city&&data.city) city.value=data.city;
