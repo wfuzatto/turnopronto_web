@@ -114,7 +114,7 @@ final class Data
                                FROM tp_professional_categories pc
                                JOIN tp_professionals p ON p.id=pc.professional_id
                                JOIN tp_users u ON u.id=p.user_id
-                               WHERE pc.category_id=? AND p.status='verified' AND u.status='active'");
+                               WHERE pc.category_id=? AND p.status IN ('pending','verified') AND u.status='active'");
         $targets->execute([(int)$shift['category_id']]);
         $when=date('d/m/Y H:i',strtotime((string)$shift['starts_at']));
         $body='Nova vaga de '.$shift['category_name'].' em '.$shift['city'].' - '.$shift['state'].' para '.$when.', por '.money($shift['shift_value']).'. Empresa: '.$shift['company_name'].'.';
@@ -671,11 +671,10 @@ final class Data
         if($row && !array_key_exists('acceptance_mode',$row)) $row['acceptance_mode']='automatic';
         return $row;
     }
-
     public static function companyShiftCandidates(int $userId, int $shiftId): array
     {
         if(!self::companyShift($userId,$shiftId)) return [];
-        $sql="SELECT a.*,p.id professional_id,p.headline,p.reliability_score,p.punctuality_score,p.attendance_score,p.rating,p.completed_shifts,
+        $sql="SELECT a.*,p.id professional_id,p.status professional_status,p.headline,p.reliability_score,p.punctuality_score,p.attendance_score,p.rating,p.completed_shifts,
                      u.name,u.avatar_url,x.id assignment_id,x.status assignment_status
               FROM tp_shift_applications a
               JOIN tp_professionals p ON p.id=a.professional_id
@@ -910,6 +909,12 @@ final class Data
             $application=$st->fetch();
             if(!$application) throw new RuntimeException('Candidatura não encontrada.');
 
+            $verification=$pdo->prepare('SELECT status FROM tp_professionals WHERE id=? LIMIT 1');
+            $verification->execute([(int)$application['professional_id']]);
+            if((string)$verification->fetchColumn()!=='verified'){
+                throw new RuntimeException('Este profissional ainda está em verificação. Aguarde a liberação do cadastro antes de confirmá-lo no turno.');
+            }
+
             $st=$pdo->prepare("SELECT COUNT(*) FROM tp_assignments WHERE shift_id=? AND status<>'cancelled'");
             $st->execute([$shiftId]);
             if((int)$st->fetchColumn()>=(int)$shift['required_workers']) throw new RuntimeException('Todas as vagas deste turno já foram preenchidas.');
@@ -1068,15 +1073,146 @@ final class Data
               WHERE p.status="verified" ORDER BY p.reliability_score DESC,p.completed_shifts DESC LIMIT '.max(1,(int)$limit);
         return Database::connection()->query($sql)->fetchAll();
     }
-
     public static function professionalProfile(int $userId): array
     {
-        $sql='SELECT p.*,u.name,u.email,u.avatar_url FROM tp_professionals p JOIN tp_users u ON u.id=p.user_id WHERE p.user_id=? LIMIT 1';
+        $sql='SELECT p.*,u.name,u.email,u.phone,u.phone_verified_at,u.avatar_url FROM tp_professionals p JOIN tp_users u ON u.id=p.user_id WHERE p.user_id=? LIMIT 1';
         $s=Database::connection()->prepare($sql);
         $s->execute([$userId]);
         return $s->fetch() ?: [];
     }
 
+    public static function professionalOnboardingState(int $userId): array
+    {
+        $profile=self::professionalProfile($userId);
+        if(!$profile) throw new RuntimeException('Perfil profissional não encontrado.');
+        $pid=(int)$profile['id'];
+
+        $categories=self::professionalCategoryIds($userId);
+        $identityComplete=trim((string)($profile['rg']??''))!=='' && !empty($profile['birth_date']);
+        $locationComplete=trim((string)($profile['address']??''))!=='' 
+            && strlen(preg_replace('/\D+/','',(string)($profile['postal_code']??'')))===8
+            && trim((string)($profile['city']??''))!==''
+            && strlen(trim((string)($profile['state']??'')))===2;
+        $paymentComplete=trim((string)($profile['pix_key_type']??''))!==''
+            && trim((string)($profile['pix_key']??''))!==''
+            && trim((string)($profile['pix_holder_name']??''))!==''
+            && trim((string)($profile['pix_holder_document']??''))!=='';
+        $phoneVerified=!empty($profile['phone_verified_at']);
+
+        $docs=Database::connection()->prepare("SELECT * FROM tp_documents WHERE professional_id=? AND type='identity' ORDER BY created_at DESC,id DESC LIMIT 1");
+        $docs->execute([$pid]);
+        $identityDoc=$docs->fetch() ?: null;
+        $identitySubmitted=$identityDoc!==null && in_array((string)$identityDoc['status'],['pending','verified'],true);
+        $identityVerified=($identityDoc['status']??'')==='verified';
+
+        $applicationDataComplete=$phoneVerified && $identityComplete && $locationComplete && $paymentComplete && !empty($categories);
+        $canApply=$applicationDataComplete && $identitySubmitted;
+        $profileVerified=($profile['status']??'pending')==='verified';
+
+        $steps=[
+            'account'=>true,
+            'whatsapp'=>$phoneVerified,
+            'interests'=>!empty($categories),
+            'identity_data'=>$identityComplete,
+            'location'=>$locationComplete,
+            'payment'=>$paymentComplete,
+            'identity_document'=>$identitySubmitted,
+        ];
+        $done=count(array_filter($steps));
+        $progress=(int)round(($done/count($steps))*100);
+
+        $nextStep='done';
+        if(!$identityComplete) $nextStep='identity';
+        elseif(!$locationComplete) $nextStep='location';
+        elseif(!$paymentComplete) $nextStep='payment';
+        elseif(!$identitySubmitted) $nextStep='document';
+        elseif(!$identityVerified) $nextStep='review';
+        elseif(!$profileVerified) $nextStep='final_review';
+
+        return [
+            'profile'=>$profile,
+            'categories'=>$categories,
+            'steps'=>$steps,
+            'progress'=>$progress,
+            'identity_complete'=>$identityComplete,
+            'location_complete'=>$locationComplete,
+            'payment_complete'=>$paymentComplete,
+            'phone_verified'=>$phoneVerified,
+            'identity_document'=>$identityDoc,
+            'identity_submitted'=>$identitySubmitted,
+            'identity_verified'=>$identityVerified,
+            'application_data_complete'=>$applicationDataComplete,
+            'can_apply'=>$canApply,
+            'profile_verified'=>$profileVerified,
+            'next_step'=>$nextStep,
+        ];
+    }
+
+    public static function updateProfessionalOnboardingStep(int $userId,string $step,array $data): void
+    {
+        $profile=self::professionalProfile($userId);
+        if(!$profile) throw new RuntimeException('Perfil profissional não encontrado.');
+        $pid=(int)$profile['id'];
+        $pdo=Database::connection();
+
+        if($step==='identity'){
+            $rg=mb_strtoupper(preg_replace('/[^0-9A-Za-z]+/','',(string)($data['rg']??'')));
+            if(strlen($rg)<5||strlen($rg)>20) throw new InvalidArgumentException('Informe um documento de identidade válido.');
+
+            $birth=trim((string)($data['birth_date']??''));
+            $date=DateTime::createFromFormat('Y-m-d',$birth);
+            if(!$date || $date->format('Y-m-d')!==$birth) throw new InvalidArgumentException('Informe uma data de nascimento válida.');
+            $today=new DateTime('today');
+            if($date>$today || $today->diff($date)->y<18) throw new InvalidArgumentException('É necessário ter pelo menos 18 anos.');
+
+            $headline=mb_substr(trim((string)($data['headline']??'')),0,190);
+            $email=mb_strtolower(trim((string)($data['email']??'')));
+            if($email!=='' && !filter_var($email,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe um e-mail válido.');
+            if($email!==''){
+                $dup=$pdo->prepare('SELECT id FROM tp_users WHERE email=? AND id<>? LIMIT 1');
+                $dup->execute([$email,$userId]);
+                if($dup->fetchColumn()) throw new RuntimeException('Este e-mail já está vinculado a outra conta.');
+            }
+
+            $pdo->beginTransaction();
+            try{
+                $pdo->prepare('UPDATE tp_professionals SET rg=?,birth_date=?,headline=COALESCE(NULLIF(?,""),headline) WHERE id=?')
+                    ->execute([$rg,$birth,$headline,$pid]);
+                if($email!=='') $pdo->prepare('UPDATE tp_users SET email=?,updated_at=NOW() WHERE id=?')->execute([$email,$userId]);
+                self::audit($userId,'onboarding.professional_identity','professional',$pid);
+                $pdo->commit();
+            }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+            return;
+        }
+
+        if($step==='location'){
+            $postal=preg_replace('/\D+/','',(string)($data['postal_code']??''));
+            $address=trim((string)($data['address']??''));
+            $city=trim((string)($data['city']??''));
+            $state=mb_strtoupper(trim((string)($data['state']??'')));
+            if(strlen($postal)!==8 || $address==='' || $city==='' || strlen($state)!==2) throw new InvalidArgumentException('Preencha CEP, endereço, cidade e UF.');
+            $pdo->prepare('UPDATE tp_professionals SET postal_code=?,address=?,city=?,state=? WHERE id=?')
+                ->execute([$postal,$address,$city,$state,$pid]);
+            self::audit($userId,'onboarding.professional_location','professional',$pid);
+            return;
+        }
+
+        if($step==='payment'){
+            $type=trim((string)($data['pix_key_type']??''));
+            $key=trim((string)($data['pix_key']??''));
+            $holder=trim((string)($data['pix_holder_name']??''));
+            $holderDoc=preg_replace('/\D+/','',(string)($data['pix_holder_document']??''));
+            if(!in_array($type,['cpf','email','phone','random'],true) || $key==='' || $holder==='') throw new InvalidArgumentException('Preencha os dados da chave Pix.');
+            $cpf=preg_replace('/\D+/','',(string)($profile['cpf']??''));
+            if($holderDoc!==$cpf) throw new InvalidArgumentException('Por segurança, o CPF do titular do Pix deve ser o mesmo CPF da conta.');
+            $pdo->prepare('UPDATE tp_professionals SET pix_key_type=?,pix_key=?,pix_holder_name=?,pix_holder_document=? WHERE id=?')
+                ->execute([$type,$key,$holder,$holderDoc,$pid]);
+            self::audit($userId,'onboarding.professional_payment','professional',$pid);
+            return;
+        }
+
+        throw new InvalidArgumentException('Etapa de cadastro inválida.');
+    }
     public static function professionalHome(int $userId): array
     {
         $pdo=Database::connection();
@@ -1093,6 +1229,7 @@ final class Data
 
         return [
             'profile'=>$profile,
+            'onboarding'=>self::professionalOnboardingState($userId),
             'kpis'=>[
                 'week'=>$week,
                 'earnings'=>$earnings,
@@ -1104,7 +1241,6 @@ final class Data
             'documents'=>self::documents($userId),
         ];
     }
-
     public static function opportunities(int $userId, int $limit=50): array
     {
         $pid=self::professionalIdForUser($userId);
@@ -1116,10 +1252,17 @@ final class Data
               JOIN tp_job_categories jc ON jc.id=s.category_id
               JOIN tp_companies co ON co.id=s.company_id
               WHERE s.status IN ('published','filling') AND s.starts_at>NOW()
-                AND NOT EXISTS (SELECT 1 FROM tp_assignments x WHERE x.shift_id=s.id AND x.professional_id=? AND x.status<>'cancelled')
+                AND EXISTS (
+                    SELECT 1 FROM tp_professional_categories pc
+                    WHERE pc.professional_id=? AND pc.category_id=s.category_id
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM tp_assignments x
+                    WHERE x.shift_id=s.id AND x.professional_id=? AND x.status<>'cancelled'
+                )
               ORDER BY s.starts_at ASC LIMIT ".max(1,(int)$limit);
         $st=Database::connection()->prepare($sql);
-        $st->execute([$pid]);
+        $st->execute([$pid,$pid]);
         $rows=$st->fetchAll();
         foreach($rows as &$row){
             if(!array_key_exists('acceptance_mode',$row)) $row['acceptance_mode']='automatic';
@@ -1142,14 +1285,16 @@ final class Data
         if($row && !array_key_exists('acceptance_mode',$row)) $row['acceptance_mode']='automatic';
         return $row;
     }
-
     public static function acceptShift(int $userId, int $shiftId): array
     {
         $pdo=Database::connection();
         $pid=self::professionalIdForUser($userId);
         if(!$pid) throw new RuntimeException('Perfil profissional não encontrado.');
-        $profile=self::professionalProfile($userId);
-        if(($profile['status']??'pending')!=='verified') throw new RuntimeException('Seu perfil precisa ser verificado antes de aceitar ou se candidatar a turnos.');
+
+        $readiness=self::professionalOnboardingState($userId);
+        if(!$readiness['can_apply']){
+            throw new RuntimeException('Complete os dados necessários para se candidatar a esta vaga.');
+        }
 
         $pdo->beginTransaction();
         try {
@@ -1168,6 +1313,20 @@ final class Data
             }
 
             $mode=$shift['acceptance_mode']??'automatic';
+
+            // O profissional pode demonstrar interesse enquanto a identidade está em análise.
+            // A confirmação automática só acontece depois da aprovação final do perfil.
+            if(!$readiness['profile_verified']){
+                $pdo->prepare('INSERT INTO tp_shift_applications (shift_id,professional_id,status,applied_at) VALUES (?,?,"applied",NOW())
+                               ON DUPLICATE KEY UPDATE status=IF(status="accepted","accepted","applied"),applied_at=NOW()')
+                    ->execute([$shiftId,$pid]);
+                $pdo->prepare('UPDATE tp_shifts SET status="filling" WHERE id=? AND status="published"')->execute([$shiftId]);
+                self::audit($userId,'shift.applied_pending_verification','shift',$shiftId);
+                $pdo->commit();
+                self::notifyCompanyMembersOfApplication($shiftId,$pid);
+                return ['status'=>'verification_pending','assignment_id'=>null];
+            }
+
             if($mode==='manual'){
                 $pdo->prepare('INSERT INTO tp_shift_applications (shift_id,professional_id,status,applied_at) VALUES (?,?,"applied",NOW())
                                ON DUPLICATE KEY UPDATE status=IF(status="accepted","accepted","applied"),applied_at=NOW()')
@@ -1327,26 +1486,34 @@ final class Data
             $pdo->commit();
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
     }
-
     public static function updateProfessionalAccount(int $userId, array $data): void
     {
         $professionalId=self::professionalIdForUser($userId);
         if(!$professionalId) throw new RuntimeException('Perfil profissional não encontrado.');
-        $name=trim((string)($data['name']??''));
-        $phone=trim((string)($data['phone']??''));
-        $headline=trim((string)($data['headline']??''));
-        $bio=trim((string)($data['bio']??''));
-        $city=trim((string)($data['city']??''));
-        $state=mb_strtoupper(trim((string)($data['state']??'')));
-        $pix=trim((string)($data['pix_key']??''));
-        $categories=array_values(array_filter(array_map('intval',(array)($data['categories']??[]))));
-        if($name===''||$headline===''||$city===''||strlen($state)!==2) throw new InvalidArgumentException('Preencha nome, atividade, cidade e UF.');
-        if(!$categories) throw new InvalidArgumentException('Selecione pelo menos uma categoria.');
 
-        $pdo=Database::connection(); $pdo->beginTransaction();
+        $name=trim((string)($data['name']??''));
+        $headline=mb_substr(trim((string)($data['headline']??'')),0,190);
+        $bio=mb_substr(trim((string)($data['bio']??'')),0,2000);
+        $email=mb_strtolower(trim((string)($data['email']??'')));
+        $categories=array_values(array_unique(array_filter(array_map('intval',(array)($data['categories']??[])))));
+
+        if(mb_strlen($name)<3) throw new InvalidArgumentException('Informe seu nome completo.');
+        if(!$categories) throw new InvalidArgumentException('Selecione pelo menos uma área de interesse.');
+        if($email!=='' && !filter_var($email,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe um e-mail válido.');
+
+        $pdo=Database::connection();
+        if($email!==''){
+            $dup=$pdo->prepare('SELECT id FROM tp_users WHERE email=? AND id<>? LIMIT 1');
+            $dup->execute([$email,$userId]);
+            if($dup->fetchColumn()) throw new RuntimeException('Este e-mail já está vinculado a outra conta.');
+        }
+
+        $pdo->beginTransaction();
         try{
-            $pdo->prepare('UPDATE tp_users SET name=?,phone=?,updated_at=NOW() WHERE id=?')->execute([$name,$phone,$userId]);
-            $pdo->prepare('UPDATE tp_professionals SET headline=?,bio=?,city=?,state=?,pix_key=? WHERE id=?')->execute([$headline,$bio,$city,$state,$pix,$professionalId]);
+            $pdo->prepare('UPDATE tp_users SET name=?,email=?,updated_at=NOW() WHERE id=?')
+                ->execute([$name,$email!==''?$email:null,$userId]);
+            $pdo->prepare('UPDATE tp_professionals SET headline=?,bio=? WHERE id=?')
+                ->execute([$headline!==''?$headline:null,$bio,$professionalId]);
             $pdo->prepare('DELETE FROM tp_professional_categories WHERE professional_id=?')->execute([$professionalId]);
             $cat=$pdo->prepare('INSERT IGNORE INTO tp_professional_categories (professional_id,category_id,experience_level) SELECT ?,id,"experienced" FROM tp_job_categories WHERE id=? AND active=1');
             foreach($categories as $categoryId)$cat->execute([$professionalId,$categoryId]);
@@ -1565,7 +1732,6 @@ final class Data
             $pdo->commit(); return $userId;
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
     }
-
     public static function adminPendingVerifications(): array
     {
         $pdo=Database::connection();
@@ -1579,24 +1745,15 @@ final class Data
         foreach($companies as &$company){
             $summary=null;
             if(!empty($company['owner_user_id'])){
-                try{
-                    $summary=self::companyVerificationSummary((int)$company['owner_user_id']);
-                }catch(Throwable $e){
-                    $summary=null;
-                }
+                try{$summary=self::companyVerificationSummary((int)$company['owner_user_id']);}catch(Throwable $e){$summary=null;}
             }
-
             $checks=[
                 ['label'=>'WhatsApp do responsável','ok'=>(bool)($summary['phone_verified']??false)],
                 ['label'=>'Dados cadastrais','ok'=>(bool)($summary['data_complete']??false)],
             ];
             foreach(($summary['required_documents']??self::companyVerificationDocumentTypes()) as $type=>$label){
-                $checks[]=[
-                    'label'=>$label,
-                    'ok'=>(($summary['documents'][$type]['status']??'')==='verified'),
-                ];
+                $checks[]=['label'=>$label,'ok'=>(($summary['documents'][$type]['status']??'')==='verified')];
             }
-
             $company['verification_kind']='Cadastro empresarial';
             $company['verification_purpose']='Liberação da empresa para publicar vagas';
             $company['verification_checks']=$checks;
@@ -1604,28 +1761,23 @@ final class Data
         }
         unset($company);
 
-        $professionals=$pdo->query("SELECT p.*,u.name,u.email,u.phone
+        $professionals=$pdo->query("SELECT p.*,u.id user_id,u.name,u.email,u.phone
                                     FROM tp_professionals p
                                     JOIN tp_users u ON u.id=p.user_id
                                     WHERE p.status='pending'
+                                      AND EXISTS (SELECT 1 FROM tp_documents d WHERE d.professional_id=p.id AND d.type='identity')
                                     ORDER BY p.created_at ASC")->fetchAll();
 
-        $docStatus=$pdo->prepare("SELECT type,status FROM tp_documents WHERE professional_id=? AND type IN ('identity','cpf') ORDER BY created_at DESC,id DESC");
         foreach($professionals as &$professional){
-            $docStatus->execute([(int)$professional['id']]);
-            $latest=[];
-            foreach($docStatus->fetchAll() as $doc){
-                if(!isset($latest[$doc['type']])) $latest[$doc['type']]=$doc['status'];
-            }
-            $identityVerified=($latest['identity']??'')==='verified';
-            $cpfVerified=($latest['cpf']??'')==='verified';
+            $state=self::professionalOnboardingState((int)$professional['user_id']);
             $professional['verification_kind']='Cadastro profissional';
-            $professional['verification_purpose']='Liberação do profissional para aceitar e se candidatar a turnos';
+            $professional['verification_purpose']='Liberação final para confirmação automática e realização de turnos';
             $professional['verification_checks']=[
-                ['label'=>'Documento de identidade','ok'=>$identityVerified],
-                ['label'=>'CPF','ok'=>$cpfVerified],
+                ['label'=>'WhatsApp','ok'=>$state['phone_verified']],
+                ['label'=>'Dados para candidatura','ok'=>$state['application_data_complete']],
+                ['label'=>'Documento de identidade','ok'=>$state['identity_verified']],
             ];
-            $professional['ready_for_final']=$identityVerified&&$cpfVerified;
+            $professional['ready_for_final']=$state['application_data_complete']&&$state['identity_verified'];
         }
         unset($professional);
 
@@ -1662,7 +1814,6 @@ final class Data
             'ready_for_final'=>(bool)($summary['ready_for_final']??false),
         ];
     }
-
     public static function adminProfessionalVerificationDetail(int $professionalId): array
     {
         $pdo=Database::connection();
@@ -1690,8 +1841,8 @@ final class Data
             $type=(string)$doc['type'];
             if(!isset($latest[$type])) $latest[$type]=$doc;
         }
-        $identityVerified=(($latest['identity']['status']??'')==='verified');
-        $cpfVerified=(($latest['cpf']['status']??'')==='verified');
+
+        $state=self::professionalOnboardingState((int)$professional['user_id']);
 
         return [
             'kind'=>'professional',
@@ -1699,7 +1850,8 @@ final class Data
             'categories'=>$cats->fetchAll(),
             'documents'=>$documents,
             'latest_documents'=>$latest,
-            'ready_for_final'=>$identityVerified&&$cpfVerified,
+            'onboarding'=>$state,
+            'ready_for_final'=>$state['application_data_complete']&&$state['identity_verified'],
         ];
     }
 
@@ -1722,18 +1874,23 @@ final class Data
         if($st->rowCount()===0)throw new RuntimeException('Empresa pendente não encontrada.');
         self::audit($adminUserId,'verification.company','company',$companyId,['decision'=>$decision]);
     }
-
     public static function setProfessionalVerification(int $adminUserId,int $professionalId,string $decision): void
     {
-        if(!in_array($decision,['verified','rejected'],true))throw new InvalidArgumentException('Decisão inválida.');
+        if(!in_array($decision,['verified','rejected'],true)) throw new InvalidArgumentException('Decisão inválida.');
+
+        $pdo=Database::connection();
+        $st=$pdo->prepare('SELECT user_id,status FROM tp_professionals WHERE id=? LIMIT 1');
+        $st->execute([$professionalId]);
+        $professional=$st->fetch();
+        if(!$professional || $professional['status']!=='pending') throw new RuntimeException('Profissional pendente não encontrado.');
+
         if($decision==='verified'){
-            $st=Database::connection()->prepare("SELECT COUNT(DISTINCT type) FROM tp_documents WHERE professional_id=? AND type IN ('identity','cpf') AND status='verified'");
-            $st->execute([$professionalId]);
-            if((int)$st->fetchColumn()<2) throw new RuntimeException('Verifique Documento de identidade e CPF antes de liberar o profissional.');
+            $state=self::professionalOnboardingState((int)$professional['user_id']);
+            if(!$state['application_data_complete']) throw new RuntimeException('O profissional ainda não concluiu os dados necessários para trabalhar.');
+            if(!$state['identity_verified']) throw new RuntimeException('Verifique o documento de identidade antes de liberar o profissional.');
         }
-        $st=Database::connection()->prepare('UPDATE tp_professionals SET status=? WHERE id=? AND status="pending"');
-        $st->execute([$decision,$professionalId]);
-        if($st->rowCount()===0)throw new RuntimeException('Profissional pendente não encontrado.');
+
+        $pdo->prepare('UPDATE tp_professionals SET status=? WHERE id=? AND status="pending"')->execute([$decision,$professionalId]);
         self::audit($adminUserId,'verification.professional','professional',$professionalId,['decision'=>$decision]);
     }
 

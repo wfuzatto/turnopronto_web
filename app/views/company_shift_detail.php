@@ -64,9 +64,14 @@ $activeCandidates=array_values(array_filter($candidates,fn($c)=>in_array($c['sta
               <span class="status <?=e($p['status']==='applied'?'filling':($p['status']==='accepted'?'confirmed':'draft'))?>"><?=e(['applied'=>'Candidatou-se','invited'=>'Convidado','accepted'=>'Aprovado','rejected'=>'Rejeitado'][$p['status']]??$p['status'])?></span>
               <?php if(in_array($p['status'],['applied','invited'],true) && empty($p['assignment_id']) && !in_array($shift['status'],['confirmed','cancelled'],true)):?>
                 <div class="candidate-actions">
-                  <form method="post" action="<?=e(url('empresa/vagas/'.$shift['id'].'/candidaturas/'.$p['id'].'/aprovar'))?>"><?=csrf_field()?><button class="btn btn-primary btn-sm">Aprovar</button></form>
+                  <?php if(($p['professional_status']??'pending')==='verified'):?>
+                    <form method="post" action="<?=e(url('empresa/vagas/'.$shift['id'].'/candidaturas/'.$p['id'].'/aprovar'))?>"><?=csrf_field()?><button class="btn btn-primary btn-sm">Aprovar</button></form>
+                  <?php else:?>
+                    <button class="btn btn-primary btn-sm" type="button" disabled title="O TurnoPronto ainda está verificando a identidade deste profissional">Aguardando verificação</button>
+                  <?php endif;?>
                   <form method="post" action="<?=e(url('empresa/vagas/'.$shift['id'].'/candidaturas/'.$p['id'].'/rejeitar'))?>" data-confirm="Rejeitar esta candidatura?"><?=csrf_field()?><button class="btn btn-ghost btn-sm">Rejeitar</button></form>
                 </div>
+                <?php if(($p['professional_status']??'pending')!=='verified'):?><small class="candidate-verification-note">Identidade em análise pelo TurnoPronto. A empresa pode avaliar o interesse, mas ainda não confirmar o turno.</small><?php endif;?>
               <?php endif;?>
             </div>
           </article>

@@ -7,7 +7,6 @@ final class Registration
         $st->execute([$table,$column]);
         return (int)$st->fetchColumn()>0;
     }
-
     public static function ensureSchema(): void
     {
         $pdo=Database::connection();
@@ -15,7 +14,7 @@ final class Registration
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             public_id CHAR(32) NOT NULL UNIQUE,
             role VARCHAR(30) NOT NULL,
-            email VARCHAR(190) NOT NULL,
+            email VARCHAR(190) NULL,
             phone VARCHAR(30) NOT NULL,
             document VARCHAR(30) NOT NULL,
             payload_json LONGTEXT NOT NULL,
@@ -30,6 +29,7 @@ final class Registration
             verified_at DATETIME NULL,
             INDEX idx_reg_email_status (email,status),
             INDEX idx_reg_phone_status (phone,status),
+            INDEX idx_reg_document_status (document,status),
             INDEX idx_reg_expiry (status,code_expires_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
@@ -44,6 +44,18 @@ final class Registration
             UNIQUE KEY uq_user_consent_version (user_id,consent_type,version),
             CONSTRAINT fk_consents_user FOREIGN KEY (user_id) REFERENCES tp_users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        // Profissionais novos podem entrar apenas com CPF; e-mail passa a ser opcional.
+        $nullableEmail=$pdo->prepare("SELECT IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tp_users' AND COLUMN_NAME='email' LIMIT 1");
+        $nullableEmail->execute();
+        if((string)$nullableEmail->fetchColumn()!=='YES'){
+            $pdo->exec('ALTER TABLE tp_users MODIFY email VARCHAR(190) NULL');
+        }
+        $nullableRequestEmail=$pdo->prepare("SELECT IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tp_registration_requests' AND COLUMN_NAME='email' LIMIT 1");
+        $nullableRequestEmail->execute();
+        if((string)$nullableRequestEmail->fetchColumn()!=='YES'){
+            $pdo->exec('ALTER TABLE tp_registration_requests MODIFY email VARCHAR(190) NULL');
+        }
 
         $columns=[
             ['tp_users','phone_verified_at','DATETIME NULL AFTER phone'],
@@ -68,6 +80,52 @@ final class Registration
             }
         }
     }
+    public static function prepareProfessionalDraft(array $input): array
+    {
+        self::ensureSchema();
+        $name=trim((string)($input['name']??''));
+        $cpf=preg_replace('/\D+/','',(string)($input['cpf']??''));
+        $password=(string)($input['password']??'');
+        $confirm=(string)($input['password_confirm']??'');
+        $categories=array_values(array_unique(array_filter(array_map('intval',(array)($input['categories']??[])))));
+        $legalAccepted=self::truthy($input['legal_accepted']??false)
+            || (self::truthy($input['terms_accepted']??false) && self::truthy($input['privacy_accepted']??false));
+
+        if(mb_strlen($name)<3) throw new InvalidArgumentException('Informe seu nome completo.');
+        if(!self::validCpf($cpf)) throw new InvalidArgumentException('CPF inválido.');
+        if(strlen($password)<8) throw new InvalidArgumentException('A senha deve ter pelo menos 8 caracteres.');
+        if($password!==$confirm) throw new InvalidArgumentException('As senhas não coincidem.');
+        if(!$categories) throw new InvalidArgumentException('Selecione pelo menos uma área de interesse.');
+        if(!$legalAccepted) throw new InvalidArgumentException('É necessário aceitar os Termos de Uso e a Política de Privacidade.');
+
+        $pdo=Database::connection();
+        $st=$pdo->prepare('SELECT id FROM tp_professionals WHERE cpf=? LIMIT 1');
+        $st->execute([$cpf]);
+        if($st->fetchColumn()) throw new RuntimeException('Já existe uma conta com este CPF.');
+
+        $placeholders=implode(',',array_fill(0,count($categories),'?'));
+        $st=$pdo->prepare("SELECT COUNT(*) FROM tp_job_categories WHERE active=1 AND id IN ($placeholders)");
+        $st->execute($categories);
+        if((int)$st->fetchColumn()!==count($categories)) throw new InvalidArgumentException('Uma das áreas selecionadas não está disponível.');
+
+        return [
+            'name'=>$name,
+            'cpf'=>$cpf,
+            'password'=>$password,
+            'password_confirm'=>$confirm,
+            'categories'=>$categories,
+            'legal_accepted'=>1,
+            'terms_accepted'=>1,
+            'privacy_accepted'=>1,
+        ];
+    }
+
+    public static function startProfessionalFromDraft(array $draft,string $phone): array
+    {
+        $draft['phone']=$phone;
+        $draft['whatsapp_consent']=1;
+        return self::start($draft,'professional');
+    }
 
     public static function start(array $input,string $role): array
     {
@@ -77,22 +135,25 @@ final class Registration
         $payload=self::validatePayload($input,$role);
         $pdo=Database::connection();
 
-        $st=$pdo->prepare('SELECT id FROM tp_users WHERE email=? LIMIT 1');
-        $st->execute([$payload['email']]);
-        if($st->fetchColumn()) throw new RuntimeException('Já existe uma conta com este e-mail.');
+        if($role==='company'){
+            $st=$pdo->prepare('SELECT id FROM tp_users WHERE email=? LIMIT 1');
+            $st->execute([$payload['email']]);
+            if($st->fetchColumn()) throw new RuntimeException('Já existe uma conta com este e-mail.');
 
-        if($role==='professional'){
-            $st=$pdo->prepare('SELECT id FROM tp_professionals WHERE cpf=? LIMIT 1');
-            $st->execute([$payload['cpf']]);
-            if($st->fetchColumn()) throw new RuntimeException('Já existe uma conta com este CPF.');
-        }else{
             $st=$pdo->prepare('SELECT id FROM tp_companies WHERE cnpj=? LIMIT 1');
             $st->execute([$payload['cnpj']]);
             if($st->fetchColumn()) throw new RuntimeException('Já existe uma empresa com este CNPJ.');
-        }
 
-        $pdo->prepare("UPDATE tp_registration_requests SET status='superseded' WHERE email=? AND status IN ('pending','delivery_failed')")
-            ->execute([$payload['email']]);
+            $pdo->prepare("UPDATE tp_registration_requests SET status='superseded' WHERE email=? AND status IN ('pending','delivery_failed')")
+                ->execute([$payload['email']]);
+        }else{
+            $st=$pdo->prepare('SELECT id FROM tp_professionals WHERE cpf=? LIMIT 1');
+            $st->execute([$payload['cpf']]);
+            if($st->fetchColumn()) throw new RuntimeException('Já existe uma conta com este CPF.');
+
+            $pdo->prepare("UPDATE tp_registration_requests SET status='superseded' WHERE role='professional' AND document=? AND status IN ('pending','delivery_failed')")
+                ->execute([$payload['cpf']]);
+        }
 
         $publicId=bin2hex(random_bytes(16));
         $developmentBypass=self::developmentWhatsappBypass();
@@ -105,7 +166,7 @@ final class Registration
             (public_id,role,email,phone,document,payload_json,code_hash,code_expires_at,attempts,sent_count,last_sent_at,status,created_at)
             VALUES (?,?,?,?,?,?,?, ?,0,1,NOW(),'pending',NOW())");
         $st->execute([
-            $publicId,$role,$payload['email'],$payload['phone'],$document,
+            $publicId,$role,$payload['email']?:null,$payload['phone'],$document,
             json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
             $hash,$expires
         ]);
@@ -121,6 +182,7 @@ final class Registration
 
         $result=[
             'registration_id'=>$publicId,
+            'role'=>$role,
             'phone_masked'=>self::maskPhone($payload['phone']),
             'expires_in'=>600,
             'development_bypass'=>$developmentBypass,
@@ -193,28 +255,41 @@ final class Registration
             throw $e;
         }
     }
-
     private static function createAccount(PDO $pdo,array $p,string $role): int
     {
-        $st=$pdo->prepare('SELECT id FROM tp_users WHERE email=? LIMIT 1');
-        $st->execute([$p['email']]);
-        if($st->fetchColumn()) throw new RuntimeException('Já existe uma conta com este e-mail.');
+        if(!empty($p['email'])){
+            $st=$pdo->prepare('SELECT id FROM tp_users WHERE email=? LIMIT 1');
+            $st->execute([$p['email']]);
+            if($st->fetchColumn()) throw new RuntimeException('Já existe uma conta com este e-mail.');
+        }
+
+        if($role==='professional'){
+            $st=$pdo->prepare('SELECT id FROM tp_professionals WHERE cpf=? LIMIT 1');
+            $st->execute([$p['cpf']]);
+            if($st->fetchColumn()) throw new RuntimeException('Já existe uma conta com este CPF.');
+        }
 
         $st=$pdo->prepare('INSERT INTO tp_users (name,email,password_hash,role,phone,phone_verified_at,status,created_at) VALUES (?,?,?,?,?,NOW(),"active",NOW())');
-        $st->execute([$p['name'],$p['email'],password_hash($p['password'],PASSWORD_DEFAULT),$role,$p['phone']]);
+        $st->execute([$p['name'],$p['email']?:null,password_hash($p['password'],PASSWORD_DEFAULT),$role,$p['phone']]);
         $userId=(int)$pdo->lastInsertId();
 
         if($role==='professional'){
+            $headline=null;
+            if(!empty($p['categories'][0])){
+                $headlineSt=$pdo->prepare('SELECT name FROM tp_job_categories WHERE id=? AND active=1 LIMIT 1');
+                $headlineSt->execute([(int)$p['categories'][0]]);
+                $headline=(string)($headlineSt->fetchColumn()?:'');
+                if($headline==='') $headline=null;
+            }
+
             $st=$pdo->prepare('INSERT INTO tp_professionals
                 (user_id,cpf,rg,birth_date,headline,address,postal_code,city,state,pix_key,pix_key_type,pix_holder_name,pix_holder_document,status,created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,"pending",NOW())');
-            $st->execute([
-                $userId,$p['cpf'],$p['rg'],$p['birth_date'],$p['headline'],$p['address'],$p['postal_code'],$p['city'],$p['state'],
-                $p['pix_key'],$p['pix_key_type'],$p['pix_holder_name'],$p['pix_holder_document']
-            ]);
+                VALUES (?,?,NULL,NULL,?,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,"pending",NOW())');
+            $st->execute([$userId,$p['cpf'],$headline]);
             $professionalId=(int)$pdo->lastInsertId();
+
             $cat=$pdo->prepare('INSERT IGNORE INTO tp_professional_categories (professional_id,category_id,experience_level) SELECT ?,id,"initial" FROM tp_job_categories WHERE id=? AND active=1');
-            foreach($p['categories'] as $categoryId)$cat->execute([$professionalId,$categoryId]);
+            foreach($p['categories'] as $categoryId) $cat->execute([$professionalId,$categoryId]);
         }else{
             $st=$pdo->prepare('INSERT INTO tp_companies
                 (legal_name,trade_name,cnpj,responsible_cpf,address,postal_code,city,state,maps_url,pix_key_type,pix_key,pix_holder_name,pix_holder_document,status,created_at)
@@ -237,13 +312,50 @@ final class Registration
 
         return $userId;
     }
-
     private static function validatePayload(array $d,string $role): array
     {
         $name=trim((string)($d['name']??''));
-        $email=mb_strtolower(trim((string)($d['email']??'')));
         $password=(string)($d['password']??'');
         $confirm=(string)($d['password_confirm']??'');
+        if(mb_strlen($name)<3) throw new InvalidArgumentException($role==='company'?'Informe o nome completo do responsável.':'Informe seu nome completo.');
+        if(strlen($password)<8) throw new InvalidArgumentException('A senha deve ter pelo menos 8 caracteres.');
+        if($password!==$confirm) throw new InvalidArgumentException('As senhas não coincidem.');
+
+        $legalAccepted=self::truthy($d['legal_accepted']??false)
+            || (self::truthy($d['terms_accepted']??false) && self::truthy($d['privacy_accepted']??false));
+        if(!$legalAccepted) throw new InvalidArgumentException('É necessário aceitar os Termos de Uso e a Política de Privacidade.');
+
+        if($role==='professional'){
+            $cpf=preg_replace('/\D+/','',(string)($d['cpf']??''));
+            if(!self::validCpf($cpf)) throw new InvalidArgumentException('CPF inválido.');
+
+            $phone=self::normalizePhone((string)($d['phone']??''));
+            if(!self::truthy($d['whatsapp_consent']??false)) throw new InvalidArgumentException('Autorize o uso do WhatsApp para validar sua conta e receber comunicações transacionais.');
+
+            $email=mb_strtolower(trim((string)($d['email']??'')));
+            if($email!=='' && !filter_var($email,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe um e-mail válido.');
+
+            $categories=array_values(array_unique(array_filter(array_map('intval',(array)($d['categories']??[])))));
+            if(!$categories) throw new InvalidArgumentException('Selecione pelo menos uma área de interesse.');
+
+            $validCats=Database::connection()->prepare('SELECT COUNT(*) FROM tp_job_categories WHERE active=1 AND id IN ('.implode(',',array_fill(0,count($categories),'?')).')');
+            $validCats->execute($categories);
+            if((int)$validCats->fetchColumn()!==count($categories)) throw new InvalidArgumentException('Uma das áreas selecionadas não está disponível.');
+
+            return [
+                'name'=>$name,
+                'email'=>$email,
+                'password'=>$password,
+                'phone'=>$phone,
+                'cpf'=>$cpf,
+                'categories'=>$categories,
+                'terms_accepted'=>1,
+                'privacy_accepted'=>1,
+                'whatsapp_consent'=>1,
+            ];
+        }
+
+        $email=mb_strtolower(trim((string)($d['email']??'')));
         $phone=self::normalizePhone((string)($d['phone']??''));
         $address=trim((string)($d['address']??''));
         $postal=preg_replace('/\D+/','',(string)($d['postal_code']??''));
@@ -254,41 +366,13 @@ final class Registration
         $pixHolder=trim((string)($d['pix_holder_name']??''));
         $pixDoc=preg_replace('/\D+/','',(string)($d['pix_holder_document']??''));
 
-        if(mb_strlen($name)<3) throw new InvalidArgumentException('Informe o nome completo do responsável.');
         if(!filter_var($email,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe um e-mail válido.');
-        if(strlen($password)<8) throw new InvalidArgumentException('A senha deve ter pelo menos 8 caracteres.');
-        if($password!==$confirm) throw new InvalidArgumentException('As senhas não coincidem.');
         if($address===''||$city===''||strlen($state)!==2||strlen($postal)!==8) throw new InvalidArgumentException('Informe endereço, CEP, cidade e UF.');
         if(!in_array($pixType,['cpf','cnpj','email','phone','random'],true)||$pixKey===''||$pixHolder===''||$pixDoc==='') throw new InvalidArgumentException('Preencha os dados completos da chave Pix.');
         if(strlen($pixDoc)===11 && !self::validCpf($pixDoc)) throw new InvalidArgumentException('CPF do titular do Pix inválido.');
         if(strlen($pixDoc)===14 && !self::validCnpj($pixDoc)) throw new InvalidArgumentException('CNPJ do titular do Pix inválido.');
         if(!in_array(strlen($pixDoc),[11,14],true)) throw new InvalidArgumentException('Documento do titular do Pix inválido.');
-        if(!self::truthy($d['terms_accepted']??false)||!self::truthy($d['privacy_accepted']??false)) throw new InvalidArgumentException('É necessário aceitar os Termos de Uso e a Política de Privacidade.');
         if(!self::truthy($d['whatsapp_consent']??false)) throw new InvalidArgumentException('Autorize mensagens transacionais no WhatsApp para validar o telefone e receber contatos sobre vagas.');
-
-        $base=[
-            'name'=>$name,'email'=>$email,'password'=>$password,'phone'=>$phone,
-            'address'=>$address,'postal_code'=>$postal,'city'=>$city,'state'=>$state,
-            'pix_key_type'=>$pixType,'pix_key'=>$pixKey,'pix_holder_name'=>$pixHolder,'pix_holder_document'=>$pixDoc,
-        ];
-
-        if($role==='professional'){
-            $cpf=preg_replace('/\D+/','',(string)($d['cpf']??''));
-            if(!self::validCpf($cpf)) throw new InvalidArgumentException('CPF inválido.');
-            $rg=mb_strtoupper(preg_replace('/[^0-9A-Za-z]+/','',(string)($d['rg']??'')));
-            if(strlen($rg)<7||strlen($rg)>12) throw new InvalidArgumentException('Informe um RG válido.');
-            $birth=trim((string)($d['birth_date']??''));
-            $date=DateTime::createFromFormat('Y-m-d',$birth);
-            if(!$date || $date->format('Y-m-d')!==$birth) throw new InvalidArgumentException('Informe uma data de nascimento válida.');
-            $today=new DateTime('today');
-            $age=$today->diff($date)->y;
-            if($date>$today || $age<18) throw new InvalidArgumentException('O profissional deve ter pelo menos 18 anos.');
-            $headline=trim((string)($d['headline']??''));
-            if($headline==='') throw new InvalidArgumentException('Informe sua atividade principal.');
-            $categories=array_values(array_unique(array_filter(array_map('intval',(array)($d['categories']??[])))));
-            if(!$categories) throw new InvalidArgumentException('Selecione pelo menos uma função de interesse.');
-            return $base+['cpf'=>$cpf,'rg'=>$rg,'birth_date'=>$birth,'headline'=>$headline,'categories'=>$categories];
-        }
 
         $cnpj=preg_replace('/\D+/','',(string)($d['cnpj']??''));
         $responsibleCpf=preg_replace('/\D+/','',(string)($d['responsible_cpf']??''));
@@ -298,7 +382,14 @@ final class Registration
         if(!self::validCnpj($cnpj)) throw new InvalidArgumentException('CNPJ inválido.');
         if(!self::validCpf($responsibleCpf)) throw new InvalidArgumentException('CPF do responsável inválido.');
         if($legal===''||$trade==='') throw new InvalidArgumentException('Informe razão social e nome fantasia.');
-        return $base+['cnpj'=>$cnpj,'responsible_cpf'=>$responsibleCpf,'legal_name'=>$legal,'trade_name'=>$trade,'maps_url'=>$mapsUrl];
+
+        return [
+            'name'=>$name,'email'=>$email,'password'=>$password,'phone'=>$phone,
+            'address'=>$address,'postal_code'=>$postal,'city'=>$city,'state'=>$state,
+            'pix_key_type'=>$pixType,'pix_key'=>$pixKey,'pix_holder_name'=>$pixHolder,'pix_holder_document'=>$pixDoc,
+            'cnpj'=>$cnpj,'responsible_cpf'=>$responsibleCpf,'legal_name'=>$legal,'trade_name'=>$trade,'maps_url'=>$mapsUrl,
+            'terms_accepted'=>1,'privacy_accepted'=>1,'whatsapp_consent'=>1,
+        ];
     }
 
     private static function normalizeMapsUrl(string $value): string

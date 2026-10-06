@@ -56,6 +56,7 @@ jobs:
           set -euo pipefail
           export TP_TEST_PASSWORD="$(openssl rand -hex 24)"
           php tests/setup_demo.php
+          php tests/progressive_onboarding.php
           php tests/notification_flow.php
           php -S 127.0.0.1:8080 -t . > /tmp/tp-http.log 2>&1 &
           server_pid=$!
@@ -86,6 +87,11 @@ jobs:
           grep -q 'adminProfessionalVerificationDetail' app/Data.php
           grep -q 'adminUploadCompanyVerificationDocument' app/Data.php
           grep -q 'adminUploadProfessionalDocument' app/Data.php
+          grep -q 'prepareProfessionalDraft' app/Registration.php
+          grep -q 'professionalOnboardingState' app/Data.php
+          grep -q 'shift.applied_pending_verification' app/Data.php
+          test -f app/views/professional_register_phone.php
+          test -f app/views/professional_complete.php
           grep -q 'admin-support-upload' app/views/admin_verification_detail.php
           grep -q 'multipart/form-data' app/views/admin_verification_detail.php
           grep -q 'Revisar cadastro' app/views/admin_dashboard.php
@@ -112,6 +118,8 @@ jobs:
           grep -q '.category-modal' public/assets/css/app.css
           grep -q '.verification-checklist' public/assets/css/app.css
           grep -q '.verification-step-card' public/assets/css/app.css
+          grep -q '.professional-complete-page' public/assets/css/app.css
+          grep -q '.progressive-registration-note' public/assets/css/app.css
 
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5

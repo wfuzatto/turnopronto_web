@@ -33,12 +33,18 @@ final class Api
 
         if($relative==='/auth/login' && $method==='POST'){
             $data=json_input();
-            $email=mb_strtolower(trim((string)($data['email']??'')));
+            $identifier=trim((string)($data['identifier']??$data['cpf']??$data['email']??''));
             $password=(string)($data['password']??'');
-            $st=Database::connection()->prepare('SELECT * FROM tp_users WHERE email=? AND status="active" LIMIT 1');
-            $st->execute([$email]);
+            $cpf=preg_replace('/\D+/','',$identifier);
+            if(strlen($cpf)===11){
+                $st=Database::connection()->prepare('SELECT u.* FROM tp_users u JOIN tp_professionals p ON p.user_id=u.id WHERE p.cpf=? AND u.status="active" LIMIT 1');
+                $st->execute([$cpf]);
+            }else{
+                $st=Database::connection()->prepare('SELECT * FROM tp_users WHERE email=? AND status="active" LIMIT 1');
+                $st->execute([mb_strtolower($identifier)]);
+            }
             $user=$st->fetch();
-            if(!$user || !password_verify($password,$user['password_hash'])) json_response(['ok'=>false,'error'=>'E-mail ou senha inválidos.'],422);
+            if(!$user || !password_verify($password,$user['password_hash'])) json_response(['ok'=>false,'error'=>'CPF/e-mail ou senha inválidos.'],422);
             $token=Data::createApiToken((int)$user['id']);
             unset($user['password_hash']);
             json_response(['ok'=>true,'token'=>$token,'user'=>$user]);

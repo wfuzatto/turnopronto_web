@@ -16,10 +16,10 @@
       <label class="verify-code-field" for="verification-code">Código recebido
         <input id="verification-code" class="verify-code-input" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000" required autofocus>
       </label>
-      <button class="btn btn-primary btn-block" type="submit">Validar e concluir cadastro</button>
+      <button class="btn btn-primary btn-block" type="submit"><?=($pending['role']??'')==='professional'?'Validar e ver oportunidades':'Validar e concluir cadastro'?></button>
     </form>
     <form method="post" style="margin-top:12px"><?=csrf_field()?><input type="hidden" name="action" value="resend"><button class="btn btn-soft btn-block" type="submit">Reenviar código</button></form>
-    <p class="register-login"><a href="<?=e(url('cadastro'))?>">Começar novamente</a></p>
+    <p class="register-login"><a href="<?=e(url(($pending['role']??'')==='professional'?'cadastro/profissional':'cadastro'))?>">Começar novamente</a></p>
   </section>
 </div>
 </body></html>
