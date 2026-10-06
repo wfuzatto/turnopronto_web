@@ -91,6 +91,7 @@ jobs:
           grep -q 'professionalOnboardingState' app/Data.php
           grep -q 'shift.applied_pending_verification' app/Data.php
           test -f app/views/professional_register_phone.php
+          grep -q 'professional-contact-card' app/views/professional_register_phone.php
           test -f app/views/professional_complete.php
           grep -q 'admin-support-upload' app/views/admin_verification_detail.php
           grep -q 'multipart/form-data' app/views/admin_verification_detail.php
@@ -120,6 +121,8 @@ jobs:
           grep -q '.verification-step-card' public/assets/css/app.css
           grep -q '.professional-complete-page' public/assets/css/app.css
           grep -q '.progressive-registration-note' public/assets/css/app.css
+          grep -q '.professional-contact-shell' public/assets/css/app.css
+          grep -q '.contact-form-grid' public/assets/css/app.css
 
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
