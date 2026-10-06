@@ -671,11 +671,10 @@ final class Data
         if($row && !array_key_exists('acceptance_mode',$row)) $row['acceptance_mode']='automatic';
         return $row;
     }
-
     public static function companyShiftCandidates(int $userId, int $shiftId): array
     {
         if(!self::companyShift($userId,$shiftId)) return [];
-        $sql="SELECT a.*,p.id professional_id,p.headline,p.reliability_score,p.punctuality_score,p.attendance_score,p.rating,p.completed_shifts,
+        $sql="SELECT a.*,p.id professional_id,p.status professional_status,p.headline,p.reliability_score,p.punctuality_score,p.attendance_score,p.rating,p.completed_shifts,
                      u.name,u.avatar_url,x.id assignment_id,x.status assignment_status
               FROM tp_shift_applications a
               JOIN tp_professionals p ON p.id=a.professional_id
@@ -909,6 +908,12 @@ final class Data
             $st->execute([$applicationId,$shiftId]);
             $application=$st->fetch();
             if(!$application) throw new RuntimeException('Candidatura não encontrada.');
+
+            $verification=$pdo->prepare('SELECT status FROM tp_professionals WHERE id=? LIMIT 1');
+            $verification->execute([(int)$application['professional_id']]);
+            if((string)$verification->fetchColumn()!=='verified'){
+                throw new RuntimeException('Este profissional ainda está em verificação. Aguarde a liberação do cadastro antes de confirmá-lo no turno.');
+            }
 
             $st=$pdo->prepare("SELECT COUNT(*) FROM tp_assignments WHERE shift_id=? AND status<>'cancelled'");
             $st->execute([$shiftId]);
