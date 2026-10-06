@@ -1547,6 +1547,75 @@ final class Data
         return array_map('intval',array_column($st->fetchAll(),'category_id'));
     }
 
+    private static function ensureDocumentAutomationSchema(): void
+    {
+        $pdo=Database::connection();
+        $columns=[
+            'automation_status'=>'VARCHAR(30) NULL AFTER rejection_reason',
+            'automation_reason'=>'VARCHAR(500) NULL AFTER automation_status',
+            'automation_json'=>'LONGTEXT NULL AFTER automation_reason',
+            'automation_checked_at'=>'DATETIME NULL AFTER automation_json',
+        ];
+        foreach($columns as $column=>$definition){
+            if(!self::hasColumn('tp_documents',$column)){
+                $pdo->exec("ALTER TABLE tp_documents ADD COLUMN {$column} {$definition}");
+                self::$columnCache['tp_documents.'.$column]=true;
+            }
+        }
+    }
+
+    private static function runProfessionalDocumentAutomation(int $actorUserId,int $documentId,int $professionalId,string $type,string $absolutePath,string $mime): void
+    {
+        if($type!=='identity') return;
+        self::ensureDocumentAutomationSchema();
+        $pdo=Database::connection();
+        $st=$pdo->prepare('SELECT p.user_id,p.cpf,u.name FROM tp_professionals p JOIN tp_users u ON u.id=p.user_id WHERE p.id=? LIMIT 1');
+        $st->execute([$professionalId]);
+        $profile=$st->fetch();
+        if(!$profile) return;
+
+        $result=DocumentRecognition::analyze($absolutePath,$mime,(string)$profile['name'],(string)$profile['cpf']);
+        $stored=$result['raw']??null;
+        $pdo->prepare('UPDATE tp_documents SET automation_status=?,automation_reason=?,automation_json=?,automation_checked_at=NOW() WHERE id=?')
+            ->execute([
+                $result['status']??'manual',
+                mb_substr((string)($result['reason']??''),0,500),
+                $stored?json_encode($stored,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES):null,
+                $documentId
+            ]);
+
+        if(($result['status']??'')==='match' && (bool)(app_config('document_recognition.auto_approve') ?? true)){
+            $pdo->prepare('UPDATE tp_documents SET status="verified",verified_at=NOW(),rejection_reason=NULL WHERE id=? AND status="pending"')
+                ->execute([$documentId]);
+            self::audit($actorUserId,'document.auto_verified','document',$documentId,[
+                'professional_id'=>$professionalId,
+                'name_score'=>$result['name_score']??null,
+                'document_type'=>$result['document_type']??null
+            ]);
+
+            $state=self::professionalOnboardingState((int)$profile['user_id']);
+            if($state['application_data_complete'] && $state['identity_verified']){
+                $pdo->prepare('UPDATE tp_professionals SET status="verified" WHERE id=? AND status="pending"')->execute([$professionalId]);
+                if($pdo->query('SELECT ROW_COUNT()')->fetchColumn()){
+                    self::audit($actorUserId,'verification.professional_auto','professional',$professionalId,['document_id'=>$documentId]);
+                    self::createNotification(
+                        (int)$profile['user_id'],
+                        'verification_approved',
+                        'Cadastro verificado automaticamente',
+                        'Seu documento foi validado e seu perfil está liberado para confirmação de turnos.',
+                        'profissional/inicio',
+                        'professional_auto_verified:'.$professionalId
+                    );
+                }
+            }
+        }elseif(($result['status']??'')==='review'){
+            self::audit($actorUserId,'document.auto_review_required','document',$documentId,[
+                'professional_id'=>$professionalId,
+                'reason'=>$result['reason']??'Revisão manual necessária'
+            ]);
+        }
+    }
+
     public static function uploadProfessionalDocument(int $userId, string $type, array $file): int
     {
         $pid=self::professionalIdForUser($userId);
@@ -1583,6 +1652,8 @@ final class Data
         $st->execute([$pid,$type,$labels[$type],$relative,mb_substr((string)($file['name']??'documento'),0,255),$mime]);
         $id=(int)$pdo->lastInsertId();
         self::audit($userId,'document.uploaded','document',$id,['type'=>$type,'mime'=>$mime]);
+        try{ self::runProfessionalDocumentAutomation($userId,$id,$pid,$type,$absolute,$mime); }
+        catch(Throwable $e){ self::audit($userId,'document.auto_analysis_failed','document',$id,['reason'=>$e->getMessage()]); }
         return $id;
     }
 
@@ -1632,6 +1703,8 @@ final class Data
         self::audit($adminUserId,'verification.professional_document_uploaded_by_admin','document',$id,[
             'professional_id'=>$professionalId,'type'=>$type,'mime'=>$mime
         ]);
+        try{ self::runProfessionalDocumentAutomation($adminUserId,$id,$professionalId,$type,$absolute,$mime); }
+        catch(Throwable $e){ self::audit($adminUserId,'document.auto_analysis_failed','document',$id,['reason'=>$e->getMessage()]); }
         return $id;
     }
 
@@ -1833,6 +1906,7 @@ final class Data
     }
     public static function adminProfessionalVerificationDetail(int $professionalId): array
     {
+        self::ensureDocumentAutomationSchema();
         $pdo=Database::connection();
         $st=$pdo->prepare("SELECT p.*,u.name,u.email,u.phone,u.phone_verified_at,u.avatar_url
                            FROM tp_professionals p
