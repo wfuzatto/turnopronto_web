@@ -73,6 +73,164 @@
     update();
   });
 
+  // CEP: preenche endereço, cidade e UF automaticamente. ViaCEP com fallback BrasilAPI.
+  qa('input[name="postal_code"]').forEach(input=>{
+    let timer=null;
+    let lastCep='';
+    const form=input.closest('form')||document;
+    const address=q('input[name="address"]',form);
+    const city=q('input[name="city"]',form);
+    const state=q('input[name="state"]',form);
+    const lookup=async()=>{
+      const cep=onlyDigits(input.value).slice(0,8);
+      if(cep.length!==8||cep===lastCep) return;
+      lastCep=cep;
+      input.classList.add('cep-loading');
+      try{
+        let data=null;
+        try{
+          const r=await fetch('https://viacep.com.br/ws/'+cep+'/json/',{cache:'no-store'});
+          if(r.ok){
+            const j=await r.json();
+            if(!j.erro) data={address:j.logradouro||'',city:j.localidade||'',state:j.uf||''};
+          }
+        }catch(_){}
+        if(!data){
+          try{
+            const r=await fetch('https://brasilapi.com.br/api/cep/v1/'+cep,{cache:'no-store'});
+            if(r.ok){
+              const j=await r.json();
+              data={address:j.street||'',city:j.city||'',state:j.state||''};
+            }
+          }catch(_){}
+        }
+        if(data){
+          if(address && data.address) address.value=data.address;
+          if(city && data.city) city.value=data.city;
+          if(state && data.state) state.value=data.state;
+          [address,city,state].forEach(el=>el?.dispatchEvent(new Event('input',{bubbles:true})));
+          input.classList.add('cep-found');
+          window.setTimeout(()=>input.classList.remove('cep-found'),1200);
+        }
+      }finally{
+        input.classList.remove('cep-loading');
+      }
+    };
+    input.addEventListener('input',()=>{
+      window.clearTimeout(timer);
+      timer=window.setTimeout(lookup,300);
+    });
+    input.addEventListener('blur',lookup);
+  });
+
+  // Campos editáveis no painel administrativo: duplo clique abre o input e ✓ salva.
+  qa('[data-inline-field][data-inline-edit-url]').forEach(cell=>{
+    if(cell.dataset.inlineBound==='1') return;
+    cell.dataset.inlineBound='1';
+    cell.addEventListener('dblclick',()=>{
+      if(cell.classList.contains('editing')) return;
+      const field=cell.dataset.inlineField||'';
+      const type=cell.dataset.inlineType||'text';
+      const mask=cell.dataset.inlineMask||'';
+      const raw=cell.dataset.inlineRaw||'';
+      const display=q('[data-inline-display]',cell);
+      if(!display) return;
+
+      cell.classList.add('editing');
+      const editor=document.createElement('div');
+      editor.className='admin-inline-editor';
+      const input=document.createElement('input');
+      input.type=type;
+      input.value=raw;
+      input.name=field;
+      if(mask) input.dataset.mask=mask;
+      const save=document.createElement('button');
+      save.type='button';
+      save.className='admin-inline-save';
+      save.setAttribute('aria-label','Salvar alteração');
+      save.textContent='✓';
+      const cancel=document.createElement('button');
+      cancel.type='button';
+      cancel.className='admin-inline-cancel';
+      cancel.setAttribute('aria-label','Cancelar edição');
+      cancel.textContent='×';
+      editor.append(input,save,cancel);
+      display.hidden=true;
+      cell.appendChild(editor);
+
+      if(mask){
+        const update=()=>{ input.value=applyMask(mask,input.value); };
+        input.addEventListener('input',update);
+        update();
+      }
+      input.focus();
+      input.select?.();
+
+      const close=()=>{
+        editor.remove();
+        display.hidden=false;
+        cell.classList.remove('editing');
+      };
+      cancel.addEventListener('click',close);
+      input.addEventListener('keydown',event=>{
+        if(event.key==='Escape') close();
+        if(event.key==='Enter'){event.preventDefault();save.click();}
+      });
+      save.addEventListener('click',async()=>{
+        const csrf=q('input[name="_csrf"]')?.value||'';
+        save.disabled=true;
+        input.disabled=true;
+        try{
+          const body=new URLSearchParams({_csrf:csrf,field:field,value:input.value});
+          const response=await fetch(cell.dataset.inlineEditUrl,{
+            method:'POST',
+            body,
+            headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest','Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'}
+          });
+          const payload=await response.json().catch(()=>({}));
+          if(!response.ok||!payload.ok) throw new Error(payload.error||'Não foi possível salvar.');
+          display.textContent=input.value||'—';
+          cell.dataset.inlineRaw=input.value;
+          cell.classList.add('saved');
+          close();
+          window.setTimeout(()=>window.location.reload(),350);
+        }catch(error){
+          window.alert(error?.message||'Não foi possível salvar.');
+          input.disabled=false;
+          save.disabled=false;
+          input.focus();
+        }
+      });
+    });
+  });
+
+  // Check-out somente após 15 minutos do check-in.
+  qa('[data-checkout-countdown]').forEach(box=>{
+    const button=q('[data-checkout-button]')||q('[data-checkout-button]',box.parentElement||document);
+    const remaining=q('[data-checkout-remaining]',box);
+    const unlockAt=Number(box.dataset.unlockAt||0);
+    if(!unlockAt||!remaining||!button) return;
+    const tick=()=>{
+      const diff=Math.max(0,unlockAt-Date.now());
+      if(diff<=0){
+        box.hidden=true;
+        button.disabled=false;
+        button.textContent='Encerrar turno / check-out';
+        return false;
+      }
+      const total=Math.ceil(diff/1000);
+      const min=Math.floor(total/60);
+      const sec=total%60;
+      remaining.textContent=String(min).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+      button.disabled=true;
+      button.textContent='Check-out liberado em '+remaining.textContent;
+      return true;
+    };
+    if(tick()){
+      const id=window.setInterval(()=>{if(!tick())window.clearInterval(id);},1000);
+    }
+  });
+
   const bindPasswordToggle=(input,button)=>{
     if(!input||!button||button.dataset.passwordBound==='1') return;
     button.dataset.passwordBound='1';
@@ -233,6 +391,65 @@
     const summary=q('[data-notification-summary]',notificationRoot);
     const list=q('[data-notification-list]',notificationRoot);
 
+    const knownIds=new Set(qa('[data-notification-id]',notificationRoot).map(el=>String(el.dataset.notificationId||'')).filter(Boolean));
+    let initialized=true;
+    let audioUnlocked=false;
+    const unlockAudio=()=>{audioUnlocked=true;};
+    document.addEventListener('pointerdown',unlockAudio,{once:true});
+
+    const playNotificationPop=()=>{
+      if(!audioUnlocked) return;
+      try{
+        const Ctx=window.AudioContext||window.webkitAudioContext;
+        if(!Ctx) return;
+        const ctx=new Ctx();
+        const gain=ctx.createGain();
+        gain.gain.setValueAtTime(.0001,ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(.15,ctx.currentTime+.01);
+        gain.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+.18);
+        const osc=ctx.createOscillator();
+        osc.type='sine';
+        osc.frequency.setValueAtTime(720,ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(980,ctx.currentTime+.12);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(); osc.stop(ctx.currentTime+.19);
+        osc.onended=()=>ctx.close();
+      }catch(_){}
+    };
+
+    const showNotificationToast=item=>{
+      let stack=q('[data-notification-toast-stack]');
+      if(!stack){
+        stack=document.createElement('div');
+        stack.className='notification-toast-stack';
+        stack.dataset.notificationToastStack='';
+        document.body.appendChild(stack);
+      }
+      const toast=document.createElement('a');
+      toast.className='notification-toast';
+      toast.href=item.open_url||((window.TP_BASE||'')+'/notificacoes');
+      const title=document.createElement('strong');
+      title.textContent=item.title||'Nova notificação';
+      const body=document.createElement('span');
+      body.textContent=item.body||'';
+      toast.append(title,body);
+      stack.appendChild(toast);
+      requestAnimationFrame(()=>toast.classList.add('show'));
+      window.setTimeout(()=>{toast.classList.remove('show');window.setTimeout(()=>toast.remove(),220);},6500);
+    };
+
+    const announceNewItems=items=>{
+      const fresh=items.filter(item=>!item.read_at && item.id!=null && !knownIds.has(String(item.id)));
+      items.forEach(item=>{if(item.id!=null)knownIds.add(String(item.id));});
+      if(!fresh.length) return;
+      notificationRoot.classList.remove('notification-new');
+      void notificationRoot.offsetWidth;
+      notificationRoot.classList.add('notification-new');
+      window.setTimeout(()=>notificationRoot.classList.remove('notification-new'),5000);
+      fresh.slice(0,2).forEach(showNotificationToast);
+      playNotificationPop();
+    };
+
     const setOpen=open=>{
       if(!panel||!toggle) return;
       panel.hidden=!open;
@@ -266,6 +483,7 @@
 
       list.replaceChildren();
       const items=Array.isArray(data.items)?data.items:[];
+      announceNewItems(items);
       if(!items.length){
         const empty=document.createElement('div');
         empty.className='notification-empty';
@@ -277,6 +495,7 @@
       items.forEach(item=>{
         const link=document.createElement('a');
         link.className='notification-item'+(item.read_at?'':' unread');
+        if(item.id!=null) link.dataset.notificationId=String(item.id);
         link.href=item.open_url||((window.TP_BASE||'')+'/notificacoes');
 
         const icon=document.createElement('span');
@@ -310,7 +529,7 @@
       }catch(_){}
     };
 
-    window.setInterval(refreshNotifications,60000);
+    window.setInterval(refreshNotifications,20000);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshNotifications();});
   }
 })();
