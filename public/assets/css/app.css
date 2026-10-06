@@ -449,3 +449,39 @@ body.modal-open{overflow:hidden}
 .support-admin-actions select{margin:0 0 8px}
 @media(max-width:1000px){.support-kpis{grid-template-columns:repeat(2,1fr)}.support-user-layout,.support-thread-layout{grid-template-columns:1fr}.support-thread-side{display:grid;grid-template-columns:1fr 1fr}}
 @media(max-width:650px){.support-page-head{align-items:flex-start}.support-page-head>.btn{width:100%}.support-kpis,.support-kpis.user{grid-template-columns:1fr 1fr;max-width:none}.support-user-layout{grid-template-columns:1fr}.support-form>.btn{width:100%}.support-ticket-row{grid-template-columns:36px minmax(0,1fr)}.support-ticket-side{grid-column:2;align-items:flex-start;flex-direction:row}.support-thread-side{grid-template-columns:1fr}.support-message{max-width:94%}.support-conversation-head{align-items:flex-start;flex-direction:column}.support-reply-form>div{align-items:stretch;flex-direction:column}.support-reply-form .btn{width:100%}}
+
+
+/* Inline admin editing, CEP lookup, checkout safety and notification alerts */
+.admin-editable-field{position:relative;cursor:default;transition:border-color .15s,box-shadow .15s,background .15s}
+.admin-editable-field:hover{border-color:#b9d3f5;background:#fff}
+.admin-edit-hint{display:block;margin-top:5px;font-size:7.5px;color:#9aa7b8;opacity:0;transition:opacity .15s}
+.admin-editable-field:hover .admin-edit-hint,.admin-editable-field:focus .admin-edit-hint{opacity:1}
+.admin-inline-editor{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:6px;align-items:center;margin-top:4px}
+.admin-inline-input{width:100%;height:34px;border:1px solid #8dbbff;border-radius:8px;padding:0 8px;background:#fff;font-size:10px;outline:none;box-shadow:0 0 0 3px #edf5ff}
+.admin-inline-save{width:34px;height:34px;border:0;border-radius:8px;background:#0a6df4;color:#fff;font-weight:900;font-size:16px;cursor:pointer}
+.admin-inline-save:hover{filter:brightness(.95)}
+.admin-editable-field.saving{opacity:.7}
+.admin-editable-field.saved{border-color:#8ddbb1;background:#f4fff8}
+.admin-editable-field.save-error{border-color:#e6a5ad;background:#fff8f9}
+.cep-lookup-status.success{color:#078b4c}
+.cep-lookup-status.error{color:#b53c49}
+.checkout-safety-note{display:flex;align-items:center;justify-content:center;gap:8px;max-width:500px;margin:12px auto;padding:10px 12px;border:1px solid #cfe0f5;border-radius:10px;background:#f5f9ff;color:#385775}
+.checkout-safety-note>.tp-icon{flex:none;color:#0a6df4}
+.checkout-safety-note strong,.checkout-safety-note span{display:block}
+.checkout-safety-note strong{font-size:10px}
+.checkout-safety-note span{font-size:9px;margin-top:2px}
+.checkout-safety-note.ready{border-color:#cdebd9;background:#effbf4;color:#087e49}
+.checkout-safety-note.ready>.tp-icon{color:#079653}
+[data-checkout-button]:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+@keyframes tpBellPulse{0%,100%{transform:rotate(0) scale(1)}15%{transform:rotate(-12deg) scale(1.12)}30%{transform:rotate(12deg) scale(1.12)}45%{transform:rotate(-8deg) scale(1.08)}60%{transform:rotate(8deg) scale(1.08)}75%{transform:rotate(0) scale(1.04)}}
+.notification-shell.has-new .notification-toggle{animation:tpBellPulse .7s ease-in-out 0s 4;background:#eef5ff}
+.notification-shell.has-new .notif{animation:tpBellPulse .7s ease-in-out 0s 4}
+.notification-toast-stack{position:fixed;top:82px;right:18px;z-index:5000;width:min(390px,calc(100vw - 28px));display:flex;flex-direction:column;gap:8px}
+.notification-toast{display:grid;grid-template-columns:38px minmax(0,1fr) 24px;gap:9px;align-items:center;padding:11px 12px;border:1px solid #cfe0f5;border-radius:12px;background:#fff;color:inherit;text-decoration:none;box-shadow:0 16px 38px rgba(21,54,95,.18);opacity:0;transform:translateY(-10px) scale(.98);transition:.22s ease}
+.notification-toast.show{opacity:1;transform:none}
+.notification-toast-icon{width:36px;height:36px;border-radius:10px;background:#eaf3ff;color:#0a6df4;display:grid;place-items:center;font-weight:900}
+.notification-toast strong,.notification-toast small{display:block}
+.notification-toast strong{font-size:10.5px}
+.notification-toast small{font-size:8.8px;color:#667891;line-height:1.35;margin-top:2px}
+.notification-toast button{border:0;background:transparent;color:#7d8a9c;font-size:20px;cursor:pointer;line-height:1}
+@media(max-width:600px){.notification-toast-stack{top:70px;right:10px;width:calc(100vw - 20px)}.admin-inline-editor{grid-template-columns:minmax(0,1fr) 38px}.admin-inline-save{width:38px;height:38px}}
