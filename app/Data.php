@@ -1539,6 +1539,77 @@ final class Data
         return ['companies'=>$companies,'professionals'=>$professionals];
     }
 
+    public static function adminCompanyVerificationDetail(int $companyId): array
+    {
+        self::ensureCompanyVerificationSchema();
+        $pdo=Database::connection();
+
+        $st=$pdo->prepare("SELECT c.*,u.id owner_user_id,u.name owner_name,u.email owner_email,u.phone owner_phone,u.phone_verified_at
+                           FROM tp_companies c
+                           LEFT JOIN tp_company_members cm ON cm.company_id=c.id AND cm.member_role='owner'
+                           LEFT JOIN tp_users u ON u.id=cm.user_id
+                           WHERE c.id=? LIMIT 1");
+        $st->execute([$companyId]);
+        $company=$st->fetch();
+        if(!$company) throw new RuntimeException('Empresa não encontrada.');
+
+        $summary=null;
+        if(!empty($company['owner_user_id'])){
+            $summary=self::companyVerificationSummary((int)$company['owner_user_id']);
+        }
+
+        $docs=$pdo->prepare("SELECT * FROM tp_company_documents WHERE company_id=? ORDER BY created_at DESC,id DESC");
+        $docs->execute([$companyId]);
+
+        return [
+            'kind'=>'company',
+            'company'=>$company,
+            'summary'=>$summary,
+            'documents'=>$docs->fetchAll(),
+            'ready_for_final'=>(bool)($summary['ready_for_final']??false),
+        ];
+    }
+
+    public static function adminProfessionalVerificationDetail(int $professionalId): array
+    {
+        $pdo=Database::connection();
+        $st=$pdo->prepare("SELECT p.*,u.name,u.email,u.phone,u.phone_verified_at,u.avatar_url
+                           FROM tp_professionals p
+                           JOIN tp_users u ON u.id=p.user_id
+                           WHERE p.id=? LIMIT 1");
+        $st->execute([$professionalId]);
+        $professional=$st->fetch();
+        if(!$professional) throw new RuntimeException('Profissional não encontrado.');
+
+        $cats=$pdo->prepare("SELECT jc.id,jc.name
+                             FROM tp_professional_categories pc
+                             JOIN tp_job_categories jc ON jc.id=pc.category_id
+                             WHERE pc.professional_id=?
+                             ORDER BY jc.name");
+        $cats->execute([$professionalId]);
+
+        $docs=$pdo->prepare("SELECT * FROM tp_documents WHERE professional_id=? ORDER BY created_at DESC,id DESC");
+        $docs->execute([$professionalId]);
+        $documents=$docs->fetchAll();
+
+        $latest=[];
+        foreach($documents as $doc){
+            $type=(string)$doc['type'];
+            if(!isset($latest[$type])) $latest[$type]=$doc;
+        }
+        $identityVerified=(($latest['identity']['status']??'')==='verified');
+        $cpfVerified=(($latest['cpf']['status']??'')==='verified');
+
+        return [
+            'kind'=>'professional',
+            'professional'=>$professional,
+            'categories'=>$cats->fetchAll(),
+            'documents'=>$documents,
+            'latest_documents'=>$latest,
+            'ready_for_final'=>$identityVerified&&$cpfVerified,
+        ];
+    }
+
     public static function setCompanyVerification(int $adminUserId,int $companyId,string $decision): void
     {
         if(!in_array($decision,['verified','rejected'],true))throw new InvalidArgumentException('Decisão inválida.');
