@@ -70,3 +70,27 @@ for role, route, defaults in [
         print('COMPANY verification center: PASS')
 
     print(role + ' authenticated dashboard and CSS: PASS')
+
+
+# Admin must be able to open the full verification review before approving.
+admin = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+login = admin.open(base + '/login', timeout=20).read().decode()
+csrf = re.search(r'name="_csrf" value="([^"]+)"', login).group(1)
+body = urllib.parse.urlencode({
+    '_csrf': csrf,
+    'email': os.environ.get('TP_TEST_ADMIN_EMAIL', 'admin@turnopronto.local'),
+    'password': os.environ.get('TP_TEST_ADMIN_PASSWORD', os.environ.get('TP_TEST_PASSWORD', ''))
+}).encode()
+response = admin.open(base + '/login', data=body, timeout=20)
+assert urllib.parse.urlparse(response.url).path == '/admin/dashboard', 'ADMIN login failed'
+
+company_review = admin.open(base + '/admin/verificacao/empresa/1', timeout=20).read().decode()
+for marker in ['Revisar Cadastro empresarial', 'Dados da empresa', 'Documentação empresarial', 'Decisão final']:
+    assert marker in company_review, 'company admin review missing ' + marker
+
+professional_review = admin.open(base + '/admin/verificacao/profissional/1', timeout=20).read().decode()
+for marker in ['Revisar Cadastro profissional', 'Dados do profissional', 'Documentação do profissional',
+               'Documento de identidade', 'Decisão final']:
+    assert marker in professional_review, 'professional admin review missing ' + marker
+
+print('ADMIN verification review pages: PASS')

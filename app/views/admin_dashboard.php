@@ -57,10 +57,8 @@
         </div>
       </div>
       <div class="verification-actions verification-actions-stacked">
-        <form method="post" action="<?=e(url('admin/verificacao/empresa/'.$item['id'].'/aprovar'))?>"><?=csrf_field()?>
-          <button class="btn btn-primary btn-sm" <?=$item['ready_for_final']?'':'disabled title="Conclua os pré-requisitos antes da aprovação final"'?>>Aprovar cadastro</button>
-        </form>
-        <form method="post" action="<?=e(url('admin/verificacao/empresa/'.$item['id'].'/rejeitar'))?>" data-confirm="Rejeitar este cadastro empresarial?"><?=csrf_field()?><button class="btn btn-ghost btn-sm">Rejeitar cadastro</button></form>
+        <a class="btn btn-primary btn-sm" href="<?=e(url('admin/verificacao/empresa/'.$item['id']))?>">Revisar cadastro</a>
+        <small class="verification-review-hint">Abra os dados e documentos antes de decidir.</small>
       </div>
     </article>
   <?php endforeach;?>
@@ -83,10 +81,8 @@
         </div>
       </div>
       <div class="verification-actions verification-actions-stacked">
-        <form method="post" action="<?=e(url('admin/verificacao/profissional/'.$item['id'].'/aprovar'))?>"><?=csrf_field()?>
-          <button class="btn btn-primary btn-sm" <?=$item['ready_for_final']?'':'disabled title="Aprove os documentos obrigatórios antes da aprovação final"'?>>Aprovar cadastro</button>
-        </form>
-        <form method="post" action="<?=e(url('admin/verificacao/profissional/'.$item['id'].'/rejeitar'))?>" data-confirm="Rejeitar este cadastro profissional?"><?=csrf_field()?><button class="btn btn-ghost btn-sm">Rejeitar cadastro</button></form>
+        <a class="btn btn-primary btn-sm" href="<?=e(url('admin/verificacao/profissional/'.$item['id']))?>">Revisar cadastro</a>
+        <small class="verification-review-hint">Abra os dados e documentos antes de decidir.</small>
       </div>
     </article>
   <?php endforeach;?>

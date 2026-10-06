@@ -81,6 +81,10 @@ jobs:
           grep -q 'companyVerificationSummary' app/Data.php
           grep -q 'empresa/verificacao' app/Web.php
           test -f app/views/company_verification.php
+          test -f app/views/admin_verification_detail.php
+          grep -q 'adminCompanyVerificationDetail' app/Data.php
+          grep -q 'adminProfessionalVerificationDetail' app/Data.php
+          grep -q 'Revisar cadastro' app/views/admin_dashboard.php
 
   deploy:
     needs: validate
