@@ -21,7 +21,7 @@
       <h2>Criar sua conta</h2><p>Escolha como você vai usar o TurnoPronto.</p>
       <div class="account-choice">
         <a href="<?=e(url('cadastro/empresa'))?>" class="account-card"><span class="account-icon"><?=icon('briefcase',28)?></span><strong>Sou empresa</strong><small>Publicar turnos, receber interessados e organizar pagamentos/devoluções.</small><b>Continuar →</b></a>
-        <a href="<?=e(url('cadastro/profissional'))?>" class="account-card"><span class="account-icon green"><?=icon('users',28)?></span><strong>Sou profissional</strong><small>Crie sua conta rapidamente e veja vagas das áreas que interessam a você.</small><b>Continuar →</b></a>
+        <a href="<?=e(url('vagas'))?>" class="account-card"><span class="account-icon green"><?=icon('users',28)?></span><strong>Sou profissional</strong><small>Veja todas as vagas sem cadastro. Você só cria a conta quando quiser se candidatar.</small><b>Ver vagas →</b></a>
       </div>
 
     <?php elseif($kind==='professional'):?>
