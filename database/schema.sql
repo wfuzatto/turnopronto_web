@@ -4,7 +4,7 @@ SET FOREIGN_KEY_CHECKS=0;
 CREATE TABLE IF NOT EXISTS tp_users (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL,
-  email VARCHAR(190) NOT NULL UNIQUE,
+  email VARCHAR(190) NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   role VARCHAR(30) NOT NULL,
   phone VARCHAR(30) NULL,
@@ -243,7 +243,7 @@ CREATE TABLE IF NOT EXISTS tp_registration_requests (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   public_id CHAR(32) NOT NULL UNIQUE,
   role VARCHAR(30) NOT NULL,
-  email VARCHAR(190) NOT NULL,
+  email VARCHAR(190) NULL,
   phone VARCHAR(30) NOT NULL,
   document VARCHAR(30) NOT NULL,
   payload_json LONGTEXT NOT NULL,
@@ -258,6 +258,7 @@ CREATE TABLE IF NOT EXISTS tp_registration_requests (
   verified_at DATETIME NULL,
   INDEX idx_reg_email_status (email,status),
   INDEX idx_reg_phone_status (phone,status),
+  INDEX idx_reg_document_status (document,status),
   INDEX idx_reg_expiry (status,code_expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
