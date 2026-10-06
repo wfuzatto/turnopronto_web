@@ -5,7 +5,7 @@
     <div class="form-grid">
       <div><label>Nome *</label><input name="name" value="<?=e($_POST['name']??$user['name'])?>" required></div>
       <div><label>WhatsApp *</label><input name="phone" value="<?=e($_POST['phone']??$user['phone']??'')?>" required><small class="field-note">Se o número for alterado, ele precisará ser validado novamente.</small></div>
-      <div class="full"><label>E-mail</label><input value="<?=e($user['email'])?>" disabled><small class="field-note">Alteração de e-mail será liberada junto com a verificação por e-mail.</small></div>
+      <div class="full"><label>E-mail do responsável / usuário</label><input value="<?=e($user['email'])?>" disabled><small class="field-note">Usado para acesso, segurança e comunicações destinadas ao responsável da conta.</small></div>
     </div>
   </section>
   <section class="panel account-card-main">
@@ -14,6 +14,7 @@
       <div><label>Razão social *</label><input name="legal_name" value="<?=e($_POST['legal_name']??$company['legal_name']??'')?>" required></div>
       <div><label>Nome fantasia *</label><input name="trade_name" value="<?=e($_POST['trade_name']??$company['trade_name']??'')?>" required></div>
       <div><label>CNPJ *</label><input name="cnpj" value="<?=e($_POST['cnpj']??$company['cnpj']??'')?>" required></div>
+      <div><label>E-mail da empresa *</label><input type="email" name="company_email" value="<?=e($_POST['company_email']??$company['company_email']??'')?>" required><small class="field-note">Usado para formalização de vagas, pagamentos, comprovantes e comunicação institucional.</small></div>
       <div><label>UF *</label><input name="state" maxlength="2" value="<?=e($_POST['state']??$company['state']??'MG')?>" required></div>
       <div class="full"><label>Endereço *</label><input name="address" value="<?=e($_POST['address']??$company['address']??'')?>" required></div>
       <div class="full"><label>Cidade *</label><input name="city" value="<?=e($_POST['city']??$company['city']??'')?>" required></div>

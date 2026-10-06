@@ -42,7 +42,7 @@ $status=$profile['status']??'pending';
       <div><label>Nome *</label><input name="name" value="<?=e($_POST['name']??$profile['name']??'')?>" required></div>
       <div><label>CPF</label><input value="<?=e($profile['cpf']??'')?>" disabled></div>
       <div><label>WhatsApp</label><input value="<?=e($profile['phone']??'')?>" disabled><small class="field-note">Número validado no cadastro.</small></div>
-      <div><label>E-mail <small>(opcional)</small></label><input type="email" name="email" value="<?=e($_POST['email']??$profile['email']??'')?>" placeholder="voce@exemplo.com"></div>
+      <div><label>E-mail *</label><input type="email" name="email" value="<?=e($_POST['email']??$profile['email']??'')?>" placeholder="voce@exemplo.com" required><small class="field-note">Canal formal para vagas, pagamentos e recuperação da conta.</small></div>
       <div class="full"><label>Atividade / apresentação</label><input name="headline" value="<?=e($_POST['headline']??$profile['headline']??'')?>" placeholder="Ex.: Garçom • Recepcionista"></div>
       <div class="full"><label>Sobre você</label><textarea name="bio" rows="4" maxlength="2000" placeholder="Experiência, disponibilidade, diferenciais..."><?=e($_POST['bio']??$profile['bio']??'')?></textarea></div>
     </div>

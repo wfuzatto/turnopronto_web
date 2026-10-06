@@ -48,7 +48,7 @@
 
         <label class="terms-check professional-legal-check"><input type="checkbox" name="legal_accepted" value="1" required> <span>Li e aceito os <a href="<?=e(url('termos'))?>" target="_blank">Termos de Uso</a> e a <a href="<?=e(url('privacidade'))?>" target="_blank">Política de Privacidade</a>.</span></label>
 
-        <button class="btn btn-primary btn-block" type="submit">Continuar → confirmar WhatsApp</button>
+        <button class="btn btn-primary btn-block" type="submit">Continuar → contato e WhatsApp</button>
       </form>
       <div class="progressive-registration-note"><?=icon('shield',17)?><span>RG, endereço, documento e Pix serão solicitados somente quando você quiser se candidatar a uma vaga.</span></div>
       <p class="register-login">Já tem conta? <a href="<?=e(url('login'))?>">Entrar com CPF</a></p>
@@ -67,7 +67,8 @@
         <div class="register-grid">
           <label>Nome completo do responsável *<input name="name" value="<?=e($_POST['name']??'')?>" autocomplete="name" required></label>
           <label>WhatsApp com DDD *<input name="phone" data-mask="phone" value="<?=e($_POST['phone']??'')?>" inputmode="tel" autocomplete="tel" placeholder="(35) 99999-9999" required></label>
-          <label class="wide">E-mail *<input type="email" name="email" value="<?=e($_POST['email']??'')?>" autocomplete="email" required></label>
+          <label class="wide">E-mail do responsável / usuário *<input type="email" name="email" value="<?=e($_POST['email']??'')?>" autocomplete="email" required><small class="field-note">Usado no acesso, segurança e comunicações destinadas ao responsável da conta.</small></label>
+          <label class="wide">E-mail da empresa *<input type="email" name="company_email" value="<?=e($_POST['company_email']??'')?>" autocomplete="email" required><small class="field-note">Usado para formalização de vagas, pagamentos, comprovantes e comunicações institucionais.</small></label>
           <label>CPF do responsável *<input name="responsible_cpf" data-mask="cpf" value="<?=e($_POST['responsible_cpf']??'')?>" inputmode="numeric" required></label>
           <label>CNPJ *<input name="cnpj" data-mask="cnpj" value="<?=e($_POST['cnpj']??'')?>" inputmode="numeric" required></label>
           <label>Razão social *<input name="legal_name" value="<?=e($_POST['legal_name']??'')?>" required></label>

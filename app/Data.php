@@ -220,6 +220,21 @@ final class Data
         self::$columnCache['tp_companies.maps_url']=true;
     }
 
+    private static function ensureCompanyEmailColumn(): void
+    {
+        if(self::hasColumn('tp_companies','company_email')) return;
+        $pdo=Database::connection();
+        $pdo->exec('ALTER TABLE tp_companies ADD COLUMN company_email VARCHAR(190) NULL AFTER responsible_cpf');
+        $pdo->exec("UPDATE tp_companies c
+                    JOIN tp_company_members cm ON cm.company_id=c.id
+                    JOIN tp_users u ON u.id=cm.user_id
+                    SET c.company_email=u.email
+                    WHERE c.company_email IS NULL
+                      AND u.email IS NOT NULL
+                      AND u.email<>''");
+        self::$columnCache['tp_companies.company_email']=true;
+    }
+
     private static function normalizeCompanyMapsUrl(string $value): string
     {
         $value=trim($value);
@@ -234,6 +249,7 @@ final class Data
     public static function companyProfile(int $userId): array
     {
         self::ensureCompanyMapsColumn();
+        self::ensureCompanyEmailColumn();
         $companyId=self::companyIdForUser($userId);
         $s=Database::connection()->prepare('SELECT * FROM tp_companies WHERE id=?');
         $s->execute([$companyId]);
@@ -336,6 +352,7 @@ final class Data
             'trade_name'=>['source'=>'company','label'=>'Nome fantasia'],
             'cnpj'=>['source'=>'company','label'=>'CNPJ'],
             'responsible_cpf'=>['source'=>'company','label'=>'CPF do responsável'],
+            'company_email'=>['source'=>'company','label'=>'E-mail da empresa'],
             'address'=>['source'=>'company','label'=>'Endereço'],
             'postal_code'=>['source'=>'company','label'=>'CEP'],
             'city'=>['source'=>'company','label'=>'Cidade'],
@@ -1088,7 +1105,8 @@ final class Data
         $pid=(int)$profile['id'];
 
         $categories=self::professionalCategoryIds($userId);
-        $identityComplete=trim((string)($profile['rg']??''))!=='' && !empty($profile['birth_date']);
+        $emailComplete=filter_var((string)($profile['email']??''),FILTER_VALIDATE_EMAIL)!==false;
+        $identityComplete=$emailComplete && trim((string)($profile['rg']??''))!=='' && !empty($profile['birth_date']);
         $locationComplete=trim((string)($profile['address']??''))!=='' 
             && strlen(preg_replace('/\D+/','',(string)($profile['postal_code']??'')))===8
             && trim((string)($profile['city']??''))!==''
@@ -1167,18 +1185,16 @@ final class Data
 
             $headline=mb_substr(trim((string)($data['headline']??'')),0,190);
             $email=mb_strtolower(trim((string)($data['email']??'')));
-            if($email!=='' && !filter_var($email,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe um e-mail válido.');
-            if($email!==''){
-                $dup=$pdo->prepare('SELECT id FROM tp_users WHERE email=? AND id<>? LIMIT 1');
-                $dup->execute([$email,$userId]);
-                if($dup->fetchColumn()) throw new RuntimeException('Este e-mail já está vinculado a outra conta.');
-            }
+            if(!filter_var($email,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe um e-mail válido.');
+            $dup=$pdo->prepare('SELECT id FROM tp_users WHERE email=? AND id<>? LIMIT 1');
+            $dup->execute([$email,$userId]);
+            if($dup->fetchColumn()) throw new RuntimeException('Este e-mail já está vinculado a outra conta.');
 
             $pdo->beginTransaction();
             try{
                 $pdo->prepare('UPDATE tp_professionals SET rg=?,birth_date=?,headline=COALESCE(NULLIF(?,""),headline) WHERE id=?')
                     ->execute([$rg,$birth,$headline,$pid]);
-                if($email!=='') $pdo->prepare('UPDATE tp_users SET email=?,updated_at=NOW() WHERE id=?')->execute([$email,$userId]);
+                $pdo->prepare('UPDATE tp_users SET email=?,updated_at=NOW() WHERE id=?')->execute([$email,$userId]);
                 self::audit($userId,'onboarding.professional_identity','professional',$pid);
                 $pdo->commit();
             }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
@@ -1461,13 +1477,16 @@ final class Data
         $legal=trim((string)($data['legal_name']??''));
         $trade=trim((string)($data['trade_name']??''));
         $cnpj=trim((string)($data['cnpj']??''));
+        $companyEmail=mb_strtolower(trim((string)($data['company_email']??'')));
         $address=trim((string)($data['address']??''));
         $mapsUrl=self::normalizeCompanyMapsUrl((string)($data['maps_url']??''));
         $city=trim((string)($data['city']??''));
         $state=mb_strtoupper(trim((string)($data['state']??'')));
         if($name===''||$legal===''||$trade===''||$cnpj===''||$address===''||$city===''||strlen($state)!==2) throw new InvalidArgumentException('Preencha todos os campos obrigatórios.');
+        if(!filter_var($companyEmail,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe o e-mail da empresa.');
 
         self::ensureCompanyMapsColumn();
+        self::ensureCompanyEmailColumn();
         $pdo=Database::connection();
         $current=$pdo->prepare('SELECT phone FROM tp_users WHERE id=? LIMIT 1');
         $current->execute([$userId]);
@@ -1481,7 +1500,7 @@ final class Data
             }else{
                 $pdo->prepare('UPDATE tp_users SET name=?,phone=?,updated_at=NOW() WHERE id=?')->execute([$name,$phone,$userId]);
             }
-            $pdo->prepare('UPDATE tp_companies SET legal_name=?,trade_name=?,cnpj=?,address=?,city=?,state=?,maps_url=? WHERE id=?')->execute([$legal,$trade,$cnpj,$address,$city,$state,$mapsUrl,$companyId]);
+            $pdo->prepare('UPDATE tp_companies SET legal_name=?,trade_name=?,cnpj=?,company_email=?,address=?,city=?,state=?,maps_url=? WHERE id=?')->execute([$legal,$trade,$cnpj,$companyEmail,$address,$city,$state,$mapsUrl,$companyId]);
             self::audit($userId,'account.company_updated','company',$companyId);
             $pdo->commit();
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
@@ -1499,19 +1518,17 @@ final class Data
 
         if(mb_strlen($name)<3) throw new InvalidArgumentException('Informe seu nome completo.');
         if(!$categories) throw new InvalidArgumentException('Selecione pelo menos uma área de interesse.');
-        if($email!=='' && !filter_var($email,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe um e-mail válido.');
+        if(!filter_var($email,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe um e-mail válido.');
 
         $pdo=Database::connection();
-        if($email!==''){
-            $dup=$pdo->prepare('SELECT id FROM tp_users WHERE email=? AND id<>? LIMIT 1');
-            $dup->execute([$email,$userId]);
-            if($dup->fetchColumn()) throw new RuntimeException('Este e-mail já está vinculado a outra conta.');
-        }
+        $dup=$pdo->prepare('SELECT id FROM tp_users WHERE email=? AND id<>? LIMIT 1');
+        $dup->execute([$email,$userId]);
+        if($dup->fetchColumn()) throw new RuntimeException('Este e-mail já está vinculado a outra conta.');
 
         $pdo->beginTransaction();
         try{
             $pdo->prepare('UPDATE tp_users SET name=?,email=?,updated_at=NOW() WHERE id=?')
-                ->execute([$name,$email!==''?$email:null,$userId]);
+                ->execute([$name,$email,$userId]);
             $pdo->prepare('UPDATE tp_professionals SET headline=?,bio=? WHERE id=?')
                 ->execute([$headline!==''?$headline:null,$bio,$professionalId]);
             $pdo->prepare('DELETE FROM tp_professional_categories WHERE professional_id=?')->execute([$professionalId]);

@@ -103,7 +103,7 @@ public = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.coo
 fast_signup = public.open(base + '/cadastro/profissional', timeout=20).read().decode()
 for marker in ['name="name"', 'name="cpf"', 'name="categories[]"', 'name="password"', 'name="password_confirm"', 'name="legal_accepted"']:
     assert marker in fast_signup, 'fast professional signup missing ' + marker
-for forbidden in ['name="rg"', 'name="birth_date"', 'name="postal_code"', 'name="address"', 'name="pix_key"']:
+for forbidden in ['name="email"', 'name="rg"', 'name="birth_date"', 'name="postal_code"', 'name="address"', 'name="pix_key"']:
     assert forbidden not in fast_signup, 'fast professional signup asks too much: ' + forbidden
 assert 'Seu CPF será seu login' in fast_signup
 print('FAST professional registration: PASS')
@@ -111,3 +111,19 @@ print('FAST professional registration: PASS')
 login_page = public.open(base + '/login', timeout=20).read().decode()
 assert 'name="identifier"' in login_page and 'CPF ou e-mail' in login_page
 print('CPF/email login UI: PASS')
+
+
+company_signup = public.open(base + '/cadastro/empresa', timeout=20).read().decode()
+assert 'name="email"' in company_signup, 'company signup missing responsible/user email'
+assert 'name="company_email"' in company_signup, 'company signup missing institutional company email'
+assert 'E-mail do responsável / usuário' in company_signup
+assert 'E-mail da empresa' in company_signup
+print('COMPANY separate emails: PASS')
+
+
+company_signup = public.open(base + '/cadastro/empresa', timeout=20).read().decode()
+assert 'name="email"' in company_signup, 'company signup missing responsible/user email'
+assert 'name="company_email"' in company_signup, 'company signup missing institutional company email'
+assert 'E-mail do responsável / usuário' in company_signup
+assert 'E-mail da empresa' in company_signup
+print('COMPANY separate emails: PASS')

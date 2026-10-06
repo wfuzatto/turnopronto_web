@@ -57,7 +57,7 @@ final class Web
             if($method==='POST'){
                 verify_csrf();
                 try{
-                    $pending=Registration::startProfessionalFromDraft($draft,(string)($_POST['phone']??''));
+                    $pending=Registration::startProfessionalFromDraft($draft,(string)($_POST['phone']??''),(string)($_POST['email']??''));
                     $_SESSION['registration_pending']=$pending;
                     unset($_SESSION['professional_registration_draft']);
                     redirect('cadastro/verificar');

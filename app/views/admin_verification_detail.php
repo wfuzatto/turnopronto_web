@@ -79,7 +79,8 @@ if($isCompany){
       <div><small>CNPJ</small><strong><?=e($record['cnpj']??'—')?></strong></div>
       <div><small>CPF do responsável</small><strong><?=e($record['responsible_cpf']??'—')?></strong></div>
       <div><small>Responsável</small><strong><?=e($record['owner_name']??'—')?></strong></div>
-      <div><small>E-mail</small><strong><?=e($record['owner_email']??'—')?></strong></div>
+      <div><small>E-mail do responsável / usuário</small><strong><?=e($record['owner_email']??'—')?></strong></div>
+      <div><small>E-mail da empresa</small><strong><?=e($record['company_email']??'—')?></strong></div>
       <div><small>WhatsApp</small><strong><?=e($record['owner_phone']??'—')?></strong><span class="review-inline-status <?=!empty($record['phone_verified_at'])?'ok':'missing'?>"><?=!empty($record['phone_verified_at'])?'Verificado':'Não verificado'?></span></div>
       <div><small>Endereço</small><strong><?=e(trim(($record['address']??'').' · '.($record['postal_code']??''),' ·'))?></strong></div>
       <div><small>Cidade / UF</small><strong><?=e(($record['city']??'—').' / '.($record['state']??'—'))?></strong></div>

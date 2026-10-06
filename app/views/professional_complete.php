@@ -43,7 +43,7 @@ $currentNumber=['identity'=>1,'location'=>2,'payment'=>3,'document'=>4][$step]??
         <div><label>CPF</label><input value="<?=e($p['cpf']??'')?>" disabled></div>
         <div><label>Documento de identidade (RG/CIN) *</label><input name="rg" value="<?=e($_POST['rg']??$p['rg']??'')?>" autocomplete="off" required></div>
         <div><label>Data de nascimento *</label><input type="date" name="birth_date" value="<?=e($_POST['birth_date']??$p['birth_date']??'')?>" required></div>
-        <div><label>E-mail <small>(opcional)</small></label><input type="email" name="email" value="<?=e($_POST['email']??$p['email']??'')?>" autocomplete="email" placeholder="voce@exemplo.com"></div>
+        <div><label>E-mail *</label><input type="email" name="email" value="<?=e($_POST['email']??$p['email']??'')?>" autocomplete="email" placeholder="voce@exemplo.com" required><small class="field-note">Necessário para formalizar vagas, pagamentos, recibos e recuperação da conta.</small></div>
         <div class="full"><label>Como você quer se apresentar? <small>(opcional)</small></label><input name="headline" value="<?=e($_POST['headline']??$p['headline']??'')?>" placeholder="Ex.: Garçom, recepcionista, auxiliar de eventos"></div>
       </div>
       <div class="progressive-actions"><button class="btn btn-primary" type="submit">Salvar e continuar →</button></div>
