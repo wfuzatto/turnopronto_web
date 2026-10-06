@@ -2,19 +2,27 @@
 final class Auth
 {
     private static ?array $cachedUser = null;
-
-    public static function attempt(string $email, string $password): bool
+    public static function attempt(string $identifier, string $password): bool
     {
         $pdo = Database::connection();
-        $stmt = $pdo->prepare('SELECT * FROM tp_users WHERE email = ? AND status = "active" LIMIT 1');
-        $stmt->execute([mb_strtolower(trim($email))]);
-        $user = $stmt->fetch();
-        if (!$user || !password_verify($password, $user['password_hash'])) return false;
+        $identifier=trim($identifier);
+        $cpf=preg_replace('/\D+/','',$identifier);
+
+        if(strlen($cpf)===11){
+            $stmt=$pdo->prepare('SELECT u.* FROM tp_users u JOIN tp_professionals p ON p.user_id=u.id WHERE p.cpf=? AND u.status="active" LIMIT 1');
+            $stmt->execute([$cpf]);
+        }else{
+            $stmt=$pdo->prepare('SELECT * FROM tp_users WHERE email=? AND status="active" LIMIT 1');
+            $stmt->execute([mb_strtolower($identifier)]);
+        }
+
+        $user=$stmt->fetch();
+        if(!$user || !password_verify($password,$user['password_hash'])) return false;
 
         session_regenerate_id(true);
-        $_SESSION['user_id'] = (int)$user['id'];
-        self::$cachedUser = $user;
-        $pdo->prepare('UPDATE tp_users SET last_login_at = NOW() WHERE id = ?')->execute([$user['id']]);
+        $_SESSION['user_id']=(int)$user['id'];
+        self::$cachedUser=$user;
+        $pdo->prepare('UPDATE tp_users SET last_login_at=NOW() WHERE id=?')->execute([$user['id']]);
         return true;
     }
 
