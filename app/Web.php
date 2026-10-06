@@ -23,7 +23,35 @@ final class Web
                 }
                 $identifier=(string)($_POST['identifier'] ?? $_POST['email'] ?? '');
                 if (Auth::attempt($identifier,(string)($_POST['password'] ?? ''))) {
-                    redirect(Auth::dashboardPath(Auth::user()));
+                    $logged=Auth::user();
+                    $targetShift=(int)($_SESSION['professional_target_shift']??0);
+                    if(($logged['role']??'')==='professional' && $targetShift>0){
+                        $shift=Data::publicShift($targetShift);
+                        if($shift){
+                            $state=Data::professionalOnboardingState((int)$logged['id']);
+                            if($state['application_ready']){
+                                try{
+                                    $result=Data::acceptShift((int)$logged['id'],$targetShift);
+                                    unset($_SESSION['professional_target_shift']);
+                                    flash('success',($result['status']??'')==='verification_pending'
+                                        ?'Candidatura enviada. Complete sua verificação antes de ser confirmado para o turno.'
+                                        :'Candidatura enviada com sucesso.');
+                                    redirect('profissional/vagas/'.$targetShift);
+                                }catch(Throwable $e){
+                                    flash('error',$e->getMessage());
+                                    redirect('profissional/vagas/'.$targetShift);
+                                }
+                            }
+                            if($state['basic_complete'] && $state['contact_complete']){
+                                flash('success','Sua conta foi encontrada. Falta apenas confirmar os dados de pagamento para enviar esta candidatura.');
+                                redirect('cadastro/profissional/pagamento');
+                            }
+                            $_SESSION['professional_after_onboarding']='profissional/vagas/'.$targetShift;
+                            flash('success','Sua conta foi encontrada. Complete os dados que faltam para continuar com esta vaga.');
+                            redirect('profissional/completar?step='.$state['next_step']);
+                        }
+                    }
+                    redirect(Auth::dashboardPath($logged));
                 }
                 flash('error','CPF/e-mail ou senha inválidos.');
                 redirect('login');
