@@ -1321,6 +1321,24 @@ final class Data
         return $rows;
     }
 
+    public static function publicShift(int $id): ?array
+    {
+        $mode=self::hasColumn('tp_shifts','acceptance_mode') ? ',s.acceptance_mode' : '';
+        $sql="SELECT s.*,jc.name category_name,co.trade_name company_name,co.rating company_rating,co.logo_url company_logo $mode,
+                     TIMESTAMPDIFF(MINUTE,s.starts_at,s.ends_at) duration_minutes,
+                     (SELECT COUNT(*) FROM tp_shift_applications a WHERE a.shift_id=s.id AND a.status IN ('applied','invited','accepted')) candidates
+              FROM tp_shifts s
+              JOIN tp_job_categories jc ON jc.id=s.category_id
+              JOIN tp_companies co ON co.id=s.company_id
+              WHERE s.id=? AND s.status IN ('published','filling') AND s.starts_at>NOW() AND co.status='verified'
+              LIMIT 1";
+        $st=Database::connection()->prepare($sql);
+        $st->execute([$id]);
+        $row=$st->fetch() ?: null;
+        if($row && !array_key_exists('acceptance_mode',$row)) $row['acceptance_mode']='automatic';
+        return $row;
+    }
+
     public static function shift(int $id): ?array
     {
         $mode=self::hasColumn('tp_shifts','acceptance_mode') ? ',s.acceptance_mode' : '';
