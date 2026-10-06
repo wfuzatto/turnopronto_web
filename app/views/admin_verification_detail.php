@@ -189,6 +189,16 @@ if($isCompany){
             <span><?=e($doc['original_name']?:'Arquivo enviado')?> · <?=e($doc['mime_type']?:'tipo não informado')?></span>
             <small>Enviado em <?=br_date($doc['created_at'],'d/m/Y H:i')?><?php if(!empty($doc['verified_at'])):?> · revisado em <?=br_date($doc['verified_at'],'d/m/Y H:i')?><?php endif;?></small>
             <?php if($status==='rejected' && !empty($doc['rejection_reason'])):?><div class="admin-doc-reason">Motivo: <?=e($doc['rejection_reason'])?></div><?php endif;?>
+            <?php if(!empty($doc['auto_verification_status'])):
+              $autoStatus=(string)$doc['auto_verification_status'];
+              $autoClass=$autoStatus==='verified'?'verified':($autoStatus==='manual_review'?'review':'unavailable');
+              $autoTitle=$autoStatus==='verified'?'Aprovado automaticamente':($autoStatus==='manual_review'?'Revisão manual necessária':'Automação indisponível');
+            ?>
+              <div class="admin-auto-doc-status <?=$autoClass?>">
+                <?=icon($autoStatus==='verified'?'check':($autoStatus==='manual_review'?'shield':'clock'),16)?>
+                <div><strong><?=e($autoTitle)?></strong><span><?=e($doc['auto_verification_detail']?:'Sem detalhes adicionais.')?></span></div>
+              </div>
+            <?php endif;?>
           <?php else:?>
             <span>Nenhum arquivo enviado.</span>
           <?php endif;?>
