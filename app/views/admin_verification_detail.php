@@ -181,8 +181,8 @@ if($isCompany){
       <p>Somente aprove depois de conferir os dados acima e abrir a documentação enviada.</p>
     </div>
     <div class="admin-final-actions">
-      <form method="post" action="<?=e(url($finalAction.'/aprovar'))?>"><?=csrf_field()?><input type="hidden" name="back" value="<?=e($back)?>"><button class="btn btn-primary" type="submit" <?=$detail['ready_for_final']?'':'disabled title="Existem pré-requisitos pendentes"'?>>Aprovar e liberar cadastro</button></form>
-      <form method="post" action="<?=e(url($finalAction.'/rejeitar'))?>" data-confirm="Rejeitar este cadastro?"><?=csrf_field()?><input type="hidden" name="back" value="<?=e($back)?>"><button class="btn btn-ghost" type="submit">Rejeitar cadastro</button></form>
+      <form method="post" action="<?=e(url($finalAction.'/aprovar'))?>"><?=csrf_field()?><button class="btn btn-primary" type="submit" <?=$detail['ready_for_final']?'':'disabled title="Existem pré-requisitos pendentes"'?>>Aprovar e liberar cadastro</button></form>
+      <form method="post" action="<?=e(url($finalAction.'/rejeitar'))?>" data-confirm="Rejeitar este cadastro?"><?=csrf_field()?><button class="btn btn-ghost" type="submit">Rejeitar cadastro</button></form>
     </div>
   </section>
 </div>
