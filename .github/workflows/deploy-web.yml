@@ -65,6 +65,7 @@ jobs:
           php tests/progressive_onboarding.php
           php tests/notification_flow.php
           php tests/support_flow.php
+          php tests/admin_inline_edit.php
           php -S 127.0.0.1:8080 -t . > /tmp/tp-http.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid"; rm -f config/config.local.php' EXIT
