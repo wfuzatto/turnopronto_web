@@ -39,7 +39,12 @@ $nav=$role==='company'?$navCompany:($role==='professional'?$navPro:[['admin/dash
   <section class="workspace">
     <header class="topbar">
       <button class="mobile-menu" data-sidebar-toggle aria-label="Menu">☰</button>
-      <div class="top-search"><?=icon('search',18)?><input placeholder="<?=$role==='company'?'Buscar profissionais, vagas ou palavras-chave...':'Buscar oportunidades, cidades ou estabelecimentos...'?>"></div>
+      <form class="top-search" action="<?=e(url('buscar'))?>" method="get" role="search" data-global-search>
+        <?=icon('search',18)?>
+        <input name="q" value="<?=e($current==='/buscar'?(string)($_GET['q']??''):'')?>" placeholder="<?=$role==='company'?'Buscar profissionais, vagas ou palavras-chave...':($role==='admin'?'Buscar empresas, profissionais ou vagas...':'Buscar oportunidades, cidades ou estabelecimentos...')?>" autocomplete="off" spellcheck="false" data-global-search-input>
+        <button class="top-search-submit" type="submit" aria-label="Buscar"><?=icon('search',16)?></button>
+        <div class="global-search-dropdown" data-global-search-dropdown hidden></div>
+      </form>
       <?php
         $accountHref=$role==='company'?'empresa/conta':($role==='professional'?'profissional/perfil':'admin/conta');
         $notificationIcon=function(string $type): string {

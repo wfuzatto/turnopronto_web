@@ -383,6 +383,137 @@
     qa('.choice-card').forEach(card=>card.classList.toggle('selected',!!q('input',card)?.checked));
   }));
 
+  qa('[data-global-search]').forEach(form=>{
+    const input=q('[data-global-search-input]',form);
+    const dropdown=q('[data-global-search-dropdown]',form);
+    if(!input||!dropdown) return;
+
+    let timer=null;
+    let controller=null;
+    let activeIndex=-1;
+
+    const close=()=>{
+      dropdown.hidden=true;
+      dropdown.replaceChildren();
+      activeIndex=-1;
+    };
+
+    const itemNodes=()=>qa('.global-search-suggestion',dropdown);
+
+    const setActive=index=>{
+      const items=itemNodes();
+      if(!items.length){activeIndex=-1;return;}
+      activeIndex=(index+items.length)%items.length;
+      items.forEach((item,i)=>item.classList.toggle('active',i===activeIndex));
+      items[activeIndex]?.scrollIntoView({block:'nearest'});
+    };
+
+    const render=(items,query)=>{
+      dropdown.replaceChildren();
+      activeIndex=-1;
+
+      const head=document.createElement('div');
+      head.className='global-search-suggestion-head';
+      head.textContent='Resultados para “'+query+'”';
+      dropdown.appendChild(head);
+
+      if(!items.length){
+        const empty=document.createElement('div');
+        empty.className='global-search-suggestion-empty';
+        empty.textContent='Nenhum resultado encontrado.';
+        dropdown.appendChild(empty);
+      }else{
+        items.slice(0,8).forEach(item=>{
+          const link=document.createElement('a');
+          link.className='global-search-suggestion';
+          link.href=item.url||'#';
+
+          const badge=document.createElement('span');
+          badge.className='global-search-suggestion-type';
+          badge.textContent=item.type||'Resultado';
+
+          const copy=document.createElement('span');
+          copy.className='global-search-suggestion-copy';
+          const title=document.createElement('strong');
+          title.textContent=item.title||'';
+          const subtitle=document.createElement('small');
+          subtitle.textContent=item.subtitle||'';
+          copy.append(title,subtitle);
+
+          const meta=document.createElement('span');
+          meta.className='global-search-suggestion-meta';
+          meta.textContent=item.meta||'';
+
+          link.append(badge,copy,meta);
+          dropdown.appendChild(link);
+        });
+      }
+
+      const all=document.createElement('button');
+      all.type='submit';
+      all.className='global-search-see-all';
+      all.textContent='Ver todos os resultados →';
+      dropdown.appendChild(all);
+      dropdown.hidden=false;
+    };
+
+    const search=async()=>{
+      const term=input.value.trim();
+      if(term.length<2){close();return;}
+      controller?.abort();
+      controller=new AbortController();
+      try{
+        const base=window.TP_BASE||'';
+        const response=await fetch(base+'/buscar?q='+encodeURIComponent(term)+'&format=json',{
+          headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},
+          cache:'no-store',
+          signal:controller.signal
+        });
+        if(!response.ok) throw new Error('search failed');
+        const payload=await response.json();
+        if(input.value.trim()!==term) return;
+        render(Array.isArray(payload?.data?.items)?payload.data.items:[],term);
+      }catch(error){
+        if(error?.name!=='AbortError') close();
+      }
+    };
+
+    input.addEventListener('input',()=>{
+      window.clearTimeout(timer);
+      timer=window.setTimeout(search,220);
+    });
+    input.addEventListener('focus',()=>{
+      if(input.value.trim().length>=2) search();
+    });
+    input.addEventListener('keydown',event=>{
+      if(dropdown.hidden) return;
+      const items=itemNodes();
+      if(event.key==='ArrowDown'){
+        event.preventDefault();
+        setActive(activeIndex+1);
+      }else if(event.key==='ArrowUp'){
+        event.preventDefault();
+        setActive(activeIndex-1);
+      }else if(event.key==='Enter'&&activeIndex>=0&&items[activeIndex]){
+        event.preventDefault();
+        window.location.href=items[activeIndex].href;
+      }else if(event.key==='Escape'){
+        close();
+      }
+    });
+    form.addEventListener('submit',event=>{
+      if(input.value.trim().length<2){
+        event.preventDefault();
+        input.focus();
+        close();
+      }
+    });
+    dropdown.addEventListener('mousedown',event=>event.stopPropagation());
+    document.addEventListener('mousedown',event=>{
+      if(!form.contains(event.target)) close();
+    });
+  });
+
   const notificationRoot=q('[data-notifications]');
   if(notificationRoot){
     const toggle=q('[data-notifications-toggle]',notificationRoot);

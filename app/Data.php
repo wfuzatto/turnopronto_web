@@ -1269,6 +1269,155 @@ final class Data
             'documents'=>self::documents($userId),
         ];
     }
+    public static function globalSearch(int $userId,string $role,string $query,int $limit=30): array
+    {
+        $q=mb_substr(trim($query),0,80);
+        if(mb_strlen($q)<2) return [];
+        $like='%'.$q.'%';
+        $limit=max(1,min(50,$limit));
+        $pdo=Database::connection();
+        $results=[];
+
+        if($role==='professional'){
+            $sql="SELECT s.id,s.title,s.starts_at,s.city,s.state,s.shift_value,jc.name category_name,
+                         co.trade_name company_name
+                  FROM tp_shifts s
+                  JOIN tp_job_categories jc ON jc.id=s.category_id
+                  JOIN tp_companies co ON co.id=s.company_id
+                  WHERE s.status IN ('published','filling')
+                    AND s.starts_at>NOW()
+                    AND co.status='verified'
+                    AND (
+                      s.title LIKE ? OR s.description LIKE ? OR s.city LIKE ? OR s.state LIKE ? OR
+                      s.address LIKE ? OR jc.name LIKE ? OR co.trade_name LIKE ? OR co.legal_name LIKE ?
+                    )
+                  ORDER BY s.starts_at ASC
+                  LIMIT {$limit}";
+            $st=$pdo->prepare($sql);
+            $st->execute(array_fill(0,8,$like));
+            foreach($st->fetchAll() as $row){
+                $results[]=[
+                    'type'=>'Vaga',
+                    'title'=>(string)($row['title']?:$row['category_name']),
+                    'subtitle'=>$row['company_name'].' · '.$row['city'].' - '.$row['state'],
+                    'meta'=>date('d/m/Y H:i',strtotime((string)$row['starts_at'])).' · '.money((float)$row['shift_value']),
+                    'url'=>'profissional/vagas/'.(int)$row['id'],
+                    'icon'=>'briefcase',
+                ];
+            }
+            return $results;
+        }
+
+        if($role==='company'){
+            $companyId=self::companyIdForUser($userId);
+            if($companyId){
+                $sql="SELECT s.id,s.title,s.starts_at,s.city,s.state,s.status,jc.name category_name
+                      FROM tp_shifts s
+                      JOIN tp_job_categories jc ON jc.id=s.category_id
+                      WHERE s.company_id=?
+                        AND (s.title LIKE ? OR s.description LIKE ? OR s.city LIKE ? OR s.state LIKE ? OR jc.name LIKE ?)
+                      ORDER BY s.starts_at DESC
+                      LIMIT {$limit}";
+                $st=$pdo->prepare($sql);
+                $st->execute([$companyId,$like,$like,$like,$like,$like]);
+                foreach($st->fetchAll() as $row){
+                    $results[]=[
+                        'type'=>'Vaga',
+                        'title'=>(string)($row['title']?:$row['category_name']),
+                        'subtitle'=>$row['category_name'].' · '.$row['city'].' - '.$row['state'],
+                        'meta'=>date('d/m/Y H:i',strtotime((string)$row['starts_at'])).' · '.ucfirst(str_replace('_',' ',(string)$row['status'])),
+                        'url'=>'empresa/vagas/'.(int)$row['id'],
+                        'icon'=>'briefcase',
+                    ];
+                }
+            }
+
+            $remaining=max(1,$limit-count($results));
+            $sql="SELECT p.id,u.name,p.headline,p.city,p.state,p.rating,p.completed_shifts
+                  FROM tp_professionals p
+                  JOIN tp_users u ON u.id=p.user_id
+                  WHERE p.status='verified' AND (
+                    u.name LIKE ? OR p.headline LIKE ? OR p.city LIKE ? OR p.state LIKE ? OR
+                    EXISTS (
+                      SELECT 1 FROM tp_professional_categories pc
+                      JOIN tp_job_categories jc ON jc.id=pc.category_id
+                      WHERE pc.professional_id=p.id AND jc.name LIKE ?
+                    )
+                  )
+                  ORDER BY p.reliability_score DESC,p.completed_shifts DESC
+                  LIMIT {$remaining}";
+            $st=$pdo->prepare($sql);
+            $st->execute([$like,$like,$like,$like,$like]);
+            foreach($st->fetchAll() as $row){
+                $results[]=[
+                    'type'=>'Profissional',
+                    'title'=>(string)$row['name'],
+                    'subtitle'=>trim((string)($row['headline']??''))!==''?(string)$row['headline']:'Profissional TurnoPronto',
+                    'meta'=>trim(($row['city']??'').' - '.($row['state']??''),' -').' · '.number_format((float)$row['rating'],1,',','.').'★',
+                    'url'=>'empresa/profissionais#profissional-'.(int)$row['id'],
+                    'icon'=>'users',
+                ];
+            }
+            return array_slice($results,0,$limit);
+        }
+
+        if($role==='admin'){
+            $companyLimit=max(5,(int)floor($limit/3));
+            $st=$pdo->prepare("SELECT id,trade_name,legal_name,city,state,status FROM tp_companies
+                               WHERE trade_name LIKE ? OR legal_name LIKE ? OR cnpj LIKE ? OR city LIKE ?
+                               ORDER BY trade_name LIMIT {$companyLimit}");
+            $st->execute([$like,$like,$like,$like]);
+            foreach($st->fetchAll() as $row){
+                $results[]=[
+                    'type'=>'Empresa',
+                    'title'=>(string)$row['trade_name'],
+                    'subtitle'=>(string)$row['legal_name'],
+                    'meta'=>trim(($row['city']??'').' - '.($row['state']??''),' -').' · '.ucfirst((string)$row['status']),
+                    'url'=>'admin/verificacao/empresa/'.(int)$row['id'],
+                    'icon'=>'briefcase',
+                ];
+            }
+
+            $st=$pdo->prepare("SELECT p.id,u.name,u.email,p.headline,p.city,p.state,p.status
+                               FROM tp_professionals p JOIN tp_users u ON u.id=p.user_id
+                               WHERE u.name LIKE ? OR u.email LIKE ? OR p.cpf LIKE ? OR p.headline LIKE ? OR p.city LIKE ?
+                               ORDER BY u.name LIMIT {$companyLimit}");
+            $st->execute([$like,$like,$like,$like,$like]);
+            foreach($st->fetchAll() as $row){
+                $results[]=[
+                    'type'=>'Profissional',
+                    'title'=>(string)$row['name'],
+                    'subtitle'=>(string)($row['headline']?:$row['email']),
+                    'meta'=>trim(($row['city']??'').' - '.($row['state']??''),' -').' · '.ucfirst((string)$row['status']),
+                    'url'=>'admin/verificacao/profissional/'.(int)$row['id'],
+                    'icon'=>'users',
+                ];
+            }
+
+            $remaining=max(1,$limit-count($results));
+            $st=$pdo->prepare("SELECT s.id,s.title,s.starts_at,s.status,jc.name category_name,co.trade_name company_name
+                               FROM tp_shifts s
+                               JOIN tp_job_categories jc ON jc.id=s.category_id
+                               JOIN tp_companies co ON co.id=s.company_id
+                               WHERE s.title LIKE ? OR jc.name LIKE ? OR co.trade_name LIKE ? OR s.city LIKE ?
+                               ORDER BY s.starts_at DESC LIMIT {$remaining}");
+            $st->execute([$like,$like,$like,$like]);
+            foreach($st->fetchAll() as $row){
+                $results[]=[
+                    'type'=>'Vaga',
+                    'title'=>(string)($row['title']?:$row['category_name']),
+                    'subtitle'=>$row['company_name'].' · '.$row['category_name'],
+                    'meta'=>date('d/m/Y H:i',strtotime((string)$row['starts_at'])).' · '.ucfirst((string)$row['status']),
+                    'url'=>'admin/dashboard',
+                    'icon'=>'briefcase',
+                ];
+            }
+            return array_slice($results,0,$limit);
+        }
+
+        return [];
+    }
+
     public static function opportunities(int $userId, int $limit=50): array
     {
         $pid=self::professionalIdForUser($userId);

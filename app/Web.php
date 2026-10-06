@@ -303,6 +303,23 @@ final class Web
             View::render('not_installed',['title'=>'Serviço indisponível']);
         }
 
+        if ($path === '/buscar' && $method==='GET') {
+            $u=Auth::requireRole('company','professional','admin');
+            $q=trim((string)($_GET['q']??''));
+            $results=Data::globalSearch((int)$u['id'],(string)$u['role'],$q,30);
+            if((string)($_GET['format']??'')==='json'){
+                foreach($results as &$item) $item['url']=url((string)$item['url']);
+                unset($item);
+                json_response(['ok'=>true,'data'=>['query'=>$q,'items'=>$results]]);
+            }
+            View::render('search_results',[
+                'title'=>$q!==''?'Busca: '.$q:'Busca',
+                'query'=>$q,
+                'results'=>$results,
+                'user'=>$u,
+            ]);
+        }
+
         if ($path === '/notificacoes/feed') {
             $u=Auth::requireRole('company','professional','admin');
             $menu=Data::notificationMenu((int)$u['id'],6);

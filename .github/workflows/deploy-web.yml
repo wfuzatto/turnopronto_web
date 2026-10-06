@@ -121,6 +121,11 @@ jobs:
           grep -q 'data-checkout-countdown' app/views/current_shift.php
           grep -q 'viacep.com.br' public/assets/js/app.js
           grep -q 'notification-toast' public/assets/js/app.js
+          grep -q 'globalSearch' app/Data.php
+          grep -q "path === '/buscar'" app/Web.php
+          test -f app/views/search_results.php
+          grep -q 'data-global-search' app/views/layout.php
+          grep -q 'data-global-search' public/assets/js/app.js
 
   deploy:
     needs: validate
@@ -157,6 +162,8 @@ jobs:
           grep -q '.admin-inline-editor' public/assets/css/app.css
           grep -q '.checkout-lock-note' public/assets/css/app.css
           grep -q '.notification-toast' public/assets/css/app.css
+          grep -q '.global-search-dropdown' public/assets/css/app.css
+          grep -q '.global-search-results' public/assets/css/app.css
           grep -q 'max-width:1360px' public/assets/css/app.css
           grep -q '.main-content>\*{margin-left:auto;margin-right:auto}' public/assets/css/app.css
 
