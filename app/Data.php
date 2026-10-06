@@ -518,6 +518,50 @@ final class Data
         return $id;
     }
 
+    public static function adminUploadCompanyVerificationDocument(int $adminUserId,int $companyId,string $type,array $file): int
+    {
+        self::ensureCompanyVerificationSchema();
+        $labels=self::companyVerificationDocumentTypes();
+        if(!isset($labels[$type])) throw new InvalidArgumentException('Tipo de documento inválido.');
+
+        $pdo=Database::connection();
+        $company=$pdo->prepare('SELECT id,trade_name FROM tp_companies WHERE id=? LIMIT 1');
+        $company->execute([$companyId]);
+        if(!$company->fetch()) throw new RuntimeException('Empresa não encontrada.');
+
+        $current=$pdo->prepare('SELECT status FROM tp_company_documents WHERE company_id=? AND type=? ORDER BY created_at DESC,id DESC LIMIT 1');
+        $current->execute([$companyId,$type]);
+        $currentStatus=(string)($current->fetchColumn()?:'');
+        if($currentStatus==='verified') throw new RuntimeException('Este documento já foi verificado.');
+        if($currentStatus==='pending') throw new RuntimeException('Já existe um documento aguardando análise para este item.');
+
+        if(($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK) throw new RuntimeException('Selecione um arquivo válido.');
+        if((int)($file['size']??0)<=0 || (int)$file['size']>5*1024*1024) throw new RuntimeException('O arquivo deve ter no máximo 5 MB.');
+        $tmp=(string)($file['tmp_name']??'');
+        if(!is_uploaded_file($tmp)) throw new RuntimeException('Upload não reconhecido pelo servidor.');
+
+        $finfo=new finfo(FILEINFO_MIME_TYPE);
+        $mime=$finfo->file($tmp) ?: '';
+        $allowed=['application/pdf'=>'pdf','image/jpeg'=>'jpg','image/png'=>'png'];
+        if(!isset($allowed[$mime])) throw new RuntimeException('Envie PDF, JPG ou PNG.');
+
+        $dir=dirname(__DIR__).'/storage/uploads/company_documents';
+        if(!is_dir($dir) && !mkdir($dir,0770,true) && !is_dir($dir)) throw new RuntimeException('Não foi possível criar a pasta privada de documentos.');
+        $filename=bin2hex(random_bytes(20)).'.'.$allowed[$mime];
+        $absolute=$dir.'/'.$filename;
+        if(!move_uploaded_file($tmp,$absolute)) throw new RuntimeException('Falha ao salvar o documento.');
+        @chmod($absolute,0660);
+        $relative='storage/uploads/company_documents/'.$filename;
+
+        $st=$pdo->prepare('INSERT INTO tp_company_documents (company_id,type,label,status,file_path,original_name,mime_type,created_at) VALUES (?,?,?,"pending",?,?,?,NOW())');
+        $st->execute([$companyId,$type,$labels[$type],$relative,mb_substr((string)($file['name']??'documento'),0,255),$mime]);
+        $id=(int)$pdo->lastInsertId();
+        self::audit($adminUserId,'verification.company_document_uploaded_by_admin','company_document',$id,[
+            'company_id'=>$companyId,'type'=>$type,'mime'=>$mime
+        ]);
+        return $id;
+    }
+
     public static function adminPendingCompanyDocuments(): array
     {
         self::ensureCompanyVerificationSchema();
@@ -1355,6 +1399,55 @@ final class Data
         $st->execute([$pid,$type,$labels[$type],$relative,mb_substr((string)($file['name']??'documento'),0,255),$mime]);
         $id=(int)$pdo->lastInsertId();
         self::audit($userId,'document.uploaded','document',$id,['type'=>$type,'mime'=>$mime]);
+        return $id;
+    }
+
+    public static function adminUploadProfessionalDocument(int $adminUserId,int $professionalId,string $type,array $file): int
+    {
+        $labels=[
+            'identity'=>'Documento de identidade',
+            'cpf'=>'CPF',
+            'address'=>'Comprovante de residência',
+            'food'=>'Certificado de manipulação de alimentos',
+            'other'=>'Outro documento'
+        ];
+        if(!isset($labels[$type])) throw new InvalidArgumentException('Tipo de documento inválido.');
+
+        $pdo=Database::connection();
+        $professional=$pdo->prepare('SELECT id FROM tp_professionals WHERE id=? LIMIT 1');
+        $professional->execute([$professionalId]);
+        if(!$professional->fetchColumn()) throw new RuntimeException('Profissional não encontrado.');
+
+        $current=$pdo->prepare('SELECT status FROM tp_documents WHERE professional_id=? AND type=? ORDER BY created_at DESC,id DESC LIMIT 1');
+        $current->execute([$professionalId,$type]);
+        $currentStatus=(string)($current->fetchColumn()?:'');
+        if($currentStatus==='verified') throw new RuntimeException('Este documento já foi verificado.');
+        if($currentStatus==='pending') throw new RuntimeException('Já existe um documento aguardando análise para este item.');
+
+        if(($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK) throw new RuntimeException('Selecione um arquivo válido.');
+        if((int)($file['size']??0)<=0 || (int)$file['size']>5*1024*1024) throw new RuntimeException('O arquivo deve ter no máximo 5 MB.');
+        $tmp=(string)($file['tmp_name']??'');
+        if(!is_uploaded_file($tmp)) throw new RuntimeException('Upload não reconhecido pelo servidor.');
+
+        $finfo=new finfo(FILEINFO_MIME_TYPE);
+        $mime=$finfo->file($tmp) ?: '';
+        $allowed=['application/pdf'=>'pdf','image/jpeg'=>'jpg','image/png'=>'png'];
+        if(!isset($allowed[$mime])) throw new RuntimeException('Envie PDF, JPG ou PNG.');
+
+        $dir=dirname(__DIR__).'/storage/uploads/documents';
+        if(!is_dir($dir) && !mkdir($dir,0770,true) && !is_dir($dir)) throw new RuntimeException('Não foi possível criar a pasta privada de documentos.');
+        $filename=bin2hex(random_bytes(20)).'.'.$allowed[$mime];
+        $absolute=$dir.'/'.$filename;
+        if(!move_uploaded_file($tmp,$absolute)) throw new RuntimeException('Falha ao salvar o documento.');
+        @chmod($absolute,0660);
+        $relative='storage/uploads/documents/'.$filename;
+
+        $st=$pdo->prepare('INSERT INTO tp_documents (professional_id,type,label,status,file_path,original_name,mime_type,created_at) VALUES (?,?,?,"pending",?,?,?,NOW())');
+        $st->execute([$professionalId,$type,$labels[$type],$relative,mb_substr((string)($file['name']??'documento'),0,255),$mime]);
+        $id=(int)$pdo->lastInsertId();
+        self::audit($adminUserId,'verification.professional_document_uploaded_by_admin','document',$id,[
+            'professional_id'=>$professionalId,'type'=>$type,'mime'=>$mime
+        ]);
         return $id;
     }
 
