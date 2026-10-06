@@ -91,8 +91,23 @@ assert 'admin-support-upload' not in company_review or 'enctype="multipart/form-
 
 professional_review = admin.open(base + '/admin/verificacao/profissional/1', timeout=20).read().decode()
 for marker in ['Revisar Cadastro profissional', 'Dados do profissional', 'Documentação do profissional',
-               'Documento de identidade', 'Decisão final']:
+               'Documento oficial com foto', 'Decisão final']:
     assert marker in professional_review, 'professional admin review missing ' + marker
 assert 'admin-support-upload' not in professional_review or 'enctype="multipart/form-data"' in professional_review
 
 print('ADMIN verification review pages: PASS')
+
+
+# Public professional registration must stay intentionally short.
+public = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+fast_signup = public.open(base + '/cadastro/profissional', timeout=20).read().decode()
+for marker in ['name="name"', 'name="cpf"', 'name="categories[]"', 'name="password"', 'name="password_confirm"', 'name="legal_accepted"']:
+    assert marker in fast_signup, 'fast professional signup missing ' + marker
+for forbidden in ['name="rg"', 'name="birth_date"', 'name="postal_code"', 'name="address"', 'name="pix_key"']:
+    assert forbidden not in fast_signup, 'fast professional signup asks too much: ' + forbidden
+assert 'Seu CPF será seu login' in fast_signup
+print('FAST professional registration: PASS')
+
+login_page = public.open(base + '/login', timeout=20).read().decode()
+assert 'name="identifier"' in login_page and 'CPF ou e-mail' in login_page
+print('CPF/email login UI: PASS')
