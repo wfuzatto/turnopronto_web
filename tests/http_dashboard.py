@@ -99,12 +99,16 @@ assert urllib.parse.urlparse(response.url).path == '/admin/dashboard', 'ADMIN lo
 company_review = admin.open(base + '/admin/verificacao/empresa/1', timeout=20).read().decode()
 for marker in ['Revisar Cadastro empresarial', 'Dados da empresa', 'Documentação empresarial', 'Decisão final']:
     assert marker in company_review, 'company admin review missing ' + marker
+for marker in ['data-admin-inline-root', 'data-admin-inline-edit', 'data-field="company_email"', 'data-field="postal_code"']:
+    assert marker in company_review, 'company inline admin edit missing ' + marker
 assert 'admin-support-upload' not in company_review or 'enctype="multipart/form-data"' in company_review
 
 professional_review = admin.open(base + '/admin/verificacao/profissional/1', timeout=20).read().decode()
 for marker in ['Revisar Cadastro profissional', 'Dados do profissional', 'Documentação do profissional',
                'Documento oficial com foto', 'Decisão final']:
     assert marker in professional_review, 'professional admin review missing ' + marker
+for marker in ['data-admin-inline-root', 'data-field="rg"', 'data-field="birth_date"', 'data-field="pix_key"']:
+    assert marker in professional_review, 'professional inline admin edit missing ' + marker
 assert 'admin-support-upload' not in professional_review or 'enctype="multipart/form-data"' in professional_review
 
 admin_support = admin.open(base + '/admin/suporte', timeout=20).read().decode()
