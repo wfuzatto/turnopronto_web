@@ -438,7 +438,73 @@ final class Web
 
         if ($path === '/suporte') {
             $u=Auth::requireRole('company','professional','admin');
-            View::render('placeholder',['title'=>'Suporte','heading'=>'Suporte','user'=>$u]);
+            redirect($u['role']==='company'?'empresa/suporte':($u['role']==='professional'?'profissional/suporte':'admin/suporte'));
+        }
+
+        if (in_array($path,['/empresa/suporte','/profissional/suporte','/admin/suporte'],true) && $method==='GET') {
+            $expectedRole=str_starts_with($path,'/empresa/')?'company':(str_starts_with($path,'/profissional/')?'professional':'admin');
+            $u=Auth::requireRole($expectedRole);
+            View::render('support',[
+                'title'=>'Suporte',
+                'segment'=>$expectedRole,
+                'support'=>Data::supportDashboard((int)$u['id'],$expectedRole),
+                'user'=>$u
+            ]);
+        }
+
+        if (preg_match('#^/(empresa|profissional)/suporte/chamados$#',$path,$m) && $method==='POST') {
+            $role=$m[1]==='empresa'?'company':'professional';
+            $u=Auth::requireRole($role);
+            verify_csrf();
+            try{
+                $ticketId=Data::createSupportTicket((int)$u['id'],$role,$_POST);
+                flash('success','Chamado aberto. Nossa equipe já pode acompanhar sua solicitação.');
+                redirect($m[1].'/suporte/chamados/'.$ticketId);
+            }catch(Throwable $e){
+                flash('error',$e->getMessage());
+                redirect($m[1].'/suporte');
+            }
+        }
+
+        if (preg_match('#^/(empresa|profissional|admin)/suporte/chamados/(\d+)$#',$path,$m) && $method==='GET') {
+            $role=$m[1]==='empresa'?'company':($m[1]==='profissional'?'professional':'admin');
+            $u=Auth::requireRole($role);
+            try{
+                View::render('support_ticket',[
+                    'title'=>'Chamado #'.(int)$m[2],
+                    'segment'=>$role,
+                    'detail'=>Data::supportTicket((int)$u['id'],$role,(int)$m[2]),
+                    'user'=>$u
+                ]);
+            }catch(Throwable $e){
+                flash('error',$e->getMessage());
+                redirect($m[1].'/suporte');
+            }
+        }
+
+        if (preg_match('#^/(empresa|profissional|admin)/suporte/chamados/(\d+)/mensagens$#',$path,$m) && $method==='POST') {
+            $role=$m[1]==='empresa'?'company':($m[1]==='profissional'?'professional':'admin');
+            $u=Auth::requireRole($role);
+            verify_csrf();
+            try{
+                Data::addSupportMessage((int)$u['id'],$role,(int)$m[2],(string)($_POST['message']??''));
+                flash('success','Mensagem enviada.');
+            }catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect($m[1].'/suporte/chamados/'.$m[2]);
+        }
+
+        if (preg_match('#^/admin/suporte/chamados/(\d+)/status$#',$path,$m) && $method==='POST') {
+            $u=Auth::requireRole('admin');
+            verify_csrf();
+            try{
+                Data::setSupportTicketStatus((int)$u['id'],(int)$m[1],(string)($_POST['status']??''));
+                flash('success','Status do chamado atualizado.');
+            }catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('admin/suporte/chamados/'.$m[1]);
         }
 
         if ($path === '/profissional/inicio') {

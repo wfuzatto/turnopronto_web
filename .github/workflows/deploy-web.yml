@@ -58,6 +58,7 @@ jobs:
           php tests/setup_demo.php
           php tests/progressive_onboarding.php
           php tests/notification_flow.php
+          php tests/support_flow.php
           php -S 127.0.0.1:8080 -t . > /tmp/tp-http.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid"; rm -f config/config.local.php' EXIT
@@ -96,6 +97,13 @@ jobs:
           grep -q 'admin-support-upload' app/views/admin_verification_detail.php
           grep -q 'multipart/form-data' app/views/admin_verification_detail.php
           grep -q 'Revisar cadastro' app/views/admin_dashboard.php
+          test -f app/views/support.php
+          test -f app/views/support_ticket.php
+          grep -q 'supportDashboard' app/Data.php
+          grep -q 'createSupportTicket' app/Data.php
+          grep -q 'empresa/suporte' app/views/layout.php
+          grep -q 'profissional/suporte' app/views/layout.php
+          grep -q 'admin/suporte' app/views/layout.php
 
   deploy:
     needs: validate
@@ -123,6 +131,9 @@ jobs:
           grep -q '.progressive-registration-note' public/assets/css/app.css
           grep -q '.professional-contact-shell' public/assets/css/app.css
           grep -q '.contact-form-grid' public/assets/css/app.css
+          grep -q '.support-page' public/assets/css/app.css
+          grep -q '.support-ticket-row' public/assets/css/app.css
+          grep -q '.support-message' public/assets/css/app.css
 
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5

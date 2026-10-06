@@ -2139,6 +2139,264 @@ final class Data
         }
     }
 
+    private static function ensureSupportSchema(): void
+    {
+        static $ready=false;
+        if($ready) return;
+        $pdo=Database::connection();
+        $pdo->exec("CREATE TABLE IF NOT EXISTS tp_support_tickets (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            requester_user_id BIGINT UNSIGNED NOT NULL,
+            segment VARCHAR(30) NOT NULL,
+            category VARCHAR(60) NOT NULL,
+            subject VARCHAR(190) NOT NULL,
+            context_ref VARCHAR(190) NULL,
+            status VARCHAR(30) NOT NULL DEFAULT 'open',
+            last_message_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_support_ticket_requester FOREIGN KEY (requester_user_id) REFERENCES tp_users(id) ON DELETE CASCADE,
+            INDEX idx_support_requester (requester_user_id,status,last_message_at),
+            INDEX idx_support_segment_status (segment,status,last_message_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS tp_support_messages (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            ticket_id BIGINT UNSIGNED NOT NULL,
+            user_id BIGINT UNSIGNED NULL,
+            author_role VARCHAR(30) NOT NULL,
+            body TEXT NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_support_message_ticket FOREIGN KEY (ticket_id) REFERENCES tp_support_tickets(id) ON DELETE CASCADE,
+            CONSTRAINT fk_support_message_user FOREIGN KEY (user_id) REFERENCES tp_users(id) ON DELETE SET NULL,
+            INDEX idx_support_message_ticket (ticket_id,created_at,id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $ready=true;
+    }
+
+    public static function supportCategories(string $role): array
+    {
+        if($role==='company'){
+            return [
+                'registration'=>'Cadastro e verificação da empresa',
+                'shift'=>'Publicação ou alteração de vaga',
+                'professionals'=>'Candidatos e profissionais',
+                'schedule'=>'Escalas, presença e turnos',
+                'finance'=>'Financeiro, pagamentos e cobranças',
+                'refund'=>'Reembolso ou devolução',
+                'security'=>'Segurança da conta',
+                'other'=>'Outro assunto',
+            ];
+        }
+        if($role==='professional'){
+            return [
+                'registration'=>'Conta, cadastro e verificação',
+                'documents'=>'Documentos e identidade',
+                'opportunity'=>'Candidatura ou oportunidade',
+                'shift'=>'Turno, escala, presença ou cancelamento',
+                'payment'=>'Ganhos e pagamentos',
+                'reputation'=>'Reputação e avaliações',
+                'security'=>'Segurança da conta',
+                'other'=>'Outro assunto',
+            ];
+        }
+        return [];
+    }
+
+    public static function supportDashboard(int $userId,string $role): array
+    {
+        self::ensureSupportSchema();
+        $pdo=Database::connection();
+
+        $baseSelect="SELECT t.*,u.name requester_name,u.email requester_email,
+                    (SELECT c.trade_name FROM tp_company_members cm JOIN tp_companies c ON c.id=cm.company_id WHERE cm.user_id=t.requester_user_id LIMIT 1) company_name,
+                    (SELECT p.headline FROM tp_professionals p WHERE p.user_id=t.requester_user_id LIMIT 1) professional_headline,
+                    (SELECT COUNT(*) FROM tp_support_messages sm WHERE sm.ticket_id=t.id) message_count
+             FROM tp_support_tickets t
+             JOIN tp_users u ON u.id=t.requester_user_id";
+
+        if($role==='admin'){
+            $tickets=$pdo->query($baseSelect." ORDER BY FIELD(t.status,'open','in_progress','answered','closed'),t.last_message_at DESC LIMIT 100")->fetchAll();
+            $stats=['open'=>0,'in_progress'=>0,'answered'=>0,'closed'=>0,'company'=>0,'professional'=>0];
+            $counts=$pdo->query("SELECT status,COUNT(*) total FROM tp_support_tickets GROUP BY status")->fetchAll();
+            foreach($counts as $row) if(isset($stats[$row['status']])) $stats[$row['status']]=(int)$row['total'];
+            $segments=$pdo->query("SELECT segment,COUNT(*) total FROM tp_support_tickets WHERE status<>'closed' GROUP BY segment")->fetchAll();
+            foreach($segments as $row) if(isset($stats[$row['segment']])) $stats[$row['segment']]=(int)$row['total'];
+            return ['tickets'=>$tickets,'stats'=>$stats,'categories'=>[]];
+        }
+
+        if(!in_array($role,['company','professional'],true)) throw new RuntimeException('Segmento de suporte inválido.');
+        $st=$pdo->prepare($baseSelect." WHERE t.requester_user_id=? AND t.segment=? ORDER BY t.last_message_at DESC LIMIT 60");
+        $st->execute([$userId,$role]);
+        $tickets=$st->fetchAll();
+        $stats=['open'=>0,'in_progress'=>0,'answered'=>0,'closed'=>0];
+        foreach($tickets as $ticket) if(isset($stats[$ticket['status']])) $stats[$ticket['status']]++;
+
+        return [
+            'tickets'=>$tickets,
+            'stats'=>$stats,
+            'categories'=>self::supportCategories($role),
+        ];
+    }
+
+    public static function createSupportTicket(int $userId,string $role,array $data): int
+    {
+        self::ensureSupportSchema();
+        if(!in_array($role,['company','professional'],true)) throw new RuntimeException('Abertura de chamado disponível apenas para empresas e profissionais.');
+
+        $categories=self::supportCategories($role);
+        $category=trim((string)($data['category']??''));
+        $subject=trim((string)($data['subject']??''));
+        $message=trim((string)($data['message']??''));
+        $context=mb_substr(trim((string)($data['context_ref']??'')),0,190);
+
+        if(!isset($categories[$category])) throw new InvalidArgumentException('Selecione o assunto do chamado.');
+        if(mb_strlen($subject)<5 || mb_strlen($subject)>190) throw new InvalidArgumentException('Resuma o problema em um título de 5 a 190 caracteres.');
+        if(mb_strlen($message)<10 || mb_strlen($message)>5000) throw new InvalidArgumentException('Descreva o problema com pelo menos 10 e no máximo 5.000 caracteres.');
+
+        $pdo=Database::connection();
+        $pdo->beginTransaction();
+        try{
+            $st=$pdo->prepare("INSERT INTO tp_support_tickets
+                (requester_user_id,segment,category,subject,context_ref,status,last_message_at,created_at,updated_at)
+                VALUES (?,?,?,?,?,'open',NOW(),NOW(),NOW())");
+            $st->execute([$userId,$role,$category,$subject,$context!==''?$context:null]);
+            $ticketId=(int)$pdo->lastInsertId();
+
+            $pdo->prepare('INSERT INTO tp_support_messages (ticket_id,user_id,author_role,body,created_at) VALUES (?,?,?,?,NOW())')
+                ->execute([$ticketId,$userId,$role,$message]);
+
+            self::audit($userId,'support.ticket_created','support_ticket',$ticketId,['segment'=>$role,'category'=>$category]);
+            $pdo->commit();
+        }catch(Throwable $e){
+            if($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+
+        $admins=$pdo->query("SELECT id FROM tp_users WHERE role='admin' AND status='active'")->fetchAll(PDO::FETCH_COLUMN);
+        foreach($admins as $adminId){
+            self::createNotification(
+                (int)$adminId,
+                'support_ticket',
+                'Novo chamado de suporte',
+                ($role==='company'?'Empresa':'Profissional').': '.$subject,
+                'admin/suporte/chamados/'.$ticketId,
+                'support_ticket:'.$ticketId
+            );
+        }
+
+        return $ticketId;
+    }
+
+    public static function supportTicket(int $userId,string $role,int $ticketId): array
+    {
+        self::ensureSupportSchema();
+        $pdo=Database::connection();
+        $st=$pdo->prepare("SELECT t.*,u.name requester_name,u.email requester_email,u.phone requester_phone,
+                           (SELECT c.trade_name FROM tp_company_members cm JOIN tp_companies c ON c.id=cm.company_id WHERE cm.user_id=t.requester_user_id LIMIT 1) company_name,
+                           (SELECT p.headline FROM tp_professionals p WHERE p.user_id=t.requester_user_id LIMIT 1) professional_headline
+                    FROM tp_support_tickets t
+                    JOIN tp_users u ON u.id=t.requester_user_id
+                    WHERE t.id=? LIMIT 1");
+        $st->execute([$ticketId]);
+        $ticket=$st->fetch();
+        if(!$ticket) throw new RuntimeException('Chamado não encontrado.');
+        if($role!=='admin' && (int)$ticket['requester_user_id']!==$userId) throw new RuntimeException('Você não tem acesso a este chamado.');
+
+        $messages=$pdo->prepare("SELECT sm.*,u.name author_name
+                                 FROM tp_support_messages sm
+                                 LEFT JOIN tp_users u ON u.id=sm.user_id
+                                 WHERE sm.ticket_id=?
+                                 ORDER BY sm.created_at ASC,sm.id ASC");
+        $messages->execute([$ticketId]);
+
+        return [
+            'ticket'=>$ticket,
+            'messages'=>$messages->fetchAll(),
+            'categories'=>self::supportCategories((string)$ticket['segment']),
+        ];
+    }
+
+    public static function addSupportMessage(int $userId,string $role,int $ticketId,string $body): void
+    {
+        self::ensureSupportSchema();
+        $body=trim($body);
+        if(mb_strlen($body)<2 || mb_strlen($body)>5000) throw new InvalidArgumentException('A mensagem deve ter entre 2 e 5.000 caracteres.');
+
+        $pdo=Database::connection();
+        $st=$pdo->prepare('SELECT * FROM tp_support_tickets WHERE id=? LIMIT 1');
+        $st->execute([$ticketId]);
+        $ticket=$st->fetch();
+        if(!$ticket) throw new RuntimeException('Chamado não encontrado.');
+        if($role!=='admin' && (int)$ticket['requester_user_id']!==$userId) throw new RuntimeException('Você não tem acesso a este chamado.');
+        if($role!=='admin' && $ticket['status']==='closed') throw new RuntimeException('Este chamado está encerrado. Abra um novo chamado se precisar de ajuda.');
+
+        $newStatus=$role==='admin'?'answered':'open';
+        $pdo->beginTransaction();
+        try{
+            $pdo->prepare('INSERT INTO tp_support_messages (ticket_id,user_id,author_role,body,created_at) VALUES (?,?,?,?,NOW())')
+                ->execute([$ticketId,$userId,$role,$body]);
+            $messageId=(int)$pdo->lastInsertId();
+            $pdo->prepare('UPDATE tp_support_tickets SET status=?,last_message_at=NOW(),updated_at=NOW() WHERE id=?')
+                ->execute([$newStatus,$ticketId]);
+            self::audit($userId,'support.message_created','support_ticket',$ticketId,['message_id'=>$messageId,'role'=>$role]);
+            $pdo->commit();
+        }catch(Throwable $e){
+            if($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+
+        if($role==='admin'){
+            $targetRole=(string)$ticket['segment'];
+            self::createNotification(
+                (int)$ticket['requester_user_id'],
+                'support_reply',
+                'O suporte respondeu seu chamado',
+                (string)$ticket['subject'],
+                ($targetRole==='company'?'empresa':'profissional').'/suporte/chamados/'.$ticketId,
+                'support_reply:'.$ticketId.':'.$messageId
+            );
+        }else{
+            $admins=$pdo->query("SELECT id FROM tp_users WHERE role='admin' AND status='active'")->fetchAll(PDO::FETCH_COLUMN);
+            foreach($admins as $adminId){
+                self::createNotification(
+                    (int)$adminId,
+                    'support_reply',
+                    'Nova mensagem em chamado',
+                    (string)$ticket['subject'],
+                    'admin/suporte/chamados/'.$ticketId,
+                    'support_user_reply:'.$ticketId.':'.$messageId.':'.$adminId
+                );
+            }
+        }
+    }
+
+    public static function setSupportTicketStatus(int $adminUserId,int $ticketId,string $status): void
+    {
+        self::ensureSupportSchema();
+        if(!in_array($status,['open','in_progress','answered','closed'],true)) throw new InvalidArgumentException('Status inválido.');
+        $pdo=Database::connection();
+        $st=$pdo->prepare('SELECT * FROM tp_support_tickets WHERE id=? LIMIT 1');
+        $st->execute([$ticketId]);
+        $ticket=$st->fetch();
+        if(!$ticket) throw new RuntimeException('Chamado não encontrado.');
+
+        $pdo->prepare('UPDATE tp_support_tickets SET status=?,updated_at=NOW() WHERE id=?')->execute([$status,$ticketId]);
+        self::audit($adminUserId,'support.status_changed','support_ticket',$ticketId,['status'=>$status]);
+
+        if($status==='closed'){
+            $segment=(string)$ticket['segment'];
+            self::createNotification(
+                (int)$ticket['requester_user_id'],
+                'support_reply',
+                'Chamado de suporte encerrado',
+                (string)$ticket['subject'],
+                ($segment==='company'?'empresa':'profissional').'/suporte/chamados/'.$ticketId,
+                'support_closed:'.$ticketId
+            );
+        }
+    }
+
     public static function updateAdminAccount(int $userId,array $data): void
     {
         $name=trim((string)($data['name']??''));
