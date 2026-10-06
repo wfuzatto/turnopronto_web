@@ -2026,8 +2026,16 @@ final class Data
                 $dup->execute([$value,(int)$professional['user_id']]);
                 if($dup->fetchColumn()) throw new RuntimeException('Este e-mail já está vinculado a outra conta.');
             }
-            if($column==='phone') $value=self::normalizeCompanyVerificationPhone($value);
-            $pdo->prepare("UPDATE tp_users SET {$column}=?,updated_at=NOW() WHERE id=?")->execute([$value,(int)$professional['user_id']]);
+            if($column==='phone'){
+                $value=self::normalizeCompanyVerificationPhone($value);
+                $changed=$value!==(string)$professional['phone'];
+                $sql=$changed
+                    ? 'UPDATE tp_users SET phone=?,phone_verified_at=NULL,updated_at=NOW() WHERE id=?'
+                    : 'UPDATE tp_users SET phone=?,updated_at=NOW() WHERE id=?';
+                $pdo->prepare($sql)->execute([$value,(int)$professional['user_id']]);
+            }else{
+                $pdo->prepare("UPDATE tp_users SET {$column}=?,updated_at=NOW() WHERE id=?")->execute([$value,(int)$professional['user_id']]);
+            }
         }elseif(in_array($field,$professionalFields,true)){
             if($field==='cpf'){
                 if(!self::adminValidCpf($value)) throw new InvalidArgumentException('CPF inválido.');
