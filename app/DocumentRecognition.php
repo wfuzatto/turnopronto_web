@@ -4,9 +4,9 @@ final class DocumentRecognition
     public static function analyze(string $absolutePath,string $mime,string $expectedName,string $expectedCpf): array
     {
         $cfg=(array)(app_config('document_recognition')??[]);
-        $enabled=(bool)($cfg['enabled']??false);
-        $base=rtrim((string)($cfg['url']??''),'/');
-        $apiKey=(string)($cfg['api_key']??'');
+        $base=rtrim((string)($cfg['url']??getenv('FACE_SCANNER_URL')?:''),'/');
+        $apiKey=(string)($cfg['api_key']??getenv('FACE_SCANNER_KEY')?:'');
+        $enabled=(bool)($cfg['enabled']??($base!==''));
         $timeout=max(2,(int)($cfg['timeout_seconds']??12));
 
         $result=[
