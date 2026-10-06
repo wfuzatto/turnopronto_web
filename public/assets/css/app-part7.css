@@ -173,3 +173,12 @@
 .notification-toast small{font-size:8.8px;color:#667891;line-height:1.35;margin-top:2px}
 .notification-toast button{border:0;background:transparent;color:#7d8a9c;font-size:20px;cursor:pointer;line-height:1}
 @media(max-width:600px){.notification-toast-stack{top:70px;right:10px;width:calc(100vw - 20px)}.admin-inline-editor{grid-template-columns:minmax(0,1fr) 38px}.admin-inline-save{width:38px;height:38px}}
+
+
+.admin-auto-doc-status{display:flex;align-items:flex-start;gap:7px;margin-top:8px;padding:8px 9px;border-radius:9px;font-size:8.8px;line-height:1.4}
+.admin-auto-doc-status>.tp-icon{flex:none;margin-top:1px}
+.admin-auto-doc-status strong,.admin-auto-doc-status span{display:block}
+.admin-auto-doc-status span{margin-top:2px}
+.admin-auto-doc-status.verified{background:#eaf9f0;color:#087e49}
+.admin-auto-doc-status.review{background:#fff6e4;color:#936600}
+.admin-auto-doc-status.unavailable{background:#f0f3f7;color:#647287}
