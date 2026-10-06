@@ -59,6 +59,7 @@ jobs:
           php tests/progressive_onboarding.php
           php tests/notification_flow.php
           php tests/support_flow.php
+          php tests/admin_ops_flow.php
           php -S 127.0.0.1:8080 -t . > /tmp/tp-http.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid"; rm -f config/config.local.php' EXIT
@@ -104,6 +105,14 @@ jobs:
           grep -q 'empresa/suporte' app/views/layout.php
           grep -q 'profissional/suporte' app/views/layout.php
           grep -q 'admin/suporte' app/views/layout.php
+          test -f app/DocumentRecognition.php
+          grep -q 'adminUpdateVerificationField' app/Data.php
+          grep -q 'auditActionLabel' app/Data.php
+          grep -q '15 minutos' app/Data.php
+          grep -q 'data-inline-field' app/views/admin_verification_detail.php
+          grep -q 'data-checkout-countdown' app/views/current_shift.php
+          grep -q 'viacep.com.br' public/assets/js/app.js
+          grep -q 'notification-toast' public/assets/js/app.js
 
   deploy:
     needs: validate
@@ -134,6 +143,9 @@ jobs:
           grep -q '.support-page' public/assets/css/app.css
           grep -q '.support-ticket-row' public/assets/css/app.css
           grep -q '.support-message' public/assets/css/app.css
+          grep -q '.admin-inline-editor' public/assets/css/app.css
+          grep -q '.checkout-lock-note' public/assets/css/app.css
+          grep -q '.notification-toast' public/assets/css/app.css
 
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
