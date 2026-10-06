@@ -24,6 +24,16 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
           $pdo->exec("ALTER TABLE tp_shifts ADD COLUMN acceptance_mode VARCHAR(20) NOT NULL DEFAULT 'automatic' AFTER checkin_pin");
       }
 
+      $hasCompanyEmail=(int)$pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tp_companies' AND COLUMN_NAME='company_email'")->fetchColumn();
+      if(!$hasCompanyEmail){
+          $pdo->exec("ALTER TABLE tp_companies ADD COLUMN company_email VARCHAR(190) NULL AFTER responsible_cpf");
+          $pdo->exec("UPDATE tp_companies c
+                      JOIN tp_company_members cm ON cm.company_id=c.id
+                      JOIN tp_users u ON u.id=cm.user_id
+                      SET c.company_email=u.email
+                      WHERE c.company_email IS NULL AND u.email IS NOT NULL AND u.email<>''");
+      }
+
       $documentColumns=[
           'file_path'=>"VARCHAR(500) NULL",
           'original_name'=>"VARCHAR(255) NULL",
@@ -53,8 +63,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
       $u->execute(['Beatriz Moura','beatriz@turnopronto.local',$hash,'professional','(35) 99999-4000']); $beatrizUser=(int)$pdo->lastInsertId();
       $u->execute(['Administrador TurnoPronto','admin@turnopronto.local',$hash,'admin',null]); $adminUser=(int)$pdo->lastInsertId();
 
-      $pdo->prepare('INSERT INTO tp_companies (legal_name,trade_name,cnpj,address,city,state,latitude,longitude,rating,reliability_score,status) VALUES (?,?,?,?,?,?,?,?,4.90,98,"verified")')
-          ->execute(['Hotel Vale Eventos Ltda','Hotel Vale Eventos','12.345.678/0001-90','Av. das Nações Unidas, 12551','São Paulo','SP',-23.5928,-46.6887]);
+      $pdo->prepare('INSERT INTO tp_companies (legal_name,trade_name,cnpj,company_email,address,city,state,latitude,longitude,rating,reliability_score,status) VALUES (?,?,?,?,?,?,?,?,?,4.90,98,"verified")')
+          ->execute(['Hotel Vale Eventos Ltda','Hotel Vale Eventos','12.345.678/0001-90','contato@hotelvaleeventos.local','Av. das Nações Unidas, 12551','São Paulo','SP',-23.5928,-46.6887]);
       $companyId=(int)$pdo->lastInsertId();
       $pdo->prepare('INSERT INTO tp_company_members (company_id,user_id,member_role) VALUES (?,? ,"owner")')->execute([$companyId,$companyUser]);
 
