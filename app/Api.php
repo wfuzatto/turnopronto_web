@@ -54,6 +54,14 @@ final class Api
             json_response(['ok'=>true,'data'=>Data::categories()]);
         }
 
+        if(preg_match('#^/cep/(\d{8})$#',$relative,$m) && $method==='GET'){
+            try{
+                json_response(['ok'=>true,'data'=>PostalCode::lookup($m[1])]);
+            }catch(Throwable $e){
+                json_response(['ok'=>false,'error'=>$e->getMessage()],404);
+            }
+        }
+
         if($relative==='/auth/register/start' && $method==='POST'){
             $data=json_input();
             $role=(string)($data['role']??'');
