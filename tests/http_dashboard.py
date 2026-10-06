@@ -69,6 +69,18 @@ for role, route, defaults in [
             assert marker in verification_html, 'company verification center missing ' + marker
         print('COMPANY verification center: PASS')
 
+    support_route = '/empresa/suporte' if role == 'COMPANY' else '/profissional/suporte'
+    support_html = opener.open(base + support_route, timeout=20).read().decode()
+    expected_support_markers = (
+        ['Suporte para empresas', 'Financeiro, pagamentos e cobranças', 'Candidatos e profissionais']
+        if role == 'COMPANY'
+        else ['Suporte para profissionais', 'Ganhos e pagamentos', 'Reputação e avaliações']
+    )
+    for marker in expected_support_markers:
+        assert marker in support_html, role + ' support page missing ' + marker
+    assert 'Novo chamado' in support_html and 'Meus chamados' in support_html
+    print(role + ' segmented support page: PASS')
+
     print(role + ' authenticated dashboard and CSS: PASS')
 
 
@@ -94,6 +106,11 @@ for marker in ['Revisar Cadastro profissional', 'Dados do profissional', 'Docume
                'Documento oficial com foto', 'Decisão final']:
     assert marker in professional_review, 'professional admin review missing ' + marker
 assert 'admin-support-upload' not in professional_review or 'enctype="multipart/form-data"' in professional_review
+
+admin_support = admin.open(base + '/admin/suporte', timeout=20).read().decode()
+for marker in ['Central de suporte', 'Fila de atendimento', 'Empresas', 'Profissionais']:
+    assert marker in admin_support, 'ADMIN support center missing ' + marker
+print('ADMIN segmented support center: PASS')
 
 print('ADMIN verification review pages: PASS')
 
