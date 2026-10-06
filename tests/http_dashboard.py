@@ -81,6 +81,15 @@ for role, route, defaults in [
     assert 'Novo chamado' in support_html and 'Meus chamados' in support_html
     print(role + ' segmented support page: PASS')
 
+    search_term = 'Juliana' if role == 'COMPANY' else 'Vale'
+    search_html = opener.open(base + '/buscar?q=' + urllib.parse.quote(search_term), timeout=20).read().decode()
+    assert 'Busca' in search_html and search_term in search_html, role + ' global search page failed'
+    expected_search_marker = 'Juliana Alves' if role == 'COMPANY' else 'Hotel Vale Eventos'
+    assert expected_search_marker in search_html, role + ' global search did not return expected result'
+    search_json = json.loads(opener.open(base + '/buscar?q=' + urllib.parse.quote(search_term) + '&format=json', timeout=20).read().decode())
+    assert search_json.get('ok') is True and search_json.get('data', {}).get('items'), role + ' live search endpoint failed'
+    print(role + ' global search: PASS')
+
     print(role + ' authenticated dashboard and CSS: PASS')
 
 
@@ -113,6 +122,10 @@ admin_support = admin.open(base + '/admin/suporte', timeout=20).read().decode()
 for marker in ['Central de suporte', 'Fila de atendimento', 'Empresas', 'Profissionais']:
     assert marker in admin_support, 'ADMIN support center missing ' + marker
 print('ADMIN segmented support center: PASS')
+
+admin_search = admin.open(base + '/buscar?q=Vale', timeout=20).read().decode()
+assert 'Hotel Vale Eventos' in admin_search and 'Empresa' in admin_search, 'ADMIN global search failed'
+print('ADMIN global search: PASS')
 
 print('ADMIN verification review pages: PASS')
 
