@@ -1427,6 +1427,13 @@ final class Data
         $a=self::assignment($userId,$assignmentId);
         if(!$a) throw new RuntimeException('Turno não encontrado.');
         if($a['status']!=='checked_in') throw new RuntimeException('Faça o check-in antes de encerrar.');
+        if(empty($a['checkin_at'])) throw new RuntimeException('Horário de check-in não encontrado.');
+        $minimumCheckoutAt=strtotime((string)$a['checkin_at'])+(15*60);
+        if(time()<$minimumCheckoutAt){
+            $remaining=max(1,$minimumCheckoutAt-time());
+            $minutes=(int)ceil($remaining/60);
+            throw new RuntimeException('Por segurança, o check-out é liberado 15 minutos após o check-in. Aguarde aproximadamente '.$minutes.' minuto(s).');
+        }
 
         $pdo=Database::connection();
         $pdo->beginTransaction();
@@ -1801,6 +1808,167 @@ final class Data
         return ['companies'=>$companies,'professionals'=>$professionals];
     }
 
+    private static function adminNormalizeDigits(string $value): string
+    {
+        return preg_replace('/\D+/','',$value);
+    }
+
+    private static function adminValidCpf(string $value): bool
+    {
+        $cpf=self::adminNormalizeDigits($value);
+        if(strlen($cpf)!==11 || preg_match('/^(\d)\1{10}$/',$cpf)) return false;
+        for($t=9;$t<11;$t++){
+            $sum=0;
+            for($i=0;$i<$t;$i++) $sum+=(int)$cpf[$i]*(($t+1)-$i);
+            $digit=(($sum*10)%11)%10;
+            if($digit!==(int)$cpf[$t]) return false;
+        }
+        return true;
+    }
+
+    private static function adminValidCnpj(string $value): bool
+    {
+        $cnpj=self::adminNormalizeDigits($value);
+        if(strlen($cnpj)!==14 || preg_match('/^(\d)\1{13}$/',$cnpj)) return false;
+        foreach([[5,4,3,2,9,8,7,6,5,4,3,2],[6,5,4,3,2,9,8,7,6,5,4,3,2]] as $idx=>$weights){
+            $sum=0;
+            foreach($weights as $i=>$w) $sum+=(int)$cnpj[$i]*$w;
+            $rest=$sum%11;
+            $digit=$rest<2?0:11-$rest;
+            if($digit!==(int)$cnpj[12+$idx]) return false;
+        }
+        return true;
+    }
+
+    public static function adminUpdateVerificationField(int $adminUserId,string $kind,int $entityId,string $field,string $value): array
+    {
+        if(!in_array($kind,['company','professional'],true)) throw new InvalidArgumentException('Tipo de cadastro inválido.');
+        $value=trim($value);
+        $pdo=Database::connection();
+
+        if($kind==='company'){
+            self::ensureCompanyEmailColumn();
+            $owner=$pdo->prepare("SELECT u.id,u.email,u.phone FROM tp_company_members cm JOIN tp_users u ON u.id=cm.user_id WHERE cm.company_id=? ORDER BY (cm.member_role='owner') DESC,cm.id ASC LIMIT 1");
+            $owner->execute([$entityId]);
+            $ownerUser=$owner->fetch();
+            if(!$ownerUser) throw new RuntimeException('Responsável da empresa não encontrado.');
+
+            $companyFields=[
+                'trade_name','legal_name','cnpj','responsible_cpf','company_email','postal_code','address','city','state',
+                'pix_key_type','pix_key','pix_holder_name','pix_holder_document'
+            ];
+            $userFields=['owner_name'=>'name','owner_email'=>'email','owner_phone'=>'phone'];
+
+            if(isset($userFields[$field])){
+                $column=$userFields[$field];
+                if($column==='name' && mb_strlen($value)<3) throw new InvalidArgumentException('Informe o nome completo do responsável.');
+                if($column==='email'){
+                    $value=mb_strtolower($value);
+                    if(!filter_var($value,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe um e-mail válido.');
+                    $dup=$pdo->prepare('SELECT id FROM tp_users WHERE email=? AND id<>? LIMIT 1');
+                    $dup->execute([$value,(int)$ownerUser['id']]);
+                    if($dup->fetchColumn()) throw new RuntimeException('Este e-mail já está vinculado a outra conta.');
+                }
+                if($column==='phone'){
+                    $value=self::normalizeCompanyVerificationPhone($value);
+                    $changed=$value!==(string)$ownerUser['phone'];
+                    $sql=$changed?'UPDATE tp_users SET phone=?,phone_verified_at=NULL,updated_at=NOW() WHERE id=?':'UPDATE tp_users SET phone=?,updated_at=NOW() WHERE id=?';
+                    $pdo->prepare($sql)->execute([$value,(int)$ownerUser['id']]);
+                }else{
+                    $pdo->prepare("UPDATE tp_users SET {$column}=?,updated_at=NOW() WHERE id=?")->execute([$value,(int)$ownerUser['id']]);
+                }
+            }elseif(in_array($field,$companyFields,true)){
+                if(in_array($field,['trade_name','legal_name','address','city','pix_key','pix_holder_name'],true) && $value==='') throw new InvalidArgumentException('Este campo não pode ficar vazio.');
+                if($field==='company_email'){
+                    $value=mb_strtolower($value);
+                    if(!filter_var($value,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe o e-mail da empresa.');
+                }
+                if($field==='cnpj'){
+                    if(!self::adminValidCnpj($value)) throw new InvalidArgumentException('CNPJ inválido.');
+                    $value=self::adminNormalizeDigits($value);
+                }
+                if($field==='responsible_cpf'){
+                    if(!self::adminValidCpf($value)) throw new InvalidArgumentException('CPF do responsável inválido.');
+                    $value=self::adminNormalizeDigits($value);
+                }
+                if($field==='postal_code'){
+                    $value=self::adminNormalizeDigits($value);
+                    if(strlen($value)!==8) throw new InvalidArgumentException('CEP inválido.');
+                }
+                if($field==='state'){
+                    $value=mb_strtoupper($value);
+                    if(!preg_match('/^[A-Z]{2}$/',$value)) throw new InvalidArgumentException('UF inválida.');
+                }
+                if($field==='pix_key_type' && !in_array($value,['cpf','cnpj','email','phone','random'],true)) throw new InvalidArgumentException('Tipo de chave Pix inválido.');
+                if($field==='pix_holder_document'){
+                    $digits=self::adminNormalizeDigits($value);
+                    if(!self::adminValidCpf($digits) && !self::adminValidCnpj($digits)) throw new InvalidArgumentException('Documento do titular Pix inválido.');
+                    $value=$digits;
+                }
+                $pdo->prepare("UPDATE tp_companies SET {$field}=? WHERE id=?")->execute([$value,$entityId]);
+            }else{
+                throw new InvalidArgumentException('Campo não permitido para edição.');
+            }
+
+            self::audit($adminUserId,'admin.verification_field_updated','company',$entityId,['field'=>$field]);
+            return ['ok'=>true,'value'=>$value];
+        }
+
+        $st=$pdo->prepare('SELECT p.*,u.id user_id,u.email,u.phone FROM tp_professionals p JOIN tp_users u ON u.id=p.user_id WHERE p.id=? LIMIT 1');
+        $st->execute([$entityId]);
+        $professional=$st->fetch();
+        if(!$professional) throw new RuntimeException('Profissional não encontrado.');
+
+        $userFields=['name'=>'name','email'=>'email','phone'=>'phone'];
+        $professionalFields=['cpf','rg','birth_date','headline','postal_code','address','city','state','pix_key_type','pix_key','pix_holder_name','pix_holder_document'];
+
+        if(isset($userFields[$field])){
+            $column=$userFields[$field];
+            if($column==='name' && mb_strlen($value)<3) throw new InvalidArgumentException('Informe o nome completo.');
+            if($column==='email'){
+                $value=mb_strtolower($value);
+                if(!filter_var($value,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Informe um e-mail válido.');
+                $dup=$pdo->prepare('SELECT id FROM tp_users WHERE email=? AND id<>? LIMIT 1');
+                $dup->execute([$value,(int)$professional['user_id']]);
+                if($dup->fetchColumn()) throw new RuntimeException('Este e-mail já está vinculado a outra conta.');
+            }
+            if($column==='phone') $value=self::normalizeCompanyVerificationPhone($value);
+            $pdo->prepare("UPDATE tp_users SET {$column}=?,updated_at=NOW() WHERE id=?")->execute([$value,(int)$professional['user_id']]);
+        }elseif(in_array($field,$professionalFields,true)){
+            if($field==='cpf'){
+                if(!self::adminValidCpf($value)) throw new InvalidArgumentException('CPF inválido.');
+                $value=self::adminNormalizeDigits($value);
+                $dup=$pdo->prepare('SELECT id FROM tp_professionals WHERE cpf=? AND id<>? LIMIT 1');
+                $dup->execute([$value,$entityId]);
+                if($dup->fetchColumn()) throw new RuntimeException('Este CPF já está vinculado a outro profissional.');
+            }
+            if($field==='rg' && mb_strlen($value)<5) throw new InvalidArgumentException('Documento de identidade inválido.');
+            if($field==='birth_date'){
+                $date=DateTime::createFromFormat('Y-m-d',$value);
+                if(!$date || $date->format('Y-m-d')!==$value) throw new InvalidArgumentException('Data de nascimento inválida.');
+            }
+            if($field==='postal_code'){
+                $value=self::adminNormalizeDigits($value);
+                if(strlen($value)!==8) throw new InvalidArgumentException('CEP inválido.');
+            }
+            if($field==='state'){
+                $value=mb_strtoupper($value);
+                if(!preg_match('/^[A-Z]{2}$/',$value)) throw new InvalidArgumentException('UF inválida.');
+            }
+            if($field==='pix_key_type' && !in_array($value,['cpf','email','phone','random'],true)) throw new InvalidArgumentException('Tipo de chave Pix inválido.');
+            if($field==='pix_holder_document'){
+                $value=self::adminNormalizeDigits($value);
+                if($value!==self::adminNormalizeDigits((string)$professional['cpf'])) throw new InvalidArgumentException('O CPF do titular Pix deve ser o mesmo CPF do profissional.');
+            }
+            $pdo->prepare("UPDATE tp_professionals SET {$field}=? WHERE id=?")->execute([$value,$entityId]);
+        }else{
+            throw new InvalidArgumentException('Campo não permitido para edição.');
+        }
+
+        self::audit($adminUserId,'admin.verification_field_updated','professional',$entityId,['field'=>$field]);
+        return ['ok'=>true,'value'=>$value];
+    }
+
     public static function adminCompanyVerificationDetail(int $companyId): array
     {
         self::ensureCompanyVerificationSchema();
@@ -2111,7 +2279,63 @@ final class Data
               FROM tp_audit_logs l
               LEFT JOIN tp_users u ON u.id=l.user_id
               ORDER BY l.created_at DESC LIMIT ".max(1,(int)$limit);
-        return Database::connection()->query($sql)->fetchAll();
+        $rows=Database::connection()->query($sql)->fetchAll();
+
+        $labels=[
+            'account.admin_updated'=>'Conta do administrador atualizada',
+            'account.company_updated'=>'Cadastro da empresa atualizado',
+            'account.professional_updated'=>'Perfil do profissional atualizado',
+            'admin.verification_field_updated'=>'Dado cadastral corrigido pelo administrador',
+            'application.approved'=>'Candidatura aprovada pela empresa',
+            'application.rejected'=>'Candidatura recusada pela empresa',
+            'assignment.cancelled_by_professional'=>'Turno cancelado pelo profissional',
+            'assignment.checkin'=>'Check-in realizado',
+            'assignment.checkout'=>'Check-out realizado e turno concluído',
+            'category.created'=>'Nova área de trabalho cadastrada',
+            'category.reactivated'=>'Área de trabalho reativada',
+            'document.reviewed'=>'Documento do profissional revisado',
+            'document.uploaded'=>'Documento enviado pelo profissional',
+            'onboarding.professional_identity'=>'Dados de identificação preenchidos',
+            'onboarding.professional_location'=>'Endereço do profissional preenchido',
+            'onboarding.professional_payment'=>'Dados de pagamento preenchidos',
+            'professional.invited'=>'Profissional convidado para uma vaga',
+            'registration.company'=>'Nova empresa cadastrada',
+            'registration.professional'=>'Novo profissional cadastrado',
+            'reputation.appeal_resolved'=>'Contestação de reputação analisada',
+            'reputation.appealed'=>'Contestação de reputação enviada',
+            'review.company_to_professional'=>'Empresa avaliou um profissional',
+            'review.professional_to_company'=>'Profissional avaliou uma empresa',
+            'shift.accepted'=>'Vaga aceita e turno confirmado',
+            'shift.applied'=>'Profissional se candidatou a uma vaga',
+            'shift.applied_pending_verification'=>'Interesse em vaga enviado enquanto cadastro estava em análise',
+            'shift.cancelled'=>'Vaga ou turno cancelado pela empresa',
+            'shift.created'=>'Nova vaga publicada',
+            'shift.updated'=>'Vaga atualizada',
+            'support.message_created'=>'Nova mensagem em chamado de suporte',
+            'support.status_changed'=>'Status de chamado de suporte alterado',
+            'support.ticket_created'=>'Novo chamado de suporte aberto',
+            'verification.company'=>'Verificação final da empresa concluída',
+            'verification.company_document_reviewed'=>'Documento da empresa revisado',
+            'verification.company_document_uploaded'=>'Documento da empresa enviado',
+            'verification.company_document_uploaded_by_admin'=>'Administrador anexou documento da empresa',
+            'verification.company_phone_code_sent'=>'Código de verificação enviado ao WhatsApp da empresa',
+            'verification.company_phone_verified'=>'WhatsApp da empresa verificado',
+            'verification.professional'=>'Verificação final do profissional concluída',
+            'verification.professional_document_uploaded_by_admin'=>'Administrador anexou documento do profissional',
+            'document.auto_verified'=>'Documento aprovado automaticamente',
+            'document.auto_review_required'=>'Documento enviado para análise manual',
+        ];
+        $entityLabels=[
+            'company'=>'empresa','professional'=>'profissional','company_document'=>'documento da empresa',
+            'document'=>'documento','shift'=>'vaga/turno','assignment'=>'turno','reputation_event'=>'ocorrência',
+            'support_ticket'=>'chamado','user'=>'usuário'
+        ];
+        foreach($rows as &$row){
+            $row['action_label']=$labels[$row['action']]??ucfirst(str_replace(['.','_'],[' › ',' '],(string)$row['action']));
+            $row['entity_label']=$entityLabels[$row['entity_type']]??($row['entity_type']?:'evento');
+        }
+        unset($row);
+        return $rows;
     }
 
     public static function resolveReputationAppeal(int $adminUserId, int $eventId, string $decision): void
