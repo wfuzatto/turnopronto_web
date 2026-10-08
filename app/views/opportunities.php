@@ -29,9 +29,17 @@
     <div class="location-permission-icon"><?=icon('map',20)?></div>
     <div>
       <strong data-location-title>Usando sua localização para calcular as distâncias</strong>
-      <span data-location-status>O Chrome deve solicitar autorização de localização. Sua posição é usada no navegador para calcular a distância até as vagas.</span>
+      <span data-location-status>O Chrome deve solicitar autorização de localização. A distância será calculada pela rota viária, não em linha reta.</span>
     </div>
     <button class="btn btn-soft btn-sm" type="button" data-location-request>Atualizar localização</button>
+    <details class="manual-location" data-manual-location>
+      <summary>Localização imprecisa? Informar ponto de partida manualmente</summary>
+      <div class="manual-location-row">
+        <input type="text" data-manual-location-input autocomplete="street-address" placeholder="Ex.: Rua, número, bairro, cidade - UF">
+        <button class="btn btn-soft btn-sm" type="button" data-manual-location-apply>Usar este endereço</button>
+      </div>
+      <small data-manual-location-status>Use esta opção quando o computador informar apenas uma localização aproximada.</small>
+    </details>
   </div>
 
   <section class="panel">
@@ -55,7 +63,7 @@
         <div class="opp-meta"><?=icon('calendar',16)?><div><strong><?=br_date($s['starts_at'],'d/m')?></strong><small><?=date('D',strtotime($s['starts_at']))?></small></div></div>
         <div class="opp-meta"><?=icon('clock',16)?><div><strong><?=date('H:i',strtotime($s['starts_at']))?> – <?=date('H:i',strtotime($s['ends_at']))?></strong></div></div>
         <div class="opp-value"><strong><?=money($s['shift_value'])?></strong><small>por turno</small></div>
-        <div class="opp-distance"><?=icon('map',17)?><div><strong data-opportunity-distance>Calculando…</strong><small><?=e($s['city'].' - '.$s['state'])?></small></div></div>
+        <div class="opp-distance"><?=icon('map',17)?><div><strong data-opportunity-distance>Calculando…</strong><small><span data-opportunity-distance-kind>pela rota</span> · <?=e($s['city'].' - '.$s['state'])?></small></div></div>
         <div class="opp-actions">
           <a class="btn btn-soft" href="<?=e(url('profissional/vagas/'.$s['id']))?>">Ver detalhes</a>
           <form method="post" action="<?=e(url('profissional/vagas/'.$s['id'].'/aceitar'))?>"><?=csrf_field()?><button class="btn btn-primary"><?=$onboarding['can_apply']?($onboarding['profile_verified']&&($s['acceptance_mode']??'automatic')==='automatic'?'Aceitar':'Candidatar-se'):'Completar perfil'?></button></form>
