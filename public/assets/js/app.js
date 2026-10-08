@@ -895,7 +895,7 @@
         const okRole=!roleTerm||hay.includes(roleTerm);
         const okCategory=!category||jobCategory.includes(category);
         job.hidden=!(okCity&&okRole&&okCategory);
-        if(!job.hidden) visible++;
+        if(!job.hidden && job.hasAttribute('data-modern-list-job')) visible++;
       });
       if(count) count.textContent=String(visible);
       if(empty) empty.hidden=visible!==0;
