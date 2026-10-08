@@ -16,7 +16,7 @@
   </div>
   <div class="table-wrap">
     <table class="tp-table">
-      <thead><tr><th>Função</th><th>Data</th><th>Horário</th><th>Valor</th><th>Preenchimento</th><th>Candidatos</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Função</th><th>Data</th><th>Horário</th><th>Valor</th><th>Preenchimento</th><th>Interessados</th><th>Candidatos</th><th>Status</th><th></th></tr></thead>
       <tbody>
       <?php foreach($shifts as $s):
         $statusLabel=['published'=>'Publicada','filling'=>'Em preenchimento','confirmed'=>'Confirmada','cancelled'=>'Cancelada','draft'=>'Rascunho'][$s['status']]??ucfirst($s['status']);
@@ -28,6 +28,7 @@
           <td><strong><?=date('H:i',strtotime($s['starts_at']))?> – <?=date('H:i',strtotime($s['ends_at']))?></strong></td>
           <td><strong><?=money($s['shift_value'])?></strong><small>por profissional</small></td>
           <td><div class="fill-cell"><strong><?=$s['assigned']?> / <?=$s['required_workers']?></strong><div class="mini-progress"><i style="width:<?=min(100,round(($s['assigned']/max(1,$s['required_workers']))*100))?>%"></i></div></div></td>
+          <td><span class="candidate-count follower-count"><?=e((string)($s['followers']??0))?></span></td>
           <td><span class="candidate-count"><?=$s['candidates']?></span></td>
           <td><span class="status <?=e($s['status'])?>"><?=e($statusLabel)?></span></td>
           <td><a class="btn btn-soft btn-sm" href="<?=e(url('empresa/vagas/'.$s['id']))?>">Gerenciar</a></td>
