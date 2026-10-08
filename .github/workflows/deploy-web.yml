@@ -58,6 +58,7 @@ jobs:
           php tests/setup_demo.php
           php tests/progressive_onboarding.php
           php tests/notification_flow.php
+          php tests/shift_following.php
           php tests/support_flow.php
           php tests/admin_ops_flow.php
           php -S 127.0.0.1:8080 -t . > /tmp/tp-http.log 2>&1 &
@@ -126,6 +127,11 @@ jobs:
           test -f app/views/search_results.php
           grep -q 'data-global-search' app/views/layout.php
           grep -q 'data-global-search' public/assets/js/app.js
+          grep -q 'companyShiftFollowers' app/Data.php
+          grep -q 'followShift' app/Data.php
+          grep -q "vagas/(\\d+)/acompanhar" app/Web.php
+          grep -q 'Profissionais acompanhando' app/views/company_shift_detail.php
+          grep -q 'Acompanhar vaga' app/views/public_shift_detail.php
 
   deploy:
     needs: validate
