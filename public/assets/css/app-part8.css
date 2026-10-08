@@ -175,4 +175,6 @@ input.cep-found{border-color:#69cc95!important;box-shadow:0 0 0 3px #e8f8ef!impo
 .support-message p{white-space:pre-wrap}
 .support-message-new{animation:tp-support-message-in .32s ease both}
 @keyframes tp-support-message-in{from{opacity:0;transform:translateY(8px) scale(.992)}to{opacity:1;transform:none}}
+.support-send-error{margin-top:8px;padding:8px 10px;border-radius:9px;background:#fff1f1;border:1px solid #ffd4d4;color:#b33a3a;font-size:9px;line-height:1.4}
+.support-reply-form[data-sending="1"] textarea{opacity:.75}
 
