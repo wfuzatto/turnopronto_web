@@ -84,6 +84,16 @@ $mode=$source['acceptance_mode']??'automatic';
   </div>
 </section>
 
+<?php if($editing):?>
+<div class="notice-card shift-edit-notice">
+  <?=icon('bell',20)?>
+  <div>
+    <strong>Alterações serão comunicadas automaticamente</strong>
+    <p>Quem acompanha esta vaga, quem já se candidatou e profissionais confirmados receberão uma notificação com os campos alterados.</p>
+  </div>
+</div>
+<?php endif;?>
+
 <div class="form-actions">
   <a class="btn btn-soft" href="<?=e(url($editing?'empresa/vagas/'.$shift['id']:'empresa/vagas'))?>">Cancelar</a>
   <button class="btn btn-primary" type="submit"><?=$editing?'Salvar alterações':'Publicar vaga'?></button>
