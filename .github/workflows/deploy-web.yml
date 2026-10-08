@@ -135,6 +135,10 @@ jobs:
           grep -Fq "/vagas/(\d+)/acompanhar" app/Web.php
           grep -q 'Profissionais acompanhando' app/views/company_shift_detail.php
           grep -q 'Acompanhar vaga' app/views/public_shift_detail.php
+          grep -q 'data-public-job-modal-open' app/views/public_opportunities.php
+          grep -q 'class="public-job-modal"' app/views/public_opportunities.php
+          grep -q 'data-public-job-modal-open' public/assets/js/app.js
+          grep -q '.public-job-modal' public/assets/css/app.css
           grep -q 'Confiabilidade ainda não calculada' app/views/reputation.php
           grep -q 'next_payout' app/Data.php
           grep -q 'data-opportunity-location' app/views/opportunities.php
