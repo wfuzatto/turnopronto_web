@@ -47,7 +47,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
       }
 
       $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
-      foreach(['tp_notifications','tp_reputation_events','tp_reviews','tp_ledger','tp_assignments','tp_shift_applications','tp_shifts','tp_professional_categories','tp_documents','tp_company_documents','tp_company_phone_verifications','tp_company_members','tp_professionals','tp_companies','tp_api_tokens','tp_audit_logs','tp_users','tp_job_categories'] as $table){ $pdo->exec('TRUNCATE TABLE '.$table); }
+      foreach(['tp_notifications','tp_reputation_events','tp_reviews','tp_ledger','tp_assignments','tp_shift_followers','tp_shift_applications','tp_shifts','tp_professional_categories','tp_documents','tp_company_documents','tp_company_phone_verifications','tp_company_members','tp_professionals','tp_companies','tp_api_tokens','tp_audit_logs','tp_users','tp_job_categories'] as $table){ $pdo->exec('TRUNCATE TABLE '.$table); }
       $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
       $pdo->beginTransaction();
       $categories=['Garçom'=>'garcom','Recepcionista'=>'recepcionista','Aux. Cozinha'=>'aux-cozinha','Aux. Limpeza'=>'aux-limpeza','Bartender'=>'bartender','Camareira'=>'camareira','Promotor'=>'promotor','Aux. Eventos'=>'aux-eventos'];
@@ -78,12 +78,12 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
       $doc=$pdo->prepare('INSERT INTO tp_documents (professional_id,type,label,status,verified_at) VALUES (?,?,?,"verified",NOW())');
       foreach([['identity','Documento de identidade'],['cpf','CPF'],['address','Comprovante de residência'],['food','Certificado de manipulação de alimentos']] as [$type,$label])$doc->execute([$julianaId,$type,$label]);
 
-      $shift=$pdo->prepare('INSERT INTO tp_shifts (company_id,category_id,title,description,starts_at,ends_at,shift_value,required_workers,address,city,state,dress_code,notes,checkin_pin,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
+      $shift=$pdo->prepare('INSERT INTO tp_shifts (company_id,category_id,title,description,starts_at,ends_at,shift_value,required_workers,address,city,state,latitude,longitude,dress_code,notes,checkin_pin,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())');
       $today=new DateTime('today');
       $make=function(int $add,string $start,string $end,string $slug,string $title,float $value,int $qty,string $status='published')use($shift,$companyId,$catIds,$today,$pdo){
           $d=(clone $today)->modify("+$add day"); $startAt=$d->format('Y-m-d').' '.$start.':00';
           $ed=(clone $d); if($end<=$start)$ed->modify('+1 day'); $endAt=$ed->format('Y-m-d').' '.$end.':00';
-          $shift->execute([$companyId,$catIds[$slug],$title,'Oportunidade TurnoPronto para reforço operacional.',$startAt,$endAt,$value,$qty,'Av. das Nações Unidas, 12551','São Paulo','SP','Calça preta, camisa branca e sapato social preto.','Seja pontual e compareça com documento de identificação.',sprintf('%06d', random_int(0, 999999)),$status]);
+          $shift->execute([$companyId,$catIds[$slug],$title,'Oportunidade TurnoPronto para reforço operacional.',$startAt,$endAt,$value,$qty,'Av. das Nações Unidas, 12551','São Paulo','SP',-23.5928,-46.6887,'Calça preta, camisa branca e sapato social preto.','Seja pontual e compareça com documento de identificação.',sprintf('%06d', random_int(0, 999999)),$status]);
           return (int)$pdo->lastInsertId();
       };
       $s1=$make(1,'18:00','02:00','garcom','Garçom',160,3,'published');
