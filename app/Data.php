@@ -991,6 +991,11 @@ final class Data
             ? (string)$data['acceptance_mode']
             : 'automatic';
 
+        $latitude=is_numeric($data['latitude']??null)?(float)$data['latitude']:null;
+        $longitude=is_numeric($data['longitude']??null)?(float)$data['longitude']:null;
+        if($latitude!==null && ($latitude < -90 || $latitude > 90)) $latitude=null;
+        if($longitude!==null && ($longitude < -180 || $longitude > 180)) $longitude=null;
+
         return [
             'category_id'=>(int)$data['category_id'],
             'title'=>trim((string)$data['title']),
@@ -1002,6 +1007,8 @@ final class Data
             'address'=>trim((string)$data['address']),
             'city'=>trim((string)$data['city']),
             'state'=>mb_strtoupper(trim((string)$data['state'])),
+            'latitude'=>$latitude,
+            'longitude'=>$longitude,
             'dress_code'=>trim((string)($data['dress_code']??'')),
             'notes'=>trim((string)($data['notes']??'')),
             'acceptance_mode'=>$mode
@@ -1015,19 +1022,16 @@ final class Data
         $company=self::companyProfile($userId);
         if(($company['status']??'pending')!=='verified') throw new RuntimeException('A empresa precisa ser verificada antes de publicar vagas.');
         $d=self::normalizedShiftInput($data);
-        if((int)$d['required_workers']<(int)($current['assigned']??0)){
-            throw new RuntimeException('A quantidade de profissionais não pode ser menor que o número já confirmado neste turno.');
-        }
         $pdo=Database::connection();
 
         if(self::hasColumn('tp_shifts','acceptance_mode')){
-            $sql='INSERT INTO tp_shifts (company_id,category_id,title,description,starts_at,ends_at,shift_value,required_workers,address,city,state,dress_code,notes,checkin_pin,acceptance_mode,status,created_at)
-                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"published",NOW())';
-            $params=[$companyId,$d['category_id'],$d['title'],$d['description'],$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['dress_code'],$d['notes'],sprintf('%06d',random_int(0,999999)),$d['acceptance_mode']];
+            $sql='INSERT INTO tp_shifts (company_id,category_id,title,description,starts_at,ends_at,shift_value,required_workers,address,city,state,latitude,longitude,dress_code,notes,checkin_pin,acceptance_mode,status,created_at)
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"published",NOW())';
+            $params=[$companyId,$d['category_id'],$d['title'],$d['description'],$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['latitude'],$d['longitude'],$d['dress_code'],$d['notes'],sprintf('%06d',random_int(0,999999)),$d['acceptance_mode']];
         } else {
-            $sql='INSERT INTO tp_shifts (company_id,category_id,title,description,starts_at,ends_at,shift_value,required_workers,address,city,state,dress_code,notes,checkin_pin,status,created_at)
-                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,"published",NOW())';
-            $params=[$companyId,$d['category_id'],$d['title'],$d['description'],$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['dress_code'],$d['notes'],sprintf('%06d',random_int(0,999999))];
+            $sql='INSERT INTO tp_shifts (company_id,category_id,title,description,starts_at,ends_at,shift_value,required_workers,address,city,state,latitude,longitude,dress_code,notes,checkin_pin,status,created_at)
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"published",NOW())';
+            $params=[$companyId,$d['category_id'],$d['title'],$d['description'],$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['latitude'],$d['longitude'],$d['dress_code'],$d['notes'],sprintf('%06d',random_int(0,999999))];
         }
 
         $st=$pdo->prepare($sql);
@@ -1046,14 +1050,17 @@ final class Data
         if(strtotime($current['ends_at'])<=time()) throw new RuntimeException('Uma vaga cujo turno já terminou não pode mais ser editada.');
 
         $d=self::normalizedShiftInput($data);
+        if((int)$d['required_workers']<(int)($current['assigned']??0)){
+            throw new RuntimeException('A quantidade de profissionais não pode ser menor que o número já confirmado neste turno.');
+        }
         $pdo=Database::connection();
 
         if(self::hasColumn('tp_shifts','acceptance_mode')){
-            $sql='UPDATE tp_shifts SET category_id=?,title=?,description=?,starts_at=?,ends_at=?,shift_value=?,required_workers=?,address=?,city=?,state=?,dress_code=?,notes=?,acceptance_mode=?,updated_at=NOW() WHERE id=? AND company_id=?';
-            $params=[$d['category_id'],$d['title'],$d['description'],$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['dress_code'],$d['notes'],$d['acceptance_mode'],$shiftId,$current['company_id']];
+            $sql='UPDATE tp_shifts SET category_id=?,title=?,description=?,starts_at=?,ends_at=?,shift_value=?,required_workers=?,address=?,city=?,state=?,latitude=?,longitude=?,dress_code=?,notes=?,acceptance_mode=?,updated_at=NOW() WHERE id=? AND company_id=?';
+            $params=[$d['category_id'],$d['title'],$d['description'],$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['latitude'],$d['longitude'],$d['dress_code'],$d['notes'],$d['acceptance_mode'],$shiftId,$current['company_id']];
         } else {
-            $sql='UPDATE tp_shifts SET category_id=?,title=?,description=?,starts_at=?,ends_at=?,shift_value=?,required_workers=?,address=?,city=?,state=?,dress_code=?,notes=?,updated_at=NOW() WHERE id=? AND company_id=?';
-            $params=[$d['category_id'],$d['title'],$d['description'],$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['dress_code'],$d['notes'],$shiftId,$current['company_id']];
+            $sql='UPDATE tp_shifts SET category_id=?,title=?,description=?,starts_at=?,ends_at=?,shift_value=?,required_workers=?,address=?,city=?,state=?,latitude=?,longitude=?,dress_code=?,notes=?,updated_at=NOW() WHERE id=? AND company_id=?';
+            $params=[$d['category_id'],$d['title'],$d['description'],$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['latitude'],$d['longitude'],$d['dress_code'],$d['notes'],$shiftId,$current['company_id']];
         }
 
         $pdo->prepare($sql)->execute($params);
