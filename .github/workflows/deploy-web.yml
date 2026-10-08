@@ -147,6 +147,12 @@ jobs:
           grep -q 'Profissionais acompanhando' app/views/company_shift_detail.php
           grep -q 'Acompanhar vaga' app/views/public_shift_detail.php
           grep -q 'data-public-job-modal-open' app/views/public_opportunities.php
+          grep -q 'Vagas em destaque' app/views/public_opportunities_modern.php
+          grep -q 'Skins da primeira página' app/views/admin_platform_settings.php
+          grep -q 'platformAppearance' app/Data.php
+          grep -q "relative==='/appearance'" app/Api.php
+          grep -q '.tp-modern-hero' public/assets/css/app.css
+          grep -q '.admin-skin-grid' public/assets/css/app.css
           grep -q 'class="public-job-modal"' app/views/public_opportunities.php
           grep -q 'data-public-job-modal-open' public/assets/js/app.js
           grep -q '.public-job-modal' public/assets/css/app.css
