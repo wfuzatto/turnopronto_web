@@ -24,6 +24,18 @@ final class Web
                 $identifier=(string)($_POST['identifier'] ?? $_POST['email'] ?? '');
                 if (Auth::attempt($identifier,(string)($_POST['password'] ?? ''))) {
                     $logged=Auth::user();
+                    $followShift=(int)($_SESSION['professional_follow_shift']??0);
+                    if(($logged['role']??'')==='professional' && $followShift>0){
+                        try{
+                            Data::followShift((int)$logged['id'],$followShift);
+                            unset($_SESSION['professional_follow_shift']);
+                            flash('success','Você está acompanhando esta vaga. A empresa poderá ver seu interesse e você receberá atualizações.');
+                            redirect('profissional/vagas/'.$followShift);
+                        }catch(Throwable $e){
+                            unset($_SESSION['professional_follow_shift']);
+                            flash('error',$e->getMessage());
+                        }
+                    }
                     $targetShift=(int)($_SESSION['professional_target_shift']??0);
                     if(($logged['role']??'')==='professional' && $targetShift>0){
                         $shift=Data::publicShift($targetShift);
@@ -91,11 +103,50 @@ final class Web
                 http_response_code(404);
                 View::render('public_not_found',['title'=>'Vaga não encontrada'],false);
             }
+            $viewer=Auth::check()?Auth::user():null;
+            $following=$viewer && ($viewer['role']??'')==='professional'
+                ? Data::isFollowingShift((int)$viewer['id'],(int)$m[1])
+                : false;
             View::render('public_shift_detail',[
                 'title'=>$shift['category_name'],
                 'shift'=>$shift,
-                'user'=>Auth::check()?Auth::user():null,
+                'user'=>$viewer,
+                'following'=>$following,
             ],false);
+        }
+
+        if (preg_match('#^/vagas/(\d+)/acompanhar$#',$path,$m) && $method==='POST') {
+            verify_csrf();
+            $shift=Data::publicShift((int)$m[1]);
+            if(!$shift){
+                flash('error','Esta vaga não está mais disponível para acompanhamento.');
+                redirect('vagas');
+            }
+
+            if(!Auth::check()){
+                $_SESSION['professional_follow_shift']=(int)$m[1];
+                flash('success','Entre com sua conta profissional para acompanhar esta vaga. Acompanhar não confirma o turno.');
+                redirect('login');
+            }
+
+            $u=Auth::user();
+            if(($u['role']??'')!=='professional'){
+                flash('error','O acompanhamento de vagas está disponível para contas de profissionais.');
+                redirect('vagas/'.$m[1]);
+            }
+
+            try{
+                if((string)($_POST['action']??'follow')==='unfollow'){
+                    Data::unfollowShift((int)$u['id'],(int)$m[1]);
+                    flash('success','Você deixou de acompanhar esta vaga.');
+                }else{
+                    Data::followShift((int)$u['id'],(int)$m[1]);
+                    flash('success','Você está acompanhando esta vaga. A empresa poderá ver seu interesse e seus dados de contato.');
+                }
+            }catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('vagas/'.$m[1]);
         }
 
         if (preg_match('#^/vagas/(\d+)/interesse$#',$path,$m) && $method==='POST') {
@@ -483,7 +534,7 @@ final class Web
                 verify_csrf();
                 try {
                     Data::updateShift((int)$u['id'],(int)$m[1],$_POST);
-                    flash('success','Vaga atualizada com sucesso.');
+                    flash('success','Vaga atualizada. Profissionais inscritos, confirmados e interessados foram notificados sobre as alterações.');
                     redirect('empresa/vagas/'.$m[1]);
                 } catch(Throwable $e){
                     flash('error',$e->getMessage());
@@ -538,6 +589,7 @@ final class Web
                 'shift'=>$shift,
                 'candidates'=>Data::companyShiftCandidates((int)$u['id'],(int)$m[1]),
                 'assigned'=>Data::companyShiftAssignments((int)$u['id'],(int)$m[1]),
+                'followers'=>Data::companyShiftFollowers((int)$u['id'],(int)$m[1]),
                 'user'=>$u
             ]);
         }
@@ -770,8 +822,26 @@ final class Web
                 'title'=>$shift['category_name'],
                 'shift'=>$shift,
                 'onboarding'=>Data::professionalOnboardingState((int)$u['id']),
+                'following'=>Data::isFollowingShift((int)$u['id'],(int)$m[1]),
                 'user'=>$u
             ]);
+        }
+
+        if (preg_match('#^/profissional/vagas/(\d+)/acompanhar$#',$path,$m) && $method==='POST') {
+            $u=Auth::requireRole('professional');
+            verify_csrf();
+            try{
+                if((string)($_POST['action']??'follow')==='unfollow'){
+                    Data::unfollowShift((int)$u['id'],(int)$m[1]);
+                    flash('success','Você deixou de acompanhar esta vaga.');
+                }else{
+                    Data::followShift((int)$u['id'],(int)$m[1]);
+                    flash('success','Você está acompanhando esta vaga. A empresa poderá ver seu interesse e seus dados de contato.');
+                }
+            }catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('profissional/vagas/'.$m[1]);
         }
 
         if (preg_match('#^/profissional/vagas/(\d+)/aceitar$#',$path,$m) && $method==='POST') {
