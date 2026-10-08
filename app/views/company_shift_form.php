@@ -16,7 +16,9 @@ $mode=$source['acceptance_mode']??'automatic';
   <?php if($editing):?><a class="btn btn-soft" href="<?=e(url('empresa/vagas/'.$shift['id']))?>">← Voltar à vaga</a><?php endif;?>
 </div>
 
-<form method="post" class="form-layout"><?=csrf_field()?>
+<form method="post" class="form-layout" data-shift-form><?=csrf_field()?>
+<input type="hidden" name="latitude" value="<?=e((string)($source['latitude']??''))?>" data-shift-latitude>
+<input type="hidden" name="longitude" value="<?=e((string)($source['longitude']??''))?>" data-shift-longitude>
 <section class="panel form-panel">
   <h2>1. Função e quantidade</h2>
   <div class="form-grid">
@@ -79,6 +81,7 @@ $mode=$source['acceptance_mode']??'automatic';
     <div class="full"><label>Endereço *</label><input name="address" value="<?=e($source['address']??'Av. das Nações Unidas, 12551')?>" required></div>
     <div><label>Cidade *</label><input name="city" value="<?=e($source['city']??'São Paulo')?>" required></div>
     <div><label>UF *</label><input name="state" value="<?=e($source['state']??'SP')?>" maxlength="2" required></div>
+    <div class="full shift-geocode-note" data-shift-geocode-status>As coordenadas serão calculadas automaticamente pelo endereço para permitir o cálculo de distância até os profissionais.</div>
     <div class="full"><label>Uniforme / Dress code</label><textarea name="dress_code" rows="2"><?=e($source['dress_code']??'Calça preta, camisa branca e sapato social preto.')?></textarea></div>
     <div class="full"><label>Observações</label><textarea name="notes" rows="3" placeholder="Instruções de acesso, refeição, responsável no local..."><?=e($source['notes']??'')?></textarea></div>
   </div>
