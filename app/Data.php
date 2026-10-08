@@ -805,7 +805,8 @@ final class Data
     {
         if(!self::companyShift($userId,$shiftId)) return [];
         $sql="SELECT a.*,p.id professional_id,p.status professional_status,p.headline,p.reliability_score,p.punctuality_score,p.attendance_score,p.rating,p.completed_shifts,
-                     u.name,u.avatar_url,x.id assignment_id,x.status assignment_status
+                     u.name,u.avatar_url,x.id assignment_id,x.status assignment_status,
+                     (SELECT COUNT(*) FROM tp_reviews r WHERE r.reviewee_user_id=p.user_id AND r.attendance_rating IS NOT NULL AND r.punctuality_rating IS NOT NULL) company_feedback_count
               FROM tp_shift_applications a
               JOIN tp_professionals p ON p.id=a.professional_id
               JOIN tp_users u ON u.id=p.user_id
@@ -820,7 +821,8 @@ final class Data
     public static function companyShiftAssignments(int $userId, int $shiftId): array
     {
         if(!self::companyShift($userId,$shiftId)) return [];
-        $sql="SELECT a.*,p.reliability_score,p.punctuality_score,p.attendance_score,p.rating,p.completed_shifts,p.headline,u.name,u.avatar_url
+        $sql="SELECT a.*,p.reliability_score,p.punctuality_score,p.attendance_score,p.rating,p.completed_shifts,p.headline,u.name,u.avatar_url,
+                     (SELECT COUNT(*) FROM tp_reviews r WHERE r.reviewee_user_id=p.user_id AND r.attendance_rating IS NOT NULL AND r.punctuality_rating IS NOT NULL) company_feedback_count
               FROM tp_assignments a
               JOIN tp_professionals p ON p.id=a.professional_id
               JOIN tp_users u ON u.id=p.user_id
@@ -836,7 +838,8 @@ final class Data
         self::ensureShiftFollowingSchema();
         if(!self::companyShift($userId,$shiftId)) return [];
         $sql="SELECT f.followed_at,p.id professional_id,p.status professional_status,p.headline,p.reliability_score,p.punctuality_score,p.attendance_score,p.rating,p.completed_shifts,
-                     u.id user_id,u.name,u.avatar_url,u.email,u.phone
+                     u.id user_id,u.name,u.avatar_url,u.email,u.phone,
+                     (SELECT COUNT(*) FROM tp_reviews r WHERE r.reviewee_user_id=p.user_id AND r.attendance_rating IS NOT NULL AND r.punctuality_rating IS NOT NULL) company_feedback_count
               FROM tp_shift_followers f
               JOIN tp_professionals p ON p.id=f.professional_id
               JOIN tp_users u ON u.id=p.user_id
@@ -1257,8 +1260,16 @@ final class Data
 
     public static function suggestedProfessionals(int $limit=10): array
     {
-        $sql='SELECT p.*,u.name,u.avatar_url FROM tp_professionals p JOIN tp_users u ON u.id=p.user_id
-              WHERE p.status="verified" ORDER BY p.reliability_score DESC,p.completed_shifts DESC LIMIT '.max(1,(int)$limit);
+        $sql='SELECT p.*,u.name,u.avatar_url,
+                     (SELECT COUNT(*) FROM tp_reviews r
+                      WHERE r.reviewee_user_id=p.user_id
+                        AND r.attendance_rating IS NOT NULL
+                        AND r.punctuality_rating IS NOT NULL) company_feedback_count
+              FROM tp_professionals p
+              JOIN tp_users u ON u.id=p.user_id
+              WHERE p.status="verified"
+              ORDER BY (company_feedback_count>0) DESC,p.reliability_score DESC,p.completed_shifts DESC
+              LIMIT '.max(1,(int)$limit);
         return Database::connection()->query($sql)->fetchAll();
     }
     public static function professionalProfile(int $userId): array
@@ -1426,14 +1437,25 @@ final class Data
         $s->execute([$pid]);
         $earnings=(float)$s->fetchColumn();
 
+        $s=$pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM tp_ledger WHERE professional_id=? AND direction='credit' AND status='available'");
+        $s->execute([$pid]);
+        $nextPayout=(float)$s->fetchColumn();
+
+        $feedback=self::professionalCompanyFeedbackStats($pid,$userId);
+        $hasFeedback=$feedback['feedback_count']>0;
+
         return [
             'profile'=>$profile,
             'onboarding'=>self::professionalOnboardingState($userId),
             'kpis'=>[
                 'week'=>$week,
                 'earnings'=>$earnings,
-                'reliability'=>(int)($profile['reliability_score']??100),
-                'punctuality'=>(int)($profile['punctuality_score']??100),
+                'next_payout'=>$nextPayout,
+                'company_feedback_count'=>$feedback['feedback_count'],
+                'reliability'=>$hasFeedback?(int)round((float)$profile['reliability_score']):null,
+                'punctuality'=>$hasFeedback?(int)round((float)$profile['punctuality_score']):null,
+                'attendance'=>$hasFeedback?(int)round((float)$profile['attendance_score']):null,
+                'rating'=>$hasFeedback?(float)$profile['rating']:null,
             ],
             'opportunities'=>self::opportunities($userId,5),
             'assignments'=>self::professionalAssignments($userId,6),
@@ -1853,6 +1875,7 @@ final class Data
 
         $st=Database::connection()->prepare("SELECT DATE_FORMAT(created_at,'%Y-%m') month,SUM(amount) amount FROM tp_ledger WHERE professional_id=? AND direction='credit' GROUP BY DATE_FORMAT(created_at,'%Y-%m') ORDER BY month");
         $st->execute([$pid]);
+        $summary['next_payout']=(float)($summary['available']??0);
         return ['summary'=>$summary,'months'=>$st->fetchAll()];
     }
 
@@ -2135,13 +2158,77 @@ final class Data
         return $st->fetchAll();
     }
 
+    private static function professionalCompanyFeedbackStats(int $professionalId,int $professionalUserId): array
+    {
+        $st=Database::connection()->prepare(
+            'SELECT COUNT(*) feedback_count,
+                    AVG(rating) rating,
+                    AVG(attendance_rating) attendance_rating,
+                    AVG(punctuality_rating) punctuality_rating
+             FROM tp_reviews
+             WHERE reviewee_user_id=?
+               AND attendance_rating IS NOT NULL
+               AND punctuality_rating IS NOT NULL'
+        );
+        $st->execute([$professionalUserId]);
+        $row=$st->fetch() ?: [];
+        return [
+            'feedback_count'=>(int)($row['feedback_count']??0),
+            'rating'=>$row['rating']!==null?(float)$row['rating']:null,
+            'attendance_rating'=>$row['attendance_rating']!==null?(float)$row['attendance_rating']:null,
+            'punctuality_rating'=>$row['punctuality_rating']!==null?(float)$row['punctuality_rating']:null,
+        ];
+    }
+
+    private static function refreshProfessionalScoresFromCompanyFeedback(int $professionalId,int $professionalUserId): void
+    {
+        $stats=self::professionalCompanyFeedbackStats($professionalId,$professionalUserId);
+        if($stats['feedback_count']<=0) return;
+
+        $rating=max(1,min(5,(float)$stats['rating']));
+        $attendance=max(0,min(100,(float)$stats['attendance_rating']*20));
+        $punctuality=max(0,min(100,(float)$stats['punctuality_rating']*20));
+
+        $adjustment=Database::connection()->prepare(
+            "SELECT COALESCE(SUM(points_delta),0)
+             FROM tp_reputation_events
+             WHERE professional_id=?
+               AND event_type<>'completed_shift'
+               AND (expires_at IS NULL OR expires_at>NOW())
+               AND (appeal_status IS NULL OR appeal_status<>'accepted')"
+        );
+        $adjustment->execute([$professionalId]);
+        $operationalAdjustment=(float)$adjustment->fetchColumn();
+
+        // A confiabilidade só nasce após o primeiro retorno da empresa.
+        // Presença tem maior peso, seguida de pontualidade e avaliação geral.
+        $reliability=($attendance*0.40)+($punctuality*0.30)+(($rating*20)*0.30)+$operationalAdjustment;
+        $reliability=max(0,min(100,$reliability));
+
+        Database::connection()->prepare(
+            'UPDATE tp_professionals
+             SET reliability_score=?,attendance_score=?,punctuality_score=?,rating=?
+             WHERE id=?'
+        )->execute([
+            round($reliability,2),
+            round($attendance,2),
+            round($punctuality,2),
+            round($rating,2),
+            $professionalId
+        ]);
+    }
+
     public static function reputation(int $userId): array
     {
         $profile=self::professionalProfile($userId);
         $pid=self::professionalIdForUser($userId);
+        $feedback=self::professionalCompanyFeedbackStats($pid,$userId);
+        $profile['company_feedback_count']=$feedback['feedback_count'];
+        $profile['has_company_feedback']=$feedback['feedback_count']>0;
+
         $st=Database::connection()->prepare('SELECT * FROM tp_reputation_events WHERE professional_id=? ORDER BY occurred_at DESC LIMIT 20');
         $st->execute([$pid]);
-        return ['profile'=>$profile,'events'=>$st->fetchAll()];
+        return ['profile'=>$profile,'events'=>$st->fetchAll(),'feedback'=>$feedback];
     }
 
 
@@ -2622,12 +2709,16 @@ final class Data
         $pdo->prepare('INSERT INTO tp_reviews (assignment_id,reviewer_user_id,reviewee_user_id,rating,attendance_rating,punctuality_rating,comment,created_at) VALUES (?,?,?,?,?,?,?,NOW())')
             ->execute([$assignmentId,$userId,$assignment['professional_user_id'],$review['rating'],$review['attendance_rating'],$review['punctuality_rating'],$review['comment']]);
 
-        $avg=$pdo->prepare('SELECT AVG(rating) FROM tp_reviews WHERE reviewee_user_id=?');
-        $avg->execute([$assignment['professional_user_id']]);
-        $rating=(float)$avg->fetchColumn();
-        $pdo->prepare('UPDATE tp_professionals SET rating=? WHERE id=?')->execute([$rating,$assignment['professional_id']]);
+        self::refreshProfessionalScoresFromCompanyFeedback(
+            (int)$assignment['professional_id'],
+            (int)$assignment['professional_user_id']
+        );
 
-        self::audit($userId,'review.company_to_professional','assignment',$assignmentId,['rating'=>$review['rating']]);
+        self::audit($userId,'review.company_to_professional','assignment',$assignmentId,[
+            'rating'=>$review['rating'],
+            'attendance_rating'=>$review['attendance_rating'],
+            'punctuality_rating'=>$review['punctuality_rating']
+        ]);
     }
 
     public static function professionalReviewForAssignment(int $userId, int $assignmentId): ?array
