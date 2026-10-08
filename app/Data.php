@@ -1040,7 +1040,7 @@ final class Data
         $current=self::companyShift($userId,$shiftId);
         if(!$current) throw new RuntimeException('Vaga não encontrada.');
         if(in_array($current['status'],['cancelled','completed'],true)) throw new RuntimeException('Esta vaga não pode mais ser editada.');
-        if(strtotime($current['starts_at'])<=time()) throw new RuntimeException('Uma vaga que já iniciou não pode ser editada.');
+        if(strtotime($current['ends_at'])<=time()) throw new RuntimeException('Uma vaga cujo turno já terminou não pode mais ser editada.');
 
         $d=self::normalizedShiftInput($data);
         $pdo=Database::connection();
