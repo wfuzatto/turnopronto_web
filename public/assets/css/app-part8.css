@@ -170,3 +170,9 @@ input.cep-found{border-color:#69cc95!important;box-shadow:0 0 0 3px #e8f8ef!impo
 .notification-toast strong{font-size:10.5px;color:var(--text)}
 .notification-toast span{font-size:9px;line-height:1.45;color:var(--muted);margin-top:3px}
 @media(max-width:600px){.notification-toast-stack{right:12px;top:72px;width:calc(100vw - 24px)}.admin-inline-editor{grid-template-columns:minmax(0,1fr) 34px 34px}.admin-editable-cell>em{opacity:.85}}
+
+/* Realtime support conversation */
+.support-message p{white-space:pre-wrap}
+.support-message-new{animation:tp-support-message-in .32s ease both}
+@keyframes tp-support-message-in{from{opacity:0;transform:translateY(8px) scale(.992)}to{opacity:1;transform:none}}
+
