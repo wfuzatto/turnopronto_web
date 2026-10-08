@@ -42,6 +42,9 @@ jobs:
             -not -path './vendor/*' \
             -print0 | xargs -0 -n1 php -l
 
+      - name: JavaScript syntax
+        run: node --check public/assets/js/app.js
+
       - name: Base path regression tests
         run: |
           php tests/base_path_regression.php
@@ -132,6 +135,14 @@ jobs:
           grep -Fq "/vagas/(\d+)/acompanhar" app/Web.php
           grep -q 'Profissionais acompanhando' app/views/company_shift_detail.php
           grep -q 'Acompanhar vaga' app/views/public_shift_detail.php
+          grep -q 'Confiabilidade ainda não calculada' app/views/reputation.php
+          grep -q 'next_payout' app/Data.php
+          grep -q 'data-opportunity-location' app/views/opportunities.php
+          grep -q 'navigator.geolocation' public/assets/js/app.js
+          if grep -q 'R$ 780,00' app/views/earnings.php app/views/professional_dashboard.php; then
+            echo 'Repasse fictício ainda presente nas telas do profissional.' >&2
+            exit 1
+          fi
 
   deploy:
     needs: validate
@@ -170,6 +181,8 @@ jobs:
           grep -q '.notification-toast' public/assets/css/app.css
           grep -q '.global-search-dropdown' public/assets/css/app.css
           grep -q '.global-search-results' public/assets/css/app.css
+          grep -q '.location-permission' public/assets/css/app.css
+          grep -q '.reputation-pending' public/assets/css/app.css
           grep -q 'max-width:1360px' public/assets/css/app.css
           grep -q '.main-content>\*{margin-left:auto;margin-right:auto}' public/assets/css/app.css
 
