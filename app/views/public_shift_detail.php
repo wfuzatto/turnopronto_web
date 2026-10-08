@@ -11,7 +11,7 @@
   <?php if($error):?><div class="alert error"><?=e($error)?></div><?php endif;?>
   <section class="panel public-job-detail">
     <div class="public-job-detail-head">
-      <div class="public-job-icon large"><?=e(mb_strtoupper(mb_substr($shift['category_name'],0,1)))?></div>
+      <div class="public-job-icon large <?=!empty($shift['image_url'])?'has-photo':''?>"><?php if(!empty($shift['image_url'])):?><img src="<?=e($shift['image_url'])?>" alt="<?=e($shift['title']?:$shift['category_name'])?>"><?php else:?><?=e(mb_strtoupper(mb_substr($shift['category_name'],0,1)))?><?php endif;?></div>
       <div><span class="public-job-category"><?=e($shift['category_name'])?></span><h1><?=e($shift['title']?:$shift['category_name'])?></h1><p><?=e($shift['company_name'])?></p></div>
       <div class="public-job-detail-value"><strong><?=money($shift['shift_value'])?></strong><small>por turno</small></div>
     </div>
