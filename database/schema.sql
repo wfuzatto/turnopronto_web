@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS tp_shifts (
   category_id BIGINT UNSIGNED NOT NULL,
   title VARCHAR(160) NOT NULL,
   description TEXT NULL,
+  image_path VARCHAR(255) NULL,
   starts_at DATETIME NOT NULL,
   ends_at DATETIME NOT NULL,
   shift_value DECIMAL(12,2) NOT NULL,
