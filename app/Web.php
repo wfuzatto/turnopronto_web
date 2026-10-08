@@ -702,6 +702,26 @@ final class Web
             }
         }
 
+        if (preg_match('#^/(empresa|profissional|admin)/suporte/chamados/(\d+)/atualizacoes$#',$path,$m) && $method==='GET') {
+            $role=$m[1]==='empresa'?'company':($m[1]==='profissional'?'professional':'admin');
+            $u=Auth::requireRole($role);
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+            try{
+                $updates=Data::supportTicketUpdates(
+                    (int)$u['id'],
+                    $role,
+                    (int)$m[2],
+                    max(0,(int)($_GET['after']??0))
+                );
+                echo json_encode(['ok'=>true,'data'=>$updates],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+            }catch(Throwable $e){
+                http_response_code(403);
+                echo json_encode(['ok'=>false,'error'=>$e->getMessage()],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+            }
+            exit;
+        }
+
         if (preg_match('#^/(empresa|profissional|admin)/suporte/chamados/(\d+)/mensagens$#',$path,$m) && $method==='POST') {
             $role=$m[1]==='empresa'?'company':($m[1]==='profissional'?'professional':'admin');
             $u=Auth::requireRole($role);
