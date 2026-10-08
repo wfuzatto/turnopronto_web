@@ -91,6 +91,8 @@ final class Web
             if(!Database::available()) View::render('not_installed',['title'=>'Serviço indisponível'],false);
             $appearance=Data::platformAppearance();
             $skin=(string)($appearance['web_skin']??'modern');
+            $preview=(string)($_GET['preview_skin']??'');
+            if(in_array($preview,['classic','modern','minimal'],true)) $skin=$preview;
             $view=$skin==='classic'?'public_opportunities':($skin==='minimal'?'public_opportunities_minimal':'public_opportunities_modern');
             View::render($view,[
                 'title'=>'Vagas',
@@ -1175,7 +1177,10 @@ final class Web
             if($method==='POST'){
                 verify_csrf();
                 try{
-                    Data::savePlatformAppearance((int)$u['id'],$_POST);
+                    $payload=$_POST;
+                    $activate=(string)($payload['activate']??'');
+                    if(in_array($activate,['classic','modern','minimal'],true)) $payload['web_skin']=$activate;
+                    Data::savePlatformAppearance((int)$u['id'],$payload);
                     flash('success','Configurações de aparência atualizadas.');
                     redirect('admin/configuracoes');
                 }catch(Throwable $e){
