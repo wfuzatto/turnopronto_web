@@ -768,6 +768,76 @@
     destination.lat.toFixed(5),destination.lng.toFixed(5)
   ].join(',');
 
+  const osrmFallbackDistancesKm=async(origin,batch)=>{
+    const result=new Map();
+    try{
+      const coordinates=[origin,...batch.map(item=>item.destination)]
+        .map(point=>point.lng+','+point.lat)
+        .join(';');
+      const destinations=batch.map((_,index)=>index+1).join(';');
+      const url='https://router.project-osrm.org/table/v1/driving/'+coordinates
+        +'?sources=0&destinations='+destinations+'&annotations=distance';
+      const response=await fetch(url,{headers:{'Accept':'application/json'},cache:'no-store'});
+      if(!response.ok) return result;
+      const payload=await response.json();
+      const distances=Array.isArray(payload?.distances?.[0])?payload.distances[0]:[];
+      batch.forEach((item,index)=>{
+        const meters=Number(distances[index]);
+        if(Number.isFinite(meters)&&meters>=0) result.set(item.row,meters/1000);
+      });
+    }catch(_){}
+    return result;
+  };
+
+  const valhallaDistancesKm=async(origin,batch)=>{
+    const result=new Map();
+    const request={
+      sources:[{lat:origin.lat,lon:origin.lng}],
+      targets:batch.map(item=>({lat:item.destination.lat,lon:item.destination.lng})),
+      costing:'auto',
+      units:'km',
+      costing_options:{
+        auto:{
+          use_highways:0.8,
+          use_tracks:0,
+          use_living_streets:0,
+          exclude_unpaved:true,
+          use_tolls:0.5
+        }
+      }
+    };
+
+    try{
+      const url='https://valhalla1.openstreetmap.de/sources_to_targets?json='+encodeURIComponent(JSON.stringify(request));
+      const response=await fetch(url,{
+        headers:{
+          'Accept':'application/json',
+          'X-Client-Id':'turnopronto.com.br'
+        },
+        cache:'no-store'
+      });
+      if(!response.ok) return result;
+      const payload=await response.json();
+      const matrix=payload?.sources_to_targets;
+
+      if(Array.isArray(matrix?.distances?.[0])){
+        matrix.distances[0].forEach((distance,index)=>{
+          const km=Number(distance);
+          if(Number.isFinite(km)&&km>=0&&batch[index]) result.set(batch[index].row,km);
+        });
+        return result;
+      }
+
+      if(Array.isArray(matrix?.[0])){
+        matrix[0].forEach((entry,index)=>{
+          const km=Number(entry?.distance);
+          if(Number.isFinite(km)&&km>=0&&batch[index]) result.set(batch[index].row,km);
+        });
+      }
+    }catch(_){}
+    return result;
+  };
+
   const roadDistancesKm=async(origin,items)=>{
     const results=new Map();
     const pending=[];
@@ -777,7 +847,7 @@
       let cached=roadDistanceCache.get(key);
       if(cached===undefined){
         try{
-          const stored=sessionStorage.getItem('tp-road:'+key);
+          const stored=sessionStorage.getItem('tp-road-v2:'+key);
           cached=stored===null?undefined:Number(stored);
         }catch(_){}
       }
@@ -791,29 +861,26 @@
     const batchSize=20;
     for(let start=0;start<pending.length;start+=batchSize){
       const batch=pending.slice(start,start+batchSize);
-      const coordinates=[origin,...batch.map(item=>item.destination)]
-        .map(point=>point.lng+','+point.lat)
-        .join(';');
-      const destinations=batch.map((_,index)=>index+1).join(';');
-      const url='https://router.project-osrm.org/table/v1/driving/'+coordinates
-        +'?sources=0&destinations='+destinations+'&annotations=distance';
 
-      try{
-        const response=await fetch(url,{headers:{'Accept':'application/json'},cache:'no-store'});
-        if(!response.ok) throw new Error('routing failed');
-        const payload=await response.json();
-        const distances=Array.isArray(payload?.distances?.[0])?payload.distances[0]:[];
+      // Valhalla tende a se aproximar mais de uma rota rodoviária convencional:
+      // evita vias não pavimentadas/trilhas e favorece rodovias principais.
+      let routed=await valhallaDistancesKm(origin,batch);
 
-        batch.forEach((item,index)=>{
-          const meters=Number(distances[index]);
-          if(Number.isFinite(meters)&&meters>=0){
-            const km=meters/1000;
-            results.set(item.row,km);
-            roadDistanceCache.set(item.key,km);
-            try{sessionStorage.setItem('tp-road:'+item.key,String(km));}catch(_){}
-          }
-        });
-      }catch(_){}
+      // Fallback para OSRM se o serviço principal não responder ou não encontrar rota.
+      const missing=batch.filter(item=>!routed.has(item.row));
+      if(missing.length){
+        const fallback=await osrmFallbackDistancesKm(origin,missing);
+        fallback.forEach((km,row)=>routed.set(row,km));
+      }
+
+      batch.forEach(item=>{
+        const km=routed.get(item.row);
+        if(Number.isFinite(km)){
+          results.set(item.row,km);
+          roadDistanceCache.set(item.key,km);
+          try{sessionStorage.setItem('tp-road-v2:'+item.key,String(km));}catch(_){}
+        }
+      });
     }
 
     return results;
@@ -945,7 +1012,7 @@
         const base=location.manual
           ?'Ponto de partida manual aplicado.'
           :'Localização do navegador aplicada'+(accuracyText?' ('+accuracyText+').':'.');
-        status.textContent=base+' '+routeCount+' vaga(s) calculada(s) pela rota viária'
+        status.textContent=base+' '+routeCount+' vaga(s) calculada(s) pela rota rodoviária principal'
           +(fallbackCount?' e '+fallbackCount+' com estimativa em linha reta porque o serviço de rotas não respondeu.':'.');
       }
     };
