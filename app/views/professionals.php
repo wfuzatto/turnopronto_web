@@ -13,10 +13,10 @@
   <div class="grow">
     <h3><?=e($p['name'])?></h3>
     <p><?=e($p['headline']?:'Profissional TurnoPronto')?></p>
-    <div class="stars">★ <?=number_format((float)$p['rating'],1,',','.')?> <span>· <?=$p['completed_shifts']?> turnos</span></div>
+    <div class="stars"><?=!empty($p['company_feedback_count'])?('★ '.number_format((float)$p['rating'],1,',','.')):'Sem avaliação ainda'?> <span>· <?=$p['completed_shifts']?> turnos</span></div>
   </div>
-  <div class="score-ring"><b><?=round($p['reliability_score'])?>%</b><span>confiabilidade</span></div>
-  <div class="pro-card-metrics"><span><b><?=round($p['attendance_score'])?>%</b> presença</span><span><b><?=round($p['punctuality_score'])?>%</b> pontualidade</span></div>
+  <div class="score-ring"><b><?=!empty($p['company_feedback_count'])?round($p['reliability_score']).'%':'—'?></b><span>confiabilidade</span></div>
+  <div class="pro-card-metrics"><span><b><?=!empty($p['company_feedback_count'])?round($p['attendance_score']).'%':'—'?></b> presença</span><span><b><?=!empty($p['company_feedback_count'])?round($p['punctuality_score']).'%':'—'?></b> pontualidade</span></div>
 
   <?php if($openShifts):?>
   <form class="invite-form" method="post" action="<?=e(url('empresa/profissionais/'.$p['id'].'/convidar'))?>">
