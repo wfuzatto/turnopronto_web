@@ -726,10 +726,25 @@ final class Web
             $role=$m[1]==='empresa'?'company':($m[1]==='profissional'?'professional':'admin');
             $u=Auth::requireRole($role);
             verify_csrf();
+            $wantsJson=str_contains(strtolower((string)($_SERVER['HTTP_ACCEPT']??'')),'application/json')
+                || strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH']??''))==='xmlhttprequest';
             try{
-                Data::addSupportMessage((int)$u['id'],$role,(int)$m[2],(string)($_POST['message']??''));
+                $updates=Data::addSupportMessage((int)$u['id'],$role,(int)$m[2],(string)($_POST['message']??''));
+                if($wantsJson){
+                    header('Content-Type: application/json; charset=utf-8');
+                    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+                    echo json_encode(['ok'=>true,'data'=>$updates],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+                    exit;
+                }
                 flash('success','Mensagem enviada.');
             }catch(Throwable $e){
+                if($wantsJson){
+                    http_response_code(422);
+                    header('Content-Type: application/json; charset=utf-8');
+                    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+                    echo json_encode(['ok'=>false,'error'=>$e->getMessage()],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+                    exit;
+                }
                 flash('error',$e->getMessage());
             }
             redirect($m[1].'/suporte/chamados/'.$m[2]);
