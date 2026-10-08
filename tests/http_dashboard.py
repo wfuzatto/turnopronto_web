@@ -150,9 +150,10 @@ print('ADMIN verification review pages: PASS')
 # Professionals browse vacancies before any signup.
 public = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
 jobs = public.open(base + '/vagas', timeout=20).read().decode()
-for marker in ['Veja as vagas primeiro', 'Vagas disponíveis', 'Tenho interesse']:
+for marker in ['Veja as vagas primeiro', 'Vagas disponíveis', 'Tenho interesse', 'data-public-job-modal-open', 'public-job-modal', 'Acompanhar vaga']:
     assert marker in jobs, 'public vacancy page missing ' + marker
 assert 'name="cpf"' not in jobs and 'name="password"' not in jobs, 'public browsing unexpectedly asks for registration data'
+assert re.search(r'<button[^>]+data-public-job-modal-open=[^>]*>Ver detalhes</button>', jobs), 'public vacancy details still redirect instead of opening a modal'
 
 direct_signup = public.open(base + '/cadastro/profissional', timeout=20)
 assert urllib.parse.urlparse(direct_signup.url).path == '/vagas', 'professional signup must not start before vacancy interest'
