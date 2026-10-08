@@ -64,6 +64,26 @@ final class Data
         $ready=true;
     }
 
+    private static function ensureShiftFollowingSchema(): void
+    {
+        static $ready=false;
+        if($ready) return;
+        $pdo=Database::connection();
+        $pdo->exec("CREATE TABLE IF NOT EXISTS tp_shift_followers (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            shift_id BIGINT UNSIGNED NOT NULL,
+            professional_id BIGINT UNSIGNED NOT NULL,
+            followed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_shift_follower (shift_id,professional_id),
+            CONSTRAINT fk_shift_follower_shift FOREIGN KEY (shift_id) REFERENCES tp_shifts(id) ON DELETE CASCADE,
+            CONSTRAINT fk_shift_follower_prof FOREIGN KEY (professional_id) REFERENCES tp_professionals(id) ON DELETE CASCADE,
+            INDEX idx_shift_followers_prof (professional_id,followed_at),
+            INDEX idx_shift_followers_shift (shift_id,followed_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $ready=true;
+    }
+
     private static function notificationActionPath(string $path): string
     {
         $path=ltrim(trim($path),'/');
@@ -156,6 +176,95 @@ final class Data
                 $data['professional_name'].' se candidatou para '.$data['category_name'].' · '.$data['title'].'.',
                 'empresa/vagas/'.$shiftId,
                 'application:'.$shiftId.':'.$professionalId
+            );
+        }
+    }
+
+    private static function notifyCompanyMembersOfFollow(int $shiftId,int $professionalId): void
+    {
+        $pdo=Database::connection();
+        $st=$pdo->prepare("SELECT s.title,s.company_id,jc.name category_name,u.name professional_name
+                           FROM tp_shifts s
+                           JOIN tp_job_categories jc ON jc.id=s.category_id
+                           JOIN tp_professionals p ON p.id=?
+                           JOIN tp_users u ON u.id=p.user_id
+                           WHERE s.id=? LIMIT 1");
+        $st->execute([$professionalId,$shiftId]);
+        $data=$st->fetch();
+        if(!$data) return;
+
+        $members=$pdo->prepare("SELECT DISTINCT u.id
+                                FROM tp_company_members cm
+                                JOIN tp_users u ON u.id=cm.user_id
+                                WHERE cm.company_id=? AND u.status='active'");
+        $members->execute([(int)$data['company_id']]);
+        foreach($members->fetchAll(PDO::FETCH_COLUMN) as $memberUserId){
+            self::createNotification(
+                (int)$memberUserId,
+                'shift_follow',
+                'Novo interesse na vaga',
+                $data['professional_name'].' começou a acompanhar '.$data['category_name'].' · '.$data['title'].'. Ele ainda não se candidatou, mas autorizou a empresa a visualizar seus contatos.',
+                'empresa/vagas/'.$shiftId,
+                'shift_follow:'.$shiftId.':'.$professionalId
+            );
+        }
+    }
+
+    private static function notifyShiftParticipantsOfUpdate(int $shiftId,array $before,array $after): void
+    {
+        self::ensureShiftFollowingSchema();
+
+        $changed=[];
+        $pairs=[
+            'category_id'=>'função',
+            'title'=>'título',
+            'starts_at'=>'data/horário',
+            'ends_at'=>'data/horário',
+            'shift_value'=>'remuneração',
+            'required_workers'=>'quantidade de profissionais',
+            'address'=>'endereço',
+            'city'=>'cidade',
+            'state'=>'UF',
+            'dress_code'=>'uniforme',
+            'notes'=>'orientações',
+            'acceptance_mode'=>'modo de aceite',
+        ];
+        foreach($pairs as $field=>$label){
+            if((string)($before[$field]??'')!==(string)($after[$field]??'')) $changed[]=$label;
+        }
+        $changed=array_values(array_unique($changed));
+        if(!$changed) return;
+
+        $pdo=Database::connection();
+        $sql="SELECT DISTINCT target.user_id
+              FROM (
+                  SELECT p.user_id
+                  FROM tp_shift_followers f
+                  JOIN tp_professionals p ON p.id=f.professional_id
+                  WHERE f.shift_id=?
+                  UNION
+                  SELECT p.user_id
+                  FROM tp_shift_applications a
+                  JOIN tp_professionals p ON p.id=a.professional_id
+                  WHERE a.shift_id=? AND a.status IN ('applied','invited','accepted')
+                  UNION
+                  SELECT p.user_id
+                  FROM tp_assignments x
+                  JOIN tp_professionals p ON p.id=x.professional_id
+                  WHERE x.shift_id=? AND x.status<>'cancelled'
+              ) target";
+        $st=$pdo->prepare($sql);
+        $st->execute([$shiftId,$shiftId,$shiftId]);
+
+        $title=trim((string)($after['title']??$before['title']??'vaga'));
+        $body='A empresa atualizou a vaga '.$title.'. Alterações: '.implode(', ',$changed).'. Confira os novos detalhes antes do turno.';
+        foreach($st->fetchAll(PDO::FETCH_COLUMN) as $targetUserId){
+            self::createNotification(
+                (int)$targetUserId,
+                'shift_updated',
+                'Uma vaga que você acompanha foi atualizada',
+                $body,
+                'profissional/vagas/'.$shiftId
             );
         }
     }
@@ -647,10 +756,12 @@ final class Data
 
     public static function companyShifts(int $userId, int $limit=50): array
     {
+        self::ensureShiftFollowingSchema();
         $companyId=self::companyIdForUser($userId);
         $sql="SELECT s.*, c.name category_name,
                 (SELECT COUNT(*) FROM tp_shift_applications a WHERE a.shift_id=s.id AND a.status IN ('applied','invited')) candidates,
-                (SELECT COUNT(*) FROM tp_assignments x WHERE x.shift_id=s.id AND x.status <> 'cancelled') assigned
+                (SELECT COUNT(*) FROM tp_assignments x WHERE x.shift_id=s.id AND x.status <> 'cancelled') assigned,
+                (SELECT COUNT(*) FROM tp_shift_followers f WHERE f.shift_id=s.id) followers
             FROM tp_shifts s
             JOIN tp_job_categories c ON c.id=s.category_id
             WHERE s.company_id=?
@@ -676,10 +787,12 @@ final class Data
 
     public static function companyShift(int $userId, int $shiftId): ?array
     {
+        self::ensureShiftFollowingSchema();
         $companyId=self::companyIdForUser($userId);
         $sql="SELECT s.*,c.name category_name,
               (SELECT COUNT(*) FROM tp_shift_applications a WHERE a.shift_id=s.id AND a.status IN ('applied','invited')) candidates,
-              (SELECT COUNT(*) FROM tp_assignments x WHERE x.shift_id=s.id AND x.status <> 'cancelled') assigned
+              (SELECT COUNT(*) FROM tp_assignments x WHERE x.shift_id=s.id AND x.status <> 'cancelled') assigned,
+              (SELECT COUNT(*) FROM tp_shift_followers f WHERE f.shift_id=s.id) followers
               FROM tp_shifts s JOIN tp_job_categories c ON c.id=s.category_id
               WHERE s.id=? AND s.company_id=? LIMIT 1";
         $st=Database::connection()->prepare($sql);
@@ -716,6 +829,60 @@ final class Data
         $st=Database::connection()->prepare($sql);
         $st->execute([$shiftId]);
         return $st->fetchAll();
+    }
+
+    public static function companyShiftFollowers(int $userId, int $shiftId): array
+    {
+        self::ensureShiftFollowingSchema();
+        if(!self::companyShift($userId,$shiftId)) return [];
+        $sql="SELECT f.followed_at,p.id professional_id,p.status professional_status,p.headline,p.reliability_score,p.punctuality_score,p.attendance_score,p.rating,p.completed_shifts,
+                     u.id user_id,u.name,u.avatar_url,u.email,u.phone
+              FROM tp_shift_followers f
+              JOIN tp_professionals p ON p.id=f.professional_id
+              JOIN tp_users u ON u.id=p.user_id
+              WHERE f.shift_id=?
+              ORDER BY f.followed_at DESC";
+        $st=Database::connection()->prepare($sql);
+        $st->execute([$shiftId]);
+        return $st->fetchAll();
+    }
+
+    public static function isFollowingShift(int $userId, int $shiftId): bool
+    {
+        self::ensureShiftFollowingSchema();
+        $pid=self::professionalIdForUser($userId);
+        if(!$pid) return false;
+        $st=Database::connection()->prepare('SELECT 1 FROM tp_shift_followers WHERE shift_id=? AND professional_id=? LIMIT 1');
+        $st->execute([$shiftId,$pid]);
+        return (bool)$st->fetchColumn();
+    }
+
+    public static function followShift(int $userId, int $shiftId): void
+    {
+        self::ensureShiftFollowingSchema();
+        $pid=self::professionalIdForUser($userId);
+        if(!$pid) throw new RuntimeException('Perfil profissional não encontrado.');
+
+        $shift=self::publicShift($shiftId);
+        if(!$shift) throw new RuntimeException('Esta vaga não está mais disponível para acompanhamento.');
+
+        $pdo=Database::connection();
+        $st=$pdo->prepare('INSERT IGNORE INTO tp_shift_followers (shift_id,professional_id,followed_at,updated_at) VALUES (?,?,NOW(),NOW())');
+        $st->execute([$shiftId,$pid]);
+        if($st->rowCount()>0){
+            self::audit($userId,'shift.followed','shift',$shiftId);
+            self::notifyCompanyMembersOfFollow($shiftId,$pid);
+        }
+    }
+
+    public static function unfollowShift(int $userId, int $shiftId): void
+    {
+        self::ensureShiftFollowingSchema();
+        $pid=self::professionalIdForUser($userId);
+        if(!$pid) return;
+        $st=Database::connection()->prepare('DELETE FROM tp_shift_followers WHERE shift_id=? AND professional_id=?');
+        $st->execute([$shiftId,$pid]);
+        if($st->rowCount()>0) self::audit($userId,'shift.unfollowed','shift',$shiftId);
     }
 
     public static function categories(): array
@@ -845,6 +1012,9 @@ final class Data
         $company=self::companyProfile($userId);
         if(($company['status']??'pending')!=='verified') throw new RuntimeException('A empresa precisa ser verificada antes de publicar vagas.');
         $d=self::normalizedShiftInput($data);
+        if((int)$d['required_workers']<(int)($current['assigned']??0)){
+            throw new RuntimeException('A quantidade de profissionais não pode ser menor que o número já confirmado neste turno.');
+        }
         $pdo=Database::connection();
 
         if(self::hasColumn('tp_shifts','acceptance_mode')){
@@ -885,6 +1055,7 @@ final class Data
 
         $pdo->prepare($sql)->execute($params);
         self::audit($userId,'shift.updated','shift',$shiftId,['title'=>$d['title']]);
+        self::notifyShiftParticipantsOfUpdate($shiftId,$current,$d);
         if((int)$current['category_id']!==(int)$d['category_id']) self::notifyProfessionalsForShift($shiftId);
     }
 
@@ -1505,6 +1676,7 @@ final class Data
     }
     public static function acceptShift(int $userId, int $shiftId): array
     {
+        self::ensureShiftFollowingSchema();
         $pdo=Database::connection();
         $pid=self::professionalIdForUser($userId);
         if(!$pid) throw new RuntimeException('Perfil profissional não encontrado.');
@@ -1529,6 +1701,7 @@ final class Data
             $st->execute([$shiftId,$pid]);
             $existing=$st->fetchColumn();
             if($existing){
+                $pdo->prepare('DELETE FROM tp_shift_followers WHERE shift_id=? AND professional_id=?')->execute([$shiftId,$pid]);
                 $pdo->commit();
                 return ['status'=>'confirmed','assignment_id'=>(int)$existing];
             }
@@ -1543,6 +1716,7 @@ final class Data
                     ->execute([$shiftId,$pid]);
                 $pdo->prepare('UPDATE tp_shifts SET status="filling" WHERE id=? AND status="published"')->execute([$shiftId]);
                 self::audit($userId,'shift.applied_pending_verification','shift',$shiftId);
+                $pdo->prepare('DELETE FROM tp_shift_followers WHERE shift_id=? AND professional_id=?')->execute([$shiftId,$pid]);
                 $pdo->commit();
                 self::notifyCompanyMembersOfApplication($shiftId,$pid);
                 return ['status'=>'verification_pending','assignment_id'=>null];
@@ -1554,6 +1728,7 @@ final class Data
                     ->execute([$shiftId,$pid]);
                 $pdo->prepare('UPDATE tp_shifts SET status="filling" WHERE id=? AND status="published"')->execute([$shiftId]);
                 self::audit($userId,'shift.applied','shift',$shiftId);
+                $pdo->prepare('DELETE FROM tp_shift_followers WHERE shift_id=? AND professional_id=?')->execute([$shiftId,$pid]);
                 $pdo->commit();
                 self::notifyCompanyMembersOfApplication($shiftId,$pid);
                 return ['status'=>'applied','assignment_id'=>null];
@@ -1575,6 +1750,7 @@ final class Data
             $pdo->prepare('UPDATE tp_shifts SET status=? WHERE id=?')->execute([$count>=(int)$shift['required_workers']?'confirmed':'filling',$shiftId]);
 
             self::audit($userId,'shift.accepted','shift',$shiftId,['assignment_id'=>$assignmentId]);
+            $pdo->prepare('DELETE FROM tp_shift_followers WHERE shift_id=? AND professional_id=?')->execute([$shiftId,$pid]);
             $pdo->commit();
             return ['status'=>'confirmed','assignment_id'=>$assignmentId];
         } catch(Throwable $e){
