@@ -67,7 +67,7 @@ $heroPhoto='https://plus.unsplash.com/premium_photo-1661391652899-ae0e9df22e14?a
         <?php foreach($featured as $index=>$s):?>
           <article class="tp-modern-feature-card" data-modern-job data-shift-id="<?=e((string)$s['id'])?>" data-search="<?=e(mb_strtolower(($s['category_name']??'').' '.($s['title']??'').' '.($s['company_name']??'').' '.($s['city']??'').' '.($s['state']??''),'UTF-8'))?>" data-category="<?=e(mb_strtolower((string)($s['category_name']??''),'UTF-8'))?>">
             <div class="tp-modern-feature-top">
-              <div class="tp-modern-job-thumb thumb-<?=($index%3)+1?>"><?php if(!empty($s['company_logo'])):?><img src="<?=e($s['company_logo'])?>" alt=""><?php else:?><span><?=e(mb_strtoupper(mb_substr($s['category_name'],0,1)))?></span><?php endif;?></div>
+              <div class="tp-modern-job-thumb thumb-<?=($index%3)+1?>"><?php if(!empty($s['image_url'])):?><img src="<?=e($s['image_url'])?>" alt="<?=e($s['title']?:$s['category_name'])?>"><?php elseif(!empty($s['company_logo'])):?><img src="<?=e($s['company_logo'])?>" alt="<?=e($s['company_name'])?>"><?php else:?><span><?=e(mb_strtoupper(mb_substr($s['category_name'],0,1)))?></span><?php endif;?></div>
               <div class="tp-modern-job-info">
                 <span class="tp-modern-role-pill"><?=e($s['category_name'])?></span>
                 <h3><?=e($s['title']?:$s['category_name'])?></h3>
@@ -105,7 +105,7 @@ $heroPhoto='https://plus.unsplash.com/premium_photo-1661391652899-ae0e9df22e14?a
       <div class="tp-modern-all-list" data-modern-job-list>
         <?php foreach($opportunities as $s):?>
           <article class="tp-modern-row" data-modern-job data-modern-list-job data-shift-id="<?=e((string)$s['id'])?>" data-search="<?=e(mb_strtolower(($s['category_name']??'').' '.($s['title']??'').' '.($s['company_name']??'').' '.($s['city']??'').' '.($s['state']??''),'UTF-8'))?>" data-category="<?=e(mb_strtolower((string)($s['category_name']??''),'UTF-8'))?>">
-            <div class="tp-modern-mini-thumb"><?php if(!empty($s['company_logo'])):?><img src="<?=e($s['company_logo'])?>" alt=""><?php else:?><span><?=e(mb_strtoupper(mb_substr($s['category_name'],0,1)))?></span><?php endif;?></div>
+            <div class="tp-modern-mini-thumb"><?php if(!empty($s['image_url'])):?><img src="<?=e($s['image_url'])?>" alt="<?=e($s['title']?:$s['category_name'])?>"><?php elseif(!empty($s['company_logo'])):?><img src="<?=e($s['company_logo'])?>" alt="<?=e($s['company_name'])?>"><?php else:?><span><?=e(mb_strtoupper(mb_substr($s['category_name'],0,1)))?></span><?php endif;?></div>
             <div class="tp-modern-row-role"><span><?=e($s['category_name'])?></span><strong><?=e($s['title']?:$s['category_name'])?></strong><small><?=icon('briefcase',13)?> <?=e($s['company_name'])?></small></div>
             <div class="tp-modern-row-meta"><?=icon('map',16)?> <?=e($s['city'].' - '.$s['state'])?></div>
             <div class="tp-modern-row-meta"><?=icon('calendar',16)?> <?=br_date($s['starts_at'],'d/m/Y')?></div>
@@ -118,7 +118,7 @@ $heroPhoto='https://plus.unsplash.com/premium_photo-1661391652899-ae0e9df22e14?a
           <dialog class="public-job-modal" id="public-job-modal-<?=e((string)$s['id'])?>" aria-labelledby="public-job-modal-title-<?=e((string)$s['id'])?>">
             <div class="public-job-modal-card">
               <div class="public-job-modal-top">
-                <div class="public-job-icon large"><?=e(mb_strtoupper(mb_substr($s['category_name'],0,1)))?></div>
+                <div class="public-job-icon large <?=!empty($s['image_url'])?'has-photo':''?>"><?php if(!empty($s['image_url'])):?><img src="<?=e($s['image_url'])?>" alt="<?=e($s['title']?:$s['category_name'])?>"><?php else:?><?=e(mb_strtoupper(mb_substr($s['category_name'],0,1)))?><?php endif;?></div>
                 <div class="public-job-modal-heading"><span class="public-job-category"><?=e($s['category_name'])?></span><h2 id="public-job-modal-title-<?=e((string)$s['id'])?>"><?=e($s['title']?:$s['category_name'])?></h2><p><?=e($s['company_name'])?></p></div>
                 <button class="public-job-modal-close" type="button" data-public-job-modal-close aria-label="Fechar detalhes">×</button>
               </div>
