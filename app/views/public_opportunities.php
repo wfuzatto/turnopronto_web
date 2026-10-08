@@ -1,6 +1,6 @@
 <?php $success=flash('success'); $error=flash('error'); ?>
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Vagas • TurnoPronto</title><link rel="stylesheet" href="<?=e(asset('css/app.css'))?>"></head>
+<title>Vagas • TurnoPronto</title><link rel="stylesheet" href="<?=e(asset('css/app.css'))?>"><script src="<?=e(asset('js/app.js'))?>" defer></script></head>
 <body class="public-jobs-page">
 <header class="public-jobs-header">
   <a href="<?=e(url('vagas'))?>" class="public-jobs-brand"><img src="<?=e(asset('img/logo.svg'))?>" alt="TurnoPronto"></a>
@@ -45,10 +45,61 @@
           </div>
           <div class="public-job-value"><strong><?=money($s['shift_value'])?></strong><small>por turno</small></div>
           <div class="public-job-actions">
-            <a class="btn btn-soft" href="<?=e(url('vagas/'.$s['id']))?>">Ver detalhes</a>
+            <button class="btn btn-soft" type="button" data-public-job-modal-open="public-job-modal-<?=e((string)$s['id'])?>">Ver detalhes</button>
             <form method="post" action="<?=e(url('vagas/'.$s['id'].'/interesse'))?>"><?=csrf_field()?><button class="btn btn-primary" type="submit">Tenho interesse</button></form>
           </div>
         </article>
+
+        <dialog class="public-job-modal" id="public-job-modal-<?=e((string)$s['id'])?>" aria-labelledby="public-job-modal-title-<?=e((string)$s['id'])?>">
+          <div class="public-job-modal-card">
+            <div class="public-job-modal-top">
+              <div class="public-job-icon large"><?=e(mb_strtoupper(mb_substr($s['category_name'],0,1)))?></div>
+              <div class="public-job-modal-heading">
+                <span class="public-job-category"><?=e($s['category_name'])?></span>
+                <h2 id="public-job-modal-title-<?=e((string)$s['id'])?>"><?=e($s['title']?:$s['category_name'])?></h2>
+                <p><?=e($s['company_name'])?></p>
+              </div>
+              <button class="public-job-modal-close" type="button" data-public-job-modal-close aria-label="Fechar detalhes">×</button>
+            </div>
+
+            <div class="public-job-modal-price">
+              <span>Remuneração</span>
+              <strong><?=money($s['shift_value'])?></strong>
+              <small>por turno</small>
+            </div>
+
+            <div class="public-job-detail-grid public-job-modal-grid">
+              <div><small>Data</small><strong><?=br_date($s['starts_at'],'d/m/Y')?></strong></div>
+              <div><small>Horário</small><strong><?=date('H:i',strtotime($s['starts_at']))?> – <?=date('H:i',strtotime($s['ends_at']))?></strong></div>
+              <div><small>Local</small><strong><?=e($s['city'].' - '.$s['state'])?></strong></div>
+              <div><small>Vagas</small><strong><?=e((string)$s['required_workers'])?> pessoa(s)</strong></div>
+            </div>
+
+            <?php if(!empty($s['address'])):?><div class="public-job-modal-address"><?=icon('map',16)?><span><?=e($s['address'])?> · <?=e($s['city'].' - '.$s['state'])?></span></div><?php endif;?>
+
+            <?php if(!empty($s['description'])):?><div class="public-job-description"><h3>Sobre a vaga</h3><p><?=nl2br(e($s['description']))?></p></div><?php endif;?>
+            <?php if(!empty($s['dress_code'])):?><div class="public-job-description"><h3>Orientação de vestimenta</h3><p><?=e($s['dress_code'])?></p></div><?php endif;?>
+            <?php if(!empty($s['notes'])):?><div class="public-job-description"><h3>Orientações</h3><p><?=nl2br(e($s['notes']))?></p></div><?php endif;?>
+
+            <div class="public-job-modal-footer">
+              <div>
+                <strong>Gostou desta vaga?</strong>
+                <span>Você pode acompanhar sem compromisso ou iniciar sua candidatura.</span>
+              </div>
+              <div class="public-job-modal-actions">
+                <form method="post" action="<?=e(url('vagas/'.$s['id'].'/acompanhar'))?>">
+                  <?=csrf_field()?>
+                  <input type="hidden" name="action" value="follow">
+                  <button class="btn btn-soft" type="submit">Acompanhar vaga</button>
+                </form>
+                <form method="post" action="<?=e(url('vagas/'.$s['id'].'/interesse'))?>">
+                  <?=csrf_field()?>
+                  <button class="btn btn-primary" type="submit">Tenho interesse</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </dialog>
       <?php endforeach;?>
     </div>
   </section>
