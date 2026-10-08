@@ -23,7 +23,7 @@
         $search=mb_strtolower($s['category_name'].' '.$s['title'].' '.$s['city'].' '.$s['state']);
       ?>
         <tr data-filter-row data-search="<?=e($search)?>" data-status="<?=e($s['status'])?>">
-          <td><div class="role-cell"><div class="role-thumb"><?=e(mb_strtoupper(mb_substr($s['category_name'],0,1)))?></div><div><strong><?=e($s['category_name'])?></strong><small><?=e($s['title'])?> · <?=e($s['city'].' - '.$s['state'])?></small></div></div></td>
+          <td><div class="role-cell"><div class="role-thumb <?=!empty($s['image_url'])?'has-photo':''?>"><?php if(!empty($s['image_url'])):?><img src="<?=e($s['image_url'])?>" alt="<?=e($s['title']?:$s['category_name'])?>"><?php else:?><?=e(mb_strtoupper(mb_substr($s['category_name'],0,1)))?><?php endif;?></div><div><strong><?=e($s['category_name'])?></strong><small><?=e($s['title'])?> · <?=e($s['city'].' - '.$s['state'])?></small></div></div></td>
           <td><strong><?=br_date($s['starts_at'])?></strong><small><?=date('D',strtotime($s['starts_at']))?></small></td>
           <td><strong><?=date('H:i',strtotime($s['starts_at']))?> – <?=date('H:i',strtotime($s['ends_at']))?></strong></td>
           <td><strong><?=money($s['shift_value'])?></strong><small>por profissional</small></td>
