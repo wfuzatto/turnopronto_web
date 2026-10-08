@@ -663,4 +663,275 @@
     window.setInterval(refreshNotifications,20000);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshNotifications();});
   }
+
+
+  // Distância de vagas pela localização real do navegador.
+  const deg2rad=value=>value*(Math.PI/180);
+  const haversineKm=(lat1,lng1,lat2,lng2)=>{
+    const earth=6371;
+    const dLat=deg2rad(lat2-lat1);
+    const dLng=deg2rad(lng2-lng1);
+    const a=Math.sin(dLat/2)**2+Math.cos(deg2rad(lat1))*Math.cos(deg2rad(lat2))*Math.sin(dLng/2)**2;
+    return earth*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  };
+  const formatDistance=km=>{
+    if(!Number.isFinite(km)) return 'Distância indisponível';
+    if(km<1) return Math.max(1,Math.round(km*1000))+' m';
+    return (km<10?km.toFixed(1):Math.round(km))+' km';
+  };
+
+  let browserLocationPromise=null;
+  const getBrowserLocation=(force=false)=>{
+    if(force) browserLocationPromise=null;
+    if(browserLocationPromise) return browserLocationPromise;
+    browserLocationPromise=new Promise((resolve,reject)=>{
+      if(!navigator.geolocation){
+        reject(new Error('Seu navegador não oferece geolocalização.'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        position=>resolve({
+          lat:Number(position.coords.latitude),
+          lng:Number(position.coords.longitude),
+          accuracy:Number(position.coords.accuracy||0)
+        }),
+        error=>{
+          const message=error?.code===1
+            ? 'A localização foi bloqueada. Clique no cadeado ao lado do endereço do site e permita Localização.'
+            : (error?.code===2?'Não foi possível determinar sua localização agora.':'A localização demorou para responder. Tente novamente.');
+          reject(new Error(message));
+        },
+        {enableHighAccuracy:true,timeout:15000,maximumAge:300000}
+      );
+    });
+    return browserLocationPromise;
+  };
+
+  let geocodeQueue=Promise.resolve();
+  const geocodeAddress=query=>{
+    const normalized=(query||'').replace(/\s+/g,' ').trim();
+    if(!normalized) return Promise.resolve(null);
+    const key='tp-geocode:'+normalized.toLocaleLowerCase('pt-BR');
+    try{
+      const cached=JSON.parse(localStorage.getItem(key)||'null');
+      if(cached && Number.isFinite(Number(cached.lat)) && Number.isFinite(Number(cached.lng))){
+        return Promise.resolve({lat:Number(cached.lat),lng:Number(cached.lng)});
+      }
+    }catch(_){}
+
+    const task=async()=>{
+      try{
+        const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&q='+encodeURIComponent(normalized);
+        const response=await fetch(url,{headers:{'Accept':'application/json'},cache:'force-cache'});
+        if(!response.ok) return null;
+        const data=await response.json();
+        const first=Array.isArray(data)?data[0]:null;
+        if(!first) return null;
+        const result={lat:Number(first.lat),lng:Number(first.lon)};
+        if(!Number.isFinite(result.lat)||!Number.isFinite(result.lng)) return null;
+        try{localStorage.setItem(key,JSON.stringify(result));}catch(_){}
+        return result;
+      }catch(_){
+        return null;
+      }finally{
+        await new Promise(resolve=>window.setTimeout(resolve,1050));
+      }
+    };
+    const queued=geocodeQueue.then(task,task);
+    geocodeQueue=queued.catch(()=>null);
+    return queued;
+  };
+
+  const resolveOpportunityCoordinates=async row=>{
+    const lat=Number(row.dataset.shiftLat);
+    const lng=Number(row.dataset.shiftLng);
+    if(Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180&&(lat!==0||lng!==0)){
+      return {lat,lng};
+    }
+
+    const address=(row.dataset.shiftAddress||'').trim();
+    const city=(row.dataset.shiftCity||'').trim();
+    const state=(row.dataset.shiftState||'').trim();
+    const exact=[address,city,state,'Brasil'].filter(Boolean).join(', ');
+    let found=await geocodeAddress(exact);
+    if(!found && city) found=await geocodeAddress([city,state,'Brasil'].filter(Boolean).join(', '));
+    if(found){
+      row.dataset.shiftLat=String(found.lat);
+      row.dataset.shiftLng=String(found.lng);
+    }
+    return found;
+  };
+
+  qa('[data-opportunity-location]').forEach(root=>{
+    const rows=qa('[data-opportunity-row]',root);
+    if(!rows.length) return;
+
+    const status=q('[data-location-status]',root);
+    const title=q('[data-location-title]',root);
+    const requestButtons=qa('[data-location-request]',root);
+    const search=q('[data-opportunity-search]',root);
+    const radius=q('[data-opportunity-radius]',root);
+    const days=q('[data-opportunity-days]',root);
+    const list=q('[data-opportunity-list]',root)||rows[0]?.parentElement;
+    const empty=q('[data-opportunity-empty]',root);
+    let userLocation=null;
+
+    const dayMatches=row=>{
+      const value=days?.value||'0';
+      if(value==='0'||!value) return true;
+      const raw=row.dataset.shiftStart||'';
+      const start=new Date(raw.replace(' ','T'));
+      if(Number.isNaN(start.getTime())) return true;
+      const now=new Date();
+      const todayStart=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+      const shiftStart=new Date(start.getFullYear(),start.getMonth(),start.getDate());
+      const delta=Math.round((shiftStart-todayStart)/86400000);
+      if(value==='today') return delta===0;
+      if(value==='tomorrow') return delta===1;
+      const horizon=Number(value);
+      return !Number.isFinite(horizon)||horizon<=0 ? true : delta>=0&&delta<horizon;
+    };
+
+    const applyFilters=()=>{
+      const term=(search?.value||'').trim().toLocaleLowerCase('pt-BR');
+      const maxKm=Number(radius?.value||0);
+      let visible=0;
+      rows.forEach(row=>{
+        const hay=(row.dataset.search||row.textContent||'').toLocaleLowerCase('pt-BR');
+        const distance=Number(row.dataset.distanceKm);
+        const hasDistance=Number.isFinite(distance);
+        const okSearch=!term||hay.includes(term);
+        const okRadius=!maxKm||!userLocation||!hasDistance||distance<=maxKm;
+        const okDay=dayMatches(row);
+        row.hidden=!(okSearch&&okRadius&&okDay);
+        if(!row.hidden) visible++;
+      });
+      if(empty) empty.hidden=visible!==0;
+    };
+
+    const sortByDistance=()=>{
+      if(!list) return;
+      [...rows].sort((a,b)=>{
+        const da=Number(a.dataset.distanceKm);
+        const db=Number(b.dataset.distanceKm);
+        const va=Number.isFinite(da)?da:Number.POSITIVE_INFINITY;
+        const vb=Number.isFinite(db)?db:Number.POSITIVE_INFINITY;
+        return va-vb;
+      }).forEach(row=>list.appendChild(row));
+    };
+
+    const calculateDistances=async location=>{
+      userLocation=location;
+      if(title) title.textContent='Localização autorizada';
+      if(status) status.textContent='Calculando a distância das vagas a partir da sua posição atual'+(location.accuracy?' (precisão aproximada de '+Math.round(location.accuracy)+' m).':'.');
+
+      for(const row of rows){
+        const label=q('[data-opportunity-distance]',row);
+        if(label) label.textContent='Calculando…';
+        const destination=await resolveOpportunityCoordinates(row);
+        if(!destination){
+          row.dataset.distanceKm='';
+          if(label) label.textContent='Distância indisponível';
+          continue;
+        }
+        const km=haversineKm(location.lat,location.lng,destination.lat,destination.lng);
+        row.dataset.distanceKm=String(km);
+        if(label) label.textContent=formatDistance(km);
+      }
+
+      sortByDistance();
+      applyFilters();
+      if(status) status.textContent='Distâncias calculadas usando a localização autorizada pelo navegador.';
+    };
+
+    const requestLocation=async(force=false)=>{
+      requestButtons.forEach(button=>{button.disabled=true;button.textContent='Obtendo localização…';});
+      if(status) status.textContent='Aguardando autorização de localização do navegador…';
+      try{
+        const location=await getBrowserLocation(force);
+        await calculateDistances(location);
+      }catch(error){
+        userLocation=null;
+        rows.forEach(row=>{
+          const label=q('[data-opportunity-distance]',row);
+          if(label) label.textContent='Permita a localização';
+        });
+        if(title) title.textContent='Localização necessária para calcular distância';
+        if(status) status.textContent=error?.message||'Não foi possível acessar sua localização.';
+        applyFilters();
+      }finally{
+        requestButtons.forEach(button=>{button.disabled=false;button.textContent='Atualizar localização';});
+      }
+    };
+
+    search?.addEventListener('input',applyFilters);
+    radius?.addEventListener('change',applyFilters);
+    days?.addEventListener('change',applyFilters);
+    requestButtons.forEach(button=>button.addEventListener('click',()=>requestLocation(true)));
+
+    applyFilters();
+    requestLocation(false);
+  });
+
+  // Geocodifica o endereço da vaga ao criar/editar para que as próximas consultas
+  // não dependam de geocodificação em tempo real.
+  qa('form[data-shift-form]').forEach(form=>{
+    const address=q('input[name="address"]',form);
+    const city=q('input[name="city"]',form);
+    const state=q('input[name="state"]',form);
+    const lat=q('[data-shift-latitude]',form);
+    const lng=q('[data-shift-longitude]',form);
+    const status=q('[data-shift-geocode-status]',form);
+    let timer=null;
+    let resolving=false;
+
+    const queryText=()=>[address?.value,city?.value,state?.value,'Brasil'].filter(Boolean).join(', ');
+    const clearCoordinates=()=>{
+      if(lat) lat.value='';
+      if(lng) lng.value='';
+      if(status) status.textContent='Endereço alterado. As coordenadas serão atualizadas automaticamente.';
+    };
+    const resolveAddress=async()=>{
+      if(resolving) return null;
+      const query=queryText().trim();
+      if(query.length<8) return null;
+      resolving=true;
+      if(status) status.textContent='Localizando o endereço da vaga…';
+      try{
+        const result=await geocodeAddress(query);
+        if(result){
+          if(lat) lat.value=String(result.lat);
+          if(lng) lng.value=String(result.lng);
+          if(status) status.textContent='Localização da vaga encontrada. O cálculo de distância ficará disponível aos profissionais.';
+        }else if(status){
+          status.textContent='Não foi possível localizar este endereço automaticamente. A vaga poderá ser salva e o sistema tentará novamente na tela de oportunidades.';
+        }
+        return result;
+      }finally{
+        resolving=false;
+      }
+    };
+
+    [address,city,state].forEach(input=>{
+      input?.addEventListener('input',()=>{
+        clearCoordinates();
+        window.clearTimeout(timer);
+        timer=window.setTimeout(resolveAddress,900);
+      });
+      input?.addEventListener('blur',resolveAddress);
+    });
+
+    form.addEventListener('submit',async event=>{
+      if(form.dataset.shiftSubmitReady==='1') return;
+      if((lat?.value||'')!==''&&(lng?.value||'')!=='') return;
+      event.preventDefault();
+      const submit=q('button[type="submit"]',form);
+      if(submit) submit.disabled=true;
+      await resolveAddress();
+      form.dataset.shiftSubmitReady='1';
+      if(submit) submit.disabled=false;
+      form.submit();
+    });
+  });
+
 })();
