@@ -768,74 +768,82 @@
     destination.lat.toFixed(5),destination.lng.toFixed(5)
   ].join(',');
 
-  const osrmFallbackDistancesKm=async(origin,batch)=>{
-    const result=new Map();
-    try{
+  const valhallaRoadDistancesKm=async(origin,items)=>{
+    const results=new Map();
+    if(!items.length) return results;
+
+    const batchSize=20;
+    for(let start=0;start<items.length;start+=batchSize){
+      const batch=items.slice(start,start+batchSize);
+      const payload={
+        sources:[{lat:origin.lat,lon:origin.lng}],
+        targets:batch.map(item=>({lat:item.destination.lat,lon:item.destination.lng})),
+        costing:'auto',
+        units:'km',
+        costing_options:{
+          auto:{
+            use_highways:0.8,
+            use_tracks:0,
+            use_living_streets:0,
+            exclude_unpaved:true,
+            use_tolls:0.5
+          }
+        }
+      };
+
+      try{
+        const url='https://valhalla1.openstreetmap.de/sources_to_targets?json='+encodeURIComponent(JSON.stringify(payload));
+        const response=await fetch(url,{headers:{'Accept':'application/json'},cache:'no-store'});
+        if(!response.ok) continue;
+        const data=await response.json();
+        const matrix=data?.sources_to_targets;
+
+        if(Array.isArray(matrix)&&Array.isArray(matrix[0])){
+          matrix[0].forEach((entry,index)=>{
+            const km=Number(entry?.distance);
+            if(Number.isFinite(km)&&km>=0&&batch[index]) results.set(batch[index].row,km);
+          });
+          continue;
+        }
+
+        const distances=matrix?.distances;
+        if(Array.isArray(distances)&&Array.isArray(distances[0])){
+          distances[0].forEach((value,index)=>{
+            const km=Number(value);
+            if(Number.isFinite(km)&&km>=0&&batch[index]) results.set(batch[index].row,km);
+          });
+        }
+      }catch(_){}
+    }
+    return results;
+  };
+
+  const osrmRoadDistancesKm=async(origin,items)=>{
+    const results=new Map();
+    if(!items.length) return results;
+
+    const batchSize=20;
+    for(let start=0;start<items.length;start+=batchSize){
+      const batch=items.slice(start,start+batchSize);
       const coordinates=[origin,...batch.map(item=>item.destination)]
         .map(point=>point.lng+','+point.lat)
         .join(';');
       const destinations=batch.map((_,index)=>index+1).join(';');
       const url='https://router.project-osrm.org/table/v1/driving/'+coordinates
         +'?sources=0&destinations='+destinations+'&annotations=distance';
-      const response=await fetch(url,{headers:{'Accept':'application/json'},cache:'no-store'});
-      if(!response.ok) return result;
-      const payload=await response.json();
-      const distances=Array.isArray(payload?.distances?.[0])?payload.distances[0]:[];
-      batch.forEach((item,index)=>{
-        const meters=Number(distances[index]);
-        if(Number.isFinite(meters)&&meters>=0) result.set(item.row,meters/1000);
-      });
-    }catch(_){}
-    return result;
-  };
 
-  const valhallaDistancesKm=async(origin,batch)=>{
-    const result=new Map();
-    const request={
-      sources:[{lat:origin.lat,lon:origin.lng}],
-      targets:batch.map(item=>({lat:item.destination.lat,lon:item.destination.lng})),
-      costing:'auto',
-      units:'km',
-      costing_options:{
-        auto:{
-          use_highways:0.8,
-          use_tracks:0,
-          use_living_streets:0,
-          exclude_unpaved:true,
-          use_tolls:0.5
-        }
-      }
-    };
-
-    try{
-      const url='https://valhalla1.openstreetmap.de/sources_to_targets?json='+encodeURIComponent(JSON.stringify(request));
-      const response=await fetch(url,{
-        headers:{
-          'Accept':'application/json',
-          'X-Client-Id':'turnopronto.com.br'
-        },
-        cache:'no-store'
-      });
-      if(!response.ok) return result;
-      const payload=await response.json();
-      const matrix=payload?.sources_to_targets;
-
-      if(Array.isArray(matrix?.distances?.[0])){
-        matrix.distances[0].forEach((distance,index)=>{
-          const km=Number(distance);
-          if(Number.isFinite(km)&&km>=0&&batch[index]) result.set(batch[index].row,km);
+      try{
+        const response=await fetch(url,{headers:{'Accept':'application/json'},cache:'no-store'});
+        if(!response.ok) continue;
+        const payload=await response.json();
+        const distances=Array.isArray(payload?.distances?.[0])?payload.distances[0]:[];
+        batch.forEach((item,index)=>{
+          const meters=Number(distances[index]);
+          if(Number.isFinite(meters)&&meters>=0) results.set(item.row,meters/1000);
         });
-        return result;
-      }
-
-      if(Array.isArray(matrix?.[0])){
-        matrix[0].forEach((entry,index)=>{
-          const km=Number(entry?.distance);
-          if(Number.isFinite(km)&&km>=0&&batch[index]) result.set(batch[index].row,km);
-        });
-      }
-    }catch(_){}
-    return result;
+      }catch(_){}
+    }
+    return results;
   };
 
   const roadDistancesKm=async(origin,items)=>{
@@ -847,7 +855,7 @@
       let cached=roadDistanceCache.get(key);
       if(cached===undefined){
         try{
-          const stored=sessionStorage.getItem('tp-road-v2:'+key);
+          const stored=sessionStorage.getItem('tp-road:'+key);
           cached=stored===null?undefined:Number(stored);
         }catch(_){}
       }
@@ -858,30 +866,24 @@
       }
     });
 
-    const batchSize=20;
-    for(let start=0;start<pending.length;start+=batchSize){
-      const batch=pending.slice(start,start+batchSize);
+    // Valhalla tende a evitar atalhos por vias não pavimentadas e fica mais
+    // próximo do comportamento esperado para deslocamento de carro.
+    const valhalla=await valhallaRoadDistancesKm(origin,pending);
+    valhalla.forEach((km,row)=>results.set(row,km));
 
-      // Valhalla tende a se aproximar mais de uma rota rodoviária convencional:
-      // evita vias não pavimentadas/trilhas e favorece rodovias principais.
-      let routed=await valhallaDistancesKm(origin,batch);
-
-      // Fallback para OSRM se o serviço principal não responder ou não encontrar rota.
-      const missing=batch.filter(item=>!routed.has(item.row));
-      if(missing.length){
-        const fallback=await osrmFallbackDistancesKm(origin,missing);
-        fallback.forEach((km,row)=>routed.set(row,km));
-      }
-
-      batch.forEach(item=>{
-        const km=routed.get(item.row);
-        if(Number.isFinite(km)){
-          results.set(item.row,km);
-          roadDistanceCache.set(item.key,km);
-          try{sessionStorage.setItem('tp-road-v2:'+item.key,String(km));}catch(_){}
-        }
-      });
+    const unresolved=pending.filter(item=>!results.has(item.row));
+    if(unresolved.length){
+      const osrm=await osrmRoadDistancesKm(origin,unresolved);
+      osrm.forEach((km,row)=>results.set(row,km));
     }
+
+    pending.forEach(item=>{
+      const km=results.get(item.row);
+      if(Number.isFinite(km)){
+        roadDistanceCache.set(item.key,km);
+        try{sessionStorage.setItem('tp-road:'+item.key,String(km));}catch(_){}
+      }
+    });
 
     return results;
   };
