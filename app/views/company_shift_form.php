@@ -16,7 +16,7 @@ $mode=$source['acceptance_mode']??'automatic';
   <?php if($editing):?><a class="btn btn-soft" href="<?=e(url('empresa/vagas/'.$shift['id']))?>">← Voltar à vaga</a><?php endif;?>
 </div>
 
-<form method="post" class="form-layout" data-shift-form><?=csrf_field()?>
+<form method="post" enctype="multipart/form-data" class="form-layout" data-shift-form><?=csrf_field()?>
 <input type="hidden" name="latitude" value="<?=e((string)($source['latitude']??''))?>" data-shift-latitude>
 <input type="hidden" name="longitude" value="<?=e((string)($source['longitude']??''))?>" data-shift-longitude>
 <section class="panel form-panel">
@@ -50,6 +50,18 @@ $mode=$source['acceptance_mode']??'automatic';
     <div class="full">
       <label>Descrição</label>
       <textarea name="description" rows="3" placeholder="Descreva a atividade e o contexto do turno"><?=e($source['description']??'')?></textarea>
+    </div>
+    <div class="full shift-photo-field">
+      <label for="shift-image">Foto da vaga</label>
+      <div class="shift-photo-upload">
+        <div class="shift-photo-preview <?=!empty($source['image_url'])?'has-image':''?>" data-shift-image-preview>
+          <?php if(!empty($source['image_url'])):?><img src="<?=e($source['image_url'])?>" alt="Foto atual da vaga"><?php else:?><span><?=icon('file',22)?><b>Prévia da foto</b><small>A imagem aparecerá nos anúncios desta vaga.</small></span><?php endif;?>
+        </div>
+        <div class="shift-photo-controls">
+          <input id="shift-image" type="file" name="shift_image" accept="image/jpeg,image/png,image/webp" data-shift-image-input>
+          <small>JPG, PNG ou WEBP. Máximo de 8 MB. Na edição, envie outra foto para substituir a atual.</small>
+        </div>
+      </div>
     </div>
   </div>
 </section>
