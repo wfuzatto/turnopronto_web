@@ -116,6 +116,21 @@ final class Api
             json_response(['ok'=>true,'data'=>Data::professionalHome((int)$user['id'])]);
         }
 
+        if($relative==='/onboarding' && $method==='GET'){
+            if($user['role']!=='professional') json_response(['ok'=>false,'error'=>'Endpoint exclusivo do profissional.'],403);
+            json_response(['ok'=>true,'data'=>Data::professionalOnboardingState((int)$user['id'])]);
+        }
+
+        if($relative==='/onboarding/payment' && $method==='POST'){
+            if($user['role']!=='professional') json_response(['ok'=>false,'error'=>'Endpoint exclusivo do profissional.'],403);
+            try{
+                Data::updateProfessionalOnboardingStep((int)$user['id'],'payment',json_input());
+                json_response(['ok'=>true,'data'=>Data::professionalOnboardingState((int)$user['id'])]);
+            }catch(Throwable $e){
+                json_response(['ok'=>false,'error'=>$e->getMessage()],422);
+            }
+        }
+
         if(preg_match('#^/shifts/(\d+)$#',$relative,$m) && $method==='GET'){
             $shift=Data::shift((int)$m[1]);
             if(!$shift) json_response(['ok'=>false,'error'=>'Vaga não encontrada.'],404);
