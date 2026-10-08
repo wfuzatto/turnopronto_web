@@ -39,7 +39,7 @@ $followers=$followers??[];
           <?php foreach($assigned as $p):?>
           <article class="candidate-card assigned-card">
             <div class="avatar-md"><?=e(mb_strtoupper(mb_substr($p['name'],0,1)))?></div>
-            <div class="candidate-main"><strong><?=e($p['name'])?></strong><span><?=e($p['headline']?:'Profissional TurnoPronto')?></span><small><?=round($p['reliability_score'])?>% confiabilidade · <?=round($p['punctuality_score'])?>% pontualidade · <?=$p['completed_shifts']?> turnos</small></div>
+            <div class="candidate-main"><strong><?=e($p['name'])?></strong><span><?=e($p['headline']?:'Profissional TurnoPronto')?></span><small><?=!empty($p['company_feedback_count'])?(round($p['reliability_score']).'% confiabilidade · '.round($p['punctuality_score']).'% pontualidade'):'Sem avaliação de empresa ainda'?> · <?=$p['completed_shifts']?> turnos</small></div>
             <div class="candidate-side"><span class="status <?=$p['status']==='completed'?'confirmed':'published'?>"><?=e(ucfirst(str_replace('_',' ',$p['status'])))?></span><strong><?=money($p['agreed_value'])?></strong></div>
           </article>
           <?php endforeach;?>
@@ -59,7 +59,7 @@ $followers=$followers??[];
             <div class="candidate-main">
               <strong><?=e($p['name'])?></strong>
               <span><?=e($p['headline']?:'Profissional TurnoPronto')?></span>
-              <div class="candidate-metrics"><b><?=$p['reliability_score']?>% confiabilidade</b><span><?=$p['attendance_score']?>% presença</span><span><?=$p['punctuality_score']?>% pontualidade</span><span>★ <?=number_format((float)$p['rating'],1,',','.')?></span></div>
+              <div class="candidate-metrics"><?php if(!empty($p['company_feedback_count'])):?><b><?=round($p['reliability_score'])?>% confiabilidade</b><span><?=round($p['attendance_score'])?>% presença</span><span><?=round($p['punctuality_score'])?>% pontualidade</span><span>★ <?=number_format((float)$p['rating'],1,',','.')?></span><?php else:?><span class="metric-pending">Sem avaliação de empresa ainda</span><?php endif;?></div>
             </div>
             <div class="candidate-side">
               <span class="status <?=e($p['status']==='applied'?'filling':($p['status']==='accepted'?'confirmed':'draft'))?>"><?=e(['applied'=>'Candidatou-se','invited'=>'Convidado','accepted'=>'Aprovado','rejected'=>'Rejeitado'][$p['status']]??$p['status'])?></span>
@@ -103,10 +103,14 @@ $followers=$followers??[];
               <strong><?=e($p['name'])?></strong>
               <span><?=e($p['headline']?:'Profissional TurnoPronto')?></span>
               <div class="candidate-metrics">
-                <b><?=$p['reliability_score']?>% confiabilidade</b>
-                <span><?=$p['attendance_score']?>% presença</span>
-                <span><?=$p['punctuality_score']?>% pontualidade</span>
-                <span>★ <?=number_format((float)$p['rating'],1,',','.')?></span>
+                <?php if(!empty($p['company_feedback_count'])):?>
+                  <b><?=round($p['reliability_score'])?>% confiabilidade</b>
+                  <span><?=round($p['attendance_score'])?>% presença</span>
+                  <span><?=round($p['punctuality_score'])?>% pontualidade</span>
+                  <span>★ <?=number_format((float)$p['rating'],1,',','.')?></span>
+                <?php else:?>
+                  <span class="metric-pending">Sem avaliação de empresa ainda</span>
+                <?php endif;?>
               </div>
               <div class="follower-contact-data">
                 <?php if(!empty($p['phone'])):?><span><strong>Telefone:</strong> <?=e($p['phone'])?></span><?php endif;?>
