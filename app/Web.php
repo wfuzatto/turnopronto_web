@@ -736,7 +736,6 @@ final class Web
                     echo json_encode(['ok'=>true,'data'=>$updates],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
                     exit;
                 }
-                flash('success','Mensagem enviada.');
             }catch(Throwable $e){
                 if($wantsJson){
                     http_response_code(422);
