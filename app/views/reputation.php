@@ -1,6 +1,38 @@
-<?php $p=$data['profile'];?>
+<?php
+$p=$data['profile'];
+$hasFeedback=!empty($p['has_company_feedback']);
+$feedbackCount=(int)($p['company_feedback_count']??0);
+?>
 <div class="page-head"><div><h1>Reputação</h1><p>Sua reputação é baseada principalmente em fatos verificáveis, não apenas em estrelas.</p></div></div>
-<div class="score-hero panel"><div class="score-circle"><strong><?=round($p['reliability_score'])?>%</strong><span>Confiabilidade</span></div><div class="score-copy"><h2>Histórico operacional</h2><p><?=$p['completed_shifts']?> turnos concluídos. Ocorrências antigas podem perder peso e penalizações negativas permitem contestação e revisão humana.</p><div class="score-bars"><div><span>Presença</span><b><?=round($p['attendance_score'])?>%</b><i><em style="width:<?=round($p['attendance_score'])?>%"></em></i></div><div><span>Pontualidade</span><b><?=round($p['punctuality_score'])?>%</b><i><em style="width:<?=round($p['punctuality_score'])?>%"></em></i></div><div><span>Avaliação</span><b><?=number_format((float)$p['rating'],1,',','.')?> / 5</b><i><em style="width:<?=($p['rating']/5)*100?>%"></em></i></div></div></div></div>
+
+<?php if(!$hasFeedback):?>
+<div class="score-hero panel reputation-pending">
+  <div class="score-circle pending"><strong>—</strong><span>Aguardando avaliação</span></div>
+  <div class="score-copy">
+    <h2>Confiabilidade ainda não calculada</h2>
+    <p>A sua pontuação começará a ser calculada somente depois do primeiro turno concluído receber o retorno da empresa.</p>
+    <div class="score-bars">
+      <div><span>Presença</span><b>—</b><i><em style="width:0%"></em></i></div>
+      <div><span>Pontualidade</span><b>—</b><i><em style="width:0%"></em></i></div>
+      <div><span>Avaliação</span><b>—</b><i><em style="width:0%"></em></i></div>
+    </div>
+  </div>
+</div>
+<?php else:?>
+<div class="score-hero panel">
+  <div class="score-circle"><strong><?=round($p['reliability_score'])?>%</strong><span>Confiabilidade</span></div>
+  <div class="score-copy">
+    <h2>Histórico operacional</h2>
+    <p><?=$p['completed_shifts']?> turnos concluídos · <?=$feedbackCount?> retorno(s) de empresa. Ocorrências antigas podem perder peso e penalizações negativas permitem contestação e revisão humana.</p>
+    <div class="score-bars">
+      <div><span>Presença</span><b><?=round($p['attendance_score'])?>%</b><i><em style="width:<?=round($p['attendance_score'])?>%"></em></i></div>
+      <div><span>Pontualidade</span><b><?=round($p['punctuality_score'])?>%</b><i><em style="width:<?=round($p['punctuality_score'])?>%"></em></i></div>
+      <div><span>Avaliação</span><b><?=number_format((float)$p['rating'],1,',','.')?> / 5</b><i><em style="width:<?=($p['rating']/5)*100?>%"></em></i></div>
+    </div>
+  </div>
+</div>
+<?php endif;?>
+
 <section class="panel">
   <div class="panel-head"><div><h2>Eventos recentes</h2><p>Fatos que ajudam a explicar seu indicador de confiabilidade.</p></div></div>
   <?php if(!$data['events']):?><p class="muted">Nenhuma ocorrência registrada.</p><?php endif;?>
