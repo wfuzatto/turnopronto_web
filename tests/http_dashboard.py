@@ -160,7 +160,7 @@ for forbidden in ['name="email"', 'name="phone"', 'name="pix_key"', 'name="addre
     assert forbidden not in basic, 'basic application step asks too much: ' + forbidden
 
 detail = public.open(base + '/vagas/' + shift_id, timeout=20).read().decode()
-assert 'Tenho interesse nesta vaga' in detail and '3 etapas curtas' in detail
+assert 'Acompanhar vaga' in detail and 'Quero me candidatar' in detail and 'sem assumir o compromisso do turno' in detail
 print('GUEST vacancy-first onboarding: PASS')
 
 login_page = public.open(base + '/login', timeout=20).read().decode()
