@@ -14,7 +14,17 @@ $navCompany=[
 $navPro=[
  ['profissional/inicio','home','Início'],['profissional/oportunidades','briefcase','Oportunidades'],['profissional/turnos','calendar','Meus turnos'],['profissional/agenda','calendar','Agenda'],['profissional/ganhos','chart','Ganhos'],['profissional/reputacao','star','Reputação'],['profissional/documentos','file','Documentos'],['profissional/suporte','help','Suporte']
 ];
-$nav=$role==='company'?$navCompany:($role==='professional'?$navPro:[['admin/dashboard','home','Dashboard'],['admin/suporte','help','Suporte']]);
+$navAdmin=[
+ ['admin/dashboard','home','Painel'],
+ ['admin/dashboard#vagas','briefcase','Vagas'],
+ ['admin/dashboard#candidatos','users','Candidatos'],
+ ['admin/dashboard#empresas','file','Empresas'],
+ ['admin/dashboard#locais','map','Locais'],
+ ['admin/dashboard#relatorios','chart','Relatórios'],
+ ['admin/configuracoes','settings','Configurações'],
+ ['admin/suporte','help','Suporte']
+];
+$nav=$role==='company'?$navCompany:($role==='professional'?$navPro:$navAdmin);
 ?><!doctype html><html lang="pt-BR"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?=e($title??'TurnoPronto')?> • TurnoPronto</title>
