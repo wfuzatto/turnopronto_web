@@ -7,7 +7,7 @@ $heroPhoto='https://plus.unsplash.com/premium_photo-1661391652899-ae0e9df22e14?a
 ?>
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Vagas • TurnoPronto</title><link rel="stylesheet" href="<?=e(asset('css/app.css'))?>"><script src="<?=e(asset('js/app.js'))?>" defer></script></head>
-<body class="tp-modern-public">
+<body class="tp-modern-public <?=!empty($minimal)?'tp-minimal-public':''?>">
 <header class="tp-modern-header">
   <div class="tp-modern-wrap tp-modern-header-inner">
     <a href="<?=e(url('vagas'))?>" class="tp-modern-brand"><img src="<?=e(asset('img/logo.svg'))?>" alt="TurnoPronto"></a>
