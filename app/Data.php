@@ -1653,8 +1653,9 @@ final class Data
     public static function publicOpportunities(int $limit=80): array
     {
         $mode=self::hasColumn('tp_shifts','acceptance_mode') ? ',s.acceptance_mode' : '';
-        $sql="SELECT s.id,s.title,s.category_id,s.starts_at,s.ends_at,s.city,s.state,s.shift_value,s.required_workers,
-                     jc.name category_name,co.trade_name company_name,co.rating company_rating $mode,
+        $sql="SELECT s.id,s.title,s.description,s.category_id,s.starts_at,s.ends_at,s.address,s.city,s.state,s.latitude,s.longitude,
+                     s.shift_value,s.required_workers,s.dress_code,s.notes,
+                     jc.name category_name,co.trade_name company_name,co.rating company_rating,co.logo_url company_logo $mode,
                      TIMESTAMPDIFF(MINUTE,s.starts_at,s.ends_at) duration_minutes,
                      (SELECT COUNT(*) FROM tp_shift_applications a WHERE a.shift_id=s.id AND a.status IN ('applied','invited','accepted')) candidates
               FROM tp_shifts s
@@ -3216,6 +3217,75 @@ final class Data
             $pdo->prepare('UPDATE tp_users SET name=?,updated_at=NOW() WHERE id=?')->execute([$name,$userId]);
         }
         self::audit($userId,'account.admin_updated','user',$userId,['password_changed'=>$newPassword!=='']);
+    }
+
+    private static function ensurePlatformSettingsSchema(): void
+    {
+        static $ready=false;
+        if($ready) return;
+        Database::connection()->exec("CREATE TABLE IF NOT EXISTS tp_platform_settings (
+            setting_key VARCHAR(100) PRIMARY KEY,
+            setting_value TEXT NULL,
+            updated_by BIGINT UNSIGNED NULL,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_platform_settings_updated (updated_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $ready=true;
+    }
+
+    public static function platformAppearance(): array
+    {
+        self::ensurePlatformSettingsSchema();
+        $defaults=[
+            'web_skin'=>'modern',
+            'app_skin'=>'modern',
+            'ab_test'=>'0',
+            'seasonal_campaign'=>'0',
+            'different_per_platform'=>'1',
+        ];
+        $rows=Database::connection()->query(
+            "SELECT setting_key,setting_value FROM tp_platform_settings
+             WHERE setting_key IN ('web_skin','app_skin','ab_test','seasonal_campaign','different_per_platform')"
+        )->fetchAll();
+        foreach($rows as $row){
+            $defaults[(string)$row['setting_key']]=(string)$row['setting_value'];
+        }
+        if(!in_array($defaults['web_skin'],['classic','modern','minimal'],true)) $defaults['web_skin']='modern';
+        if(!in_array($defaults['app_skin'],['classic','modern','minimal'],true)) $defaults['app_skin']='modern';
+        return [
+            'web_skin'=>$defaults['web_skin'],
+            'app_skin'=>$defaults['app_skin'],
+            'ab_test'=>$defaults['ab_test']==='1',
+            'seasonal_campaign'=>$defaults['seasonal_campaign']==='1',
+            'different_per_platform'=>$defaults['different_per_platform']==='1',
+        ];
+    }
+
+    public static function savePlatformAppearance(int $userId,array $data): array
+    {
+        self::ensurePlatformSettingsSchema();
+        $allowed=['classic','modern','minimal'];
+        $web=(string)($data['web_skin']??'modern');
+        $app=(string)($data['app_skin']??$web);
+        if(!in_array($web,$allowed,true)) throw new InvalidArgumentException('Skin web inválida.');
+        if(!in_array($app,$allowed,true)) throw new InvalidArgumentException('Skin do aplicativo inválida.');
+
+        $settings=[
+            'web_skin'=>$web,
+            'app_skin'=>$app,
+            'ab_test'=>!empty($data['ab_test'])?'1':'0',
+            'seasonal_campaign'=>!empty($data['seasonal_campaign'])?'1':'0',
+            'different_per_platform'=>!empty($data['different_per_platform'])?'1':'0',
+        ];
+        $pdo=Database::connection();
+        $st=$pdo->prepare(
+            'INSERT INTO tp_platform_settings (setting_key,setting_value,updated_by,updated_at)
+             VALUES (?,?,?,NOW())
+             ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by),updated_at=NOW()'
+        );
+        foreach($settings as $key=>$value) $st->execute([$key,$value,$userId]);
+        self::audit($userId,'platform.appearance_updated','platform',null,$settings);
+        return self::platformAppearance();
     }
 
     public static function adminStats(): array
