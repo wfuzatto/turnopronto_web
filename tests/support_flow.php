@@ -48,10 +48,24 @@ try{ Data::supportTicket($professionalUserId,'professional',$companyTicket); }
 catch(RuntimeException $e){ $denied=true; }
 if(!$denied) throw new RuntimeException('Support ticket ownership isolation failed.');
 
+$before=Data::supportTicket($professionalUserId,'professional',$professionalTicket);
+$lastBefore=(int)end($before['messages'])['id'];
+
 Data::addSupportMessage($adminUserId,'admin',$professionalTicket,'Resposta do suporte no teste de integração.');
+$updates=Data::supportTicketUpdates($professionalUserId,'professional',$professionalTicket,$lastBefore);
+if(($updates['status']??'')!=='answered') throw new RuntimeException('Realtime support status did not report the admin reply.');
+if(count($updates['messages']??[])!==1) throw new RuntimeException('Realtime support endpoint did not return exactly the new admin message.');
+if(($updates['messages'][0]['body']??'')!=='Resposta do suporte no teste de integração.') throw new RuntimeException('Realtime support returned the wrong message.');
+if(empty($updates['messages'][0]['from_support'])) throw new RuntimeException('Realtime support did not identify the support author.');
+
 $detail=Data::supportTicket($professionalUserId,'professional',$professionalTicket);
 if(($detail['ticket']['status']??'')!=='answered') throw new RuntimeException('Admin reply did not update ticket status.');
 if(count($detail['messages'])<2) throw new RuntimeException('Support conversation did not store the admin reply.');
+
+$deniedUpdates=false;
+try{ Data::supportTicketUpdates($companyUserId,'company',$professionalTicket,0); }
+catch(RuntimeException $e){ $deniedUpdates=true; }
+if(!$deniedUpdates) throw new RuntimeException('Realtime support endpoint ownership isolation failed.');
 
 Data::addSupportMessage($professionalUserId,'professional',$professionalTicket,'Obrigado. Estou respondendo ao suporte pelo chamado.');
 $detail=Data::supportTicket($adminUserId,'admin',$professionalTicket);
