@@ -129,7 +129,7 @@ jobs:
           grep -q 'data-global-search' public/assets/js/app.js
           grep -q 'companyShiftFollowers' app/Data.php
           grep -q 'followShift' app/Data.php
-          grep -q "vagas/(\\d+)/acompanhar" app/Web.php
+          grep -Fq "/vagas/(\d+)/acompanhar" app/Web.php
           grep -q 'Profissionais acompanhando' app/views/company_shift_detail.php
           grep -q 'Acompanhar vaga' app/views/public_shift_detail.php
 
