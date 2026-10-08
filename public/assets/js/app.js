@@ -874,6 +874,66 @@
     schedule(1200);
   });
 
+  // Skin pública moderna: busca instantânea e filtros por categoria.
+  qa('[data-modern-job-search]').forEach(form=>{
+    const root=form.closest('.tp-modern-public')||document;
+    const city=q('input[name="city"]',form);
+    const role=q('input[name="role"]',form);
+    const jobs=qa('[data-modern-job]',root);
+    const count=q('[data-modern-job-count]',root);
+    const empty=q('[data-modern-empty]',root);
+    let category='';
+
+    const apply=()=>{
+      const cityTerm=(city?.value||'').trim().toLocaleLowerCase('pt-BR');
+      const roleTerm=(role?.value||'').trim().toLocaleLowerCase('pt-BR');
+      let visible=0;
+      jobs.forEach(job=>{
+        const hay=(job.dataset.search||job.textContent||'').toLocaleLowerCase('pt-BR');
+        const jobCategory=(job.dataset.category||'').toLocaleLowerCase('pt-BR');
+        const okCity=!cityTerm||hay.includes(cityTerm);
+        const okRole=!roleTerm||hay.includes(roleTerm);
+        const okCategory=!category||jobCategory.includes(category);
+        job.hidden=!(okCity&&okRole&&okCategory);
+        if(!job.hidden) visible++;
+      });
+      if(count) count.textContent=String(visible);
+      if(empty) empty.hidden=visible!==0;
+    };
+
+    form.addEventListener('submit',event=>{
+      event.preventDefault();
+      apply();
+      document.getElementById('todas-vagas')?.scrollIntoView({behavior:'smooth',block:'start'});
+    });
+    city?.addEventListener('input',apply);
+    role?.addEventListener('input',apply);
+
+    qa('[data-modern-category]',root).forEach(button=>{
+      button.addEventListener('click',()=>{
+        qa('[data-modern-category]',root).forEach(item=>item.classList.remove('active'));
+        button.classList.add('active');
+        category=(button.dataset.modernCategory||'').toLocaleLowerCase('pt-BR');
+        apply();
+        document.getElementById('todas-vagas')?.scrollIntoView({behavior:'smooth',block:'start'});
+      });
+    });
+  });
+
+  // Painel de skins: selecionar visualmente a skin antes de salvar.
+  qa('.admin-skin-card').forEach(card=>{
+    qa('input[type="radio"]',card).forEach(input=>{
+      input.addEventListener('change',()=>{
+        const name=input.getAttribute('name');
+        if(!name) return;
+        qa('.admin-skin-card').forEach(other=>{
+          const checked=q('input[name="'+name+'"]:checked',other);
+          if(name==='web_skin') other.classList.toggle('selected',!!checked);
+        });
+      });
+    });
+  });
+
   // Modal de detalhes das vagas públicas: mantém o usuário na lista.
   qa('[data-public-job-modal-open]').forEach(button=>{
     button.addEventListener('click',()=>{
