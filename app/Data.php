@@ -3111,7 +3111,7 @@ final class Data
         ];
     }
 
-    public static function addSupportMessage(int $userId,string $role,int $ticketId,string $body): void
+    public static function addSupportMessage(int $userId,string $role,int $ticketId,string $body): array
     {
         self::ensureSupportSchema();
         $body=trim($body);
@@ -3163,6 +3163,8 @@ final class Data
                 );
             }
         }
+
+        return self::supportTicketUpdates($userId,$role,$ticketId,max(0,$messageId-1));
     }
 
     public static function setSupportTicketStatus(int $adminUserId,int $ticketId,string $status): void
