@@ -35,7 +35,21 @@ $status=$profile['status']??'pending';
   </div>
 </section>
 
-<form method="post" class="account-layout"><?=csrf_field()?>
+<form method="post" enctype="multipart/form-data" class="account-layout"><?=csrf_field()?>
+  <section class="panel account-card-main">
+    <div class="panel-head"><div><h2>Foto de perfil</h2><p>Use uma foto nítida. Ela será exibida para as empresas ao visualizar seu perfil, candidatura ou interesse em uma vaga.</p></div></div>
+    <div class="profile-image-upload">
+      <div class="profile-image-preview professional <?=!empty($profile['avatar_url'])?'has-image':''?>" data-profile-image-preview>
+        <?php if(!empty($profile['avatar_url'])):?><img src="<?=e($profile['avatar_url'])?>" alt="<?=e($profile['name']??'Profissional')?>"><?php else:?><span><?=e(mb_strtoupper(mb_substr($profile['name']??'P',0,1)))?></span><?php endif;?>
+      </div>
+      <div class="profile-image-controls">
+        <label for="professional-profile-image">Escolher nova foto</label>
+        <input id="professional-profile-image" type="file" name="profile_image" accept="image/jpeg,image/png,image/webp" data-profile-image-input>
+        <small>JPG, PNG ou WEBP, até 8 MB. Ao salvar, a nova foto substitui a atual.</small>
+      </div>
+    </div>
+  </section>
+
   <section class="panel account-card-main">
     <div class="panel-head"><div><h2>Informações do perfil</h2><p>Estes dados ajudam as empresas a entender quem você é. Os campos adicionais ficam no fluxo de candidatura.</p></div></div>
     <div class="form-grid">
