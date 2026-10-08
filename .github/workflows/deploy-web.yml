@@ -160,6 +160,12 @@ jobs:
           grep -q "relative==='/appearance'" app/Api.php
           grep -q '.tp-modern-hero' public/assets/css/app.css
           grep -q '.admin-skin-grid' public/assets/css/app.css
+          grep -Fq "role-thumb <?=!empty(\$s['image_url'])" app/views/company_shifts.php
+          grep -Fq "role-thumb <?=!empty(\$s['image_url'])" app/views/company_dashboard.php
+          grep -Fq "venue-thumb <?=!empty(\$s['image_url'])" app/views/professional_dashboard.php
+          grep -Fq "detail-hero <?=!empty(\$shift['image_url'])" app/views/shift_detail.php
+          grep -q '.role-thumb.has-photo' public/assets/css/app.css
+          grep -q '.detail-hero.has-shift-photo' public/assets/css/app.css
           grep -q 'class="public-job-modal"' app/views/public_opportunities.php
           grep -q 'data-public-job-modal-open' public/assets/js/app.js
           grep -q '.public-job-modal' public/assets/css/app.css
