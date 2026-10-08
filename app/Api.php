@@ -54,6 +54,10 @@ final class Api
             json_response(['ok'=>true,'data'=>Data::categories()]);
         }
 
+        if($relative==='/appearance' && $method==='GET'){
+            json_response(['ok'=>true,'data'=>Data::platformAppearance()]);
+        }
+
         if($relative==='/auth/register/start' && $method==='POST'){
             $data=json_input();
             $role=(string)($data['role']??'');
