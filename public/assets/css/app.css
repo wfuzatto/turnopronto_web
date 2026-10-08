@@ -607,3 +607,17 @@ input.cep-found{border-color:#69cc95!important;box-shadow:0 0 0 3px #e8f8ef!impo
 .detail-hero.has-shift-photo{background-size:cover;background-position:center;background-repeat:no-repeat}
 .detail-hero.has-shift-photo:before{background:linear-gradient(0deg,rgba(2,14,32,.45),rgba(2,14,32,.03) 70%)}
 
+/* Account/company/professional profile images */
+.profile-image-upload{display:grid;grid-template-columns:150px minmax(0,1fr);gap:18px;align-items:center}
+.profile-image-preview{width:132px;height:132px;border-radius:22px;background:linear-gradient(135deg,#1767d9,#11b690);display:grid;place-items:center;overflow:hidden;color:#fff;font-size:42px;font-weight:900;box-shadow:0 8px 22px rgba(22,67,116,.12)}
+.profile-image-preview.professional{border-radius:50%}
+.profile-image-preview.company{border-radius:22px}
+.profile-image-preview img{width:100%;height:100%;object-fit:cover;display:block}
+.profile-image-controls{display:flex;flex-direction:column;gap:8px;max-width:560px}
+.profile-image-controls label{font-size:12px;font-weight:800;color:var(--text)}
+.profile-image-controls input[type=file]{width:100%;border:1px solid #d8e3ef;background:#fff;border-radius:10px;padding:9px;font-size:10px}
+.profile-image-controls small{font-size:9px;color:var(--muted);line-height:1.45}
+.avatar-sm.has-photo,.avatar-md.has-photo,.avatar-xl.has-photo{overflow:hidden;padding:0;background:#eef4fb;color:transparent}
+.avatar-sm.has-photo img,.avatar-md.has-photo img,.avatar-xl.has-photo img{width:100%;height:100%;display:block;object-fit:cover}
+@media(max-width:650px){.profile-image-upload{grid-template-columns:1fr}.profile-image-preview{width:118px;height:118px}}
+
