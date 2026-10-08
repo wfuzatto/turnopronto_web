@@ -665,6 +665,148 @@
   }
 
 
+  // Chat de suporte: busca incremental de novas interações sem recarregar a página.
+  qa('[data-support-thread]').forEach(thread=>{
+    const endpoint=thread.getAttribute('data-support-updates-url')||'';
+    if(!endpoint) return;
+
+    const statusBadge=q('[data-support-status]');
+    const composer=q('[data-support-composer]');
+    const closedNote=q('[data-support-closed-note]');
+    const statusSelect=q('[data-support-status-select]');
+    const statusLabels={
+      open:'Aberto',
+      in_progress:'Em atendimento',
+      answered:'Respondido',
+      closed:'Encerrado'
+    };
+    const statusClasses={
+      open:'open',
+      in_progress:'progress',
+      answered:'answered',
+      closed:'closed'
+    };
+
+    let lastMessageId=Number(thread.dataset.supportLastMessageId||0);
+    let polling=false;
+    let timer=null;
+    let failures=0;
+
+    const applyStatus=status=>{
+      if(!status) return;
+      thread.dataset.supportTicketStatus=status;
+      if(statusBadge){
+        statusBadge.classList.remove('open','progress','answered','closed');
+        statusBadge.classList.add(statusClasses[status]||'open');
+        statusBadge.textContent=statusLabels[status]||status;
+      }
+      if(statusSelect && statusSelect.value!==status) statusSelect.value=status;
+      if(closedNote){
+        const closed=status==='closed';
+        closedNote.hidden=!closed;
+        if(composer) composer.hidden=closed;
+      }
+    };
+
+    const createMessage=message=>{
+      if(!message || !Number.isFinite(Number(message.id))) return null;
+      if(q('[data-support-message-id="'+Number(message.id)+'"]',thread)) return null;
+
+      const article=document.createElement('article');
+      article.className='support-message '+(message.from_support?'support':'requester')+' support-message-new';
+      article.dataset.supportMessageId=String(message.id);
+
+      const author=document.createElement('div');
+      author.className='support-message-author';
+
+      const avatar=document.createElement('span');
+      avatar.className='avatar-sm';
+      avatar.textContent=message.author_initial||'?';
+
+      const identity=document.createElement('div');
+      const strong=document.createElement('strong');
+      strong.textContent=message.author||'Usuário';
+      const small=document.createElement('small');
+      small.textContent=message.meta||'';
+      identity.append(strong,small);
+      author.append(avatar,identity);
+
+      const body=document.createElement('p');
+      body.textContent=message.body||'';
+
+      article.append(author,body);
+      return article;
+    };
+
+    const appendMessages=messages=>{
+      if(!Array.isArray(messages) || !messages.length) return;
+      let appended=0;
+      messages.forEach(message=>{
+        const article=createMessage(message);
+        if(!article) return;
+        thread.appendChild(article);
+        lastMessageId=Math.max(lastMessageId,Number(message.id)||0);
+        appended++;
+        window.setTimeout(()=>article.classList.remove('support-message-new'),1200);
+      });
+      thread.dataset.supportLastMessageId=String(lastMessageId);
+      if(appended && document.visibilityState==='visible'){
+        const newest=thread.lastElementChild;
+        const rect=newest?.getBoundingClientRect();
+        if(rect && rect.top<window.innerHeight*1.15){
+          newest.scrollIntoView({behavior:'smooth',block:'nearest'});
+        }
+      }
+    };
+
+    const schedule=delay=>{
+      window.clearTimeout(timer);
+      timer=window.setTimeout(poll,delay);
+    };
+
+    const poll=async()=>{
+      if(polling){
+        schedule(1500);
+        return;
+      }
+      if(document.visibilityState==='hidden'){
+        schedule(5000);
+        return;
+      }
+
+      polling=true;
+      try{
+        const separator=endpoint.includes('?')?'&':'?';
+        const response=await fetch(endpoint+separator+'after='+encodeURIComponent(lastMessageId),{
+          method:'GET',
+          credentials:'same-origin',
+          cache:'no-store',
+          headers:{'Accept':'application/json'}
+        });
+        if(!response.ok) throw new Error('support polling failed');
+        const payload=await response.json();
+        if(!payload?.ok || !payload?.data) throw new Error('invalid support polling response');
+
+        failures=0;
+        appendMessages(payload.data.messages||[]);
+        applyStatus(payload.data.status||'');
+        schedule(3000);
+      }catch(_){
+        failures++;
+        schedule(Math.min(15000,3000+(failures*2000)));
+      }finally{
+        polling=false;
+      }
+    };
+
+    document.addEventListener('visibilitychange',()=>{
+      if(document.visibilityState==='visible') schedule(150);
+    });
+    window.addEventListener('focus',()=>schedule(150));
+    applyStatus(thread.dataset.supportTicketStatus||'');
+    schedule(1200);
+  });
+
   // Modal de detalhes das vagas públicas: mantém o usuário na lista.
   qa('[data-public-job-modal-open]').forEach(button=>{
     button.addEventListener('click',()=>{
