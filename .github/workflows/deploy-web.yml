@@ -91,6 +91,15 @@ jobs:
           grep -q 'storeShiftImage' app/Data.php
           grep -q 'image_path' database/schema.sql
           grep -q "media/vagas/" app/Web.php
+          grep -q "media/perfis/" app/Web.php
+          grep -q 'storeAccountImage' app/Data.php
+          grep -q 'logo_url=?' app/Data.php
+          grep -q 'avatar_url=?' app/Data.php
+          grep -q 'name="profile_image"' app/views/company_account.php
+          grep -q 'name="profile_image"' app/views/professional_account.php
+          grep -q 'data-profile-image-input' public/assets/js/app.js
+          grep -q '.profile-image-upload' public/assets/css/app.css
+          grep -q '.avatar-sm.has-photo' public/assets/css/app.css
           grep -q 'createJobCategory' app/Data.php
           grep -q 'companyVerificationSummary' app/Data.php
           grep -q 'empresa/verificacao' app/Web.php
