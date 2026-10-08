@@ -32,7 +32,7 @@
     <div class="public-job-list">
       <?php foreach($opportunities as $s):?>
         <article class="public-job-card">
-          <div class="public-job-icon"><?=e(mb_strtoupper(mb_substr($s['category_name'],0,1)))?></div>
+          <div class="public-job-icon <?=!empty($s['image_url'])?'has-photo':''?>"><?php if(!empty($s['image_url'])):?><img src="<?=e($s['image_url'])?>" alt="<?=e($s['title']?:$s['category_name'])?>"><?php else:?><?=e(mb_strtoupper(mb_substr($s['category_name'],0,1)))?><?php endif;?></div>
           <div class="public-job-main">
             <span class="public-job-category"><?=e($s['category_name'])?></span>
             <h3><?=e($s['title']?:$s['category_name'])?></h3>
@@ -53,7 +53,7 @@
         <dialog class="public-job-modal" id="public-job-modal-<?=e((string)$s['id'])?>" aria-labelledby="public-job-modal-title-<?=e((string)$s['id'])?>">
           <div class="public-job-modal-card">
             <div class="public-job-modal-top">
-              <div class="public-job-icon large"><?=e(mb_strtoupper(mb_substr($s['category_name'],0,1)))?></div>
+              <div class="public-job-icon large <?=!empty($s['image_url'])?'has-photo':''?>"><?php if(!empty($s['image_url'])):?><img src="<?=e($s['image_url'])?>" alt="<?=e($s['title']?:$s['category_name'])?>"><?php else:?><?=e(mb_strtoupper(mb_substr($s['category_name'],0,1)))?><?php endif;?></div>
               <div class="public-job-modal-heading">
                 <span class="public-job-category"><?=e($s['category_name'])?></span>
                 <h2 id="public-job-modal-title-<?=e((string)$s['id'])?>"><?=e($s['title']?:$s['category_name'])?></h2>
