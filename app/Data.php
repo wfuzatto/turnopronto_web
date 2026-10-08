@@ -3061,6 +3061,56 @@ final class Data
         ];
     }
 
+    public static function supportTicketUpdates(int $userId,string $role,int $ticketId,int $afterMessageId=0): array
+    {
+        self::ensureSupportSchema();
+        $pdo=Database::connection();
+
+        $st=$pdo->prepare("SELECT t.id,t.requester_user_id,t.segment,t.status,t.updated_at,u.name requester_name,
+                           (SELECT c.trade_name FROM tp_company_members cm JOIN tp_companies c ON c.id=cm.company_id WHERE cm.user_id=t.requester_user_id LIMIT 1) company_name
+                    FROM tp_support_tickets t
+                    JOIN tp_users u ON u.id=t.requester_user_id
+                    WHERE t.id=? LIMIT 1");
+        $st->execute([$ticketId]);
+        $ticket=$st->fetch();
+        if(!$ticket) throw new RuntimeException('Chamado não encontrado.');
+        if($role!=='admin' && (int)$ticket['requester_user_id']!==$userId) throw new RuntimeException('Você não tem acesso a este chamado.');
+
+        $requester=(string)($ticket['segment']==='company'
+            ? ($ticket['company_name']?:$ticket['requester_name'])
+            : $ticket['requester_name']);
+        $afterMessageId=max(0,$afterMessageId);
+
+        $messages=$pdo->prepare("SELECT sm.id,sm.author_role,sm.body,sm.created_at,u.name author_name
+                                 FROM tp_support_messages sm
+                                 LEFT JOIN tp_users u ON u.id=sm.user_id
+                                 WHERE sm.ticket_id=? AND sm.id>?
+                                 ORDER BY sm.id ASC");
+        $messages->execute([$ticketId,$afterMessageId]);
+
+        $rows=[];
+        foreach($messages->fetchAll() as $message){
+            $fromSupport=$message['author_role']==='admin';
+            $author=$fromSupport?'Equipe TurnoPronto':((string)($message['author_name']?:$requester));
+            $rows[]=[
+                'id'=>(int)$message['id'],
+                'from_support'=>$fromSupport,
+                'author'=>$author,
+                'author_initial'=>$fromSupport?'TP':mb_strtoupper(mb_substr($author,0,1)),
+                'meta'=>($fromSupport?'Suporte':($ticket['segment']==='company'?'Empresa':'Profissional')).' · '.date('d/m/Y H:i',strtotime((string)$message['created_at'])),
+                'body'=>(string)$message['body'],
+                'created_at'=>(string)$message['created_at'],
+            ];
+        }
+
+        return [
+            'ticket_id'=>(int)$ticket['id'],
+            'status'=>(string)$ticket['status'],
+            'updated_at'=>(string)$ticket['updated_at'],
+            'messages'=>$rows,
+        ];
+    }
+
     public static function addSupportMessage(int $userId,string $role,int $ticketId,string $body): void
     {
         self::ensureSupportSchema();
