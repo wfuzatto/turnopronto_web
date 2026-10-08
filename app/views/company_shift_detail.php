@@ -38,7 +38,7 @@ $followers=$followers??[];
         <div class="candidate-list">
           <?php foreach($assigned as $p):?>
           <article class="candidate-card assigned-card">
-            <div class="avatar-md"><?=e(mb_strtoupper(mb_substr($p['name'],0,1)))?></div>
+            <div class="avatar-md <?=!empty($p['avatar_url'])?'has-photo':''?>"><?php if(!empty($p['avatar_url'])):?><img src="<?=e($p['avatar_url'])?>" alt="<?=e($p['name'])?>"><?php else:?><?=e(mb_strtoupper(mb_substr($p['name'],0,1)))?><?php endif;?></div>
             <div class="candidate-main"><strong><?=e($p['name'])?></strong><span><?=e($p['headline']?:'Profissional TurnoPronto')?></span><small><?=!empty($p['company_feedback_count'])?(round($p['reliability_score']).'% confiabilidade · '.round($p['punctuality_score']).'% pontualidade'):'Sem avaliação de empresa ainda'?> · <?=$p['completed_shifts']?> turnos</small></div>
             <div class="candidate-side"><span class="status <?=$p['status']==='completed'?'confirmed':'published'?>"><?=e(ucfirst(str_replace('_',' ',$p['status'])))?></span><strong><?=money($p['agreed_value'])?></strong></div>
           </article>
@@ -55,7 +55,7 @@ $followers=$followers??[];
         <div class="candidate-list">
         <?php foreach($candidates as $p):?>
           <article class="candidate-card">
-            <div class="avatar-md"><?=e(mb_strtoupper(mb_substr($p['name'],0,1)))?></div>
+            <div class="avatar-md <?=!empty($p['avatar_url'])?'has-photo':''?>"><?php if(!empty($p['avatar_url'])):?><img src="<?=e($p['avatar_url'])?>" alt="<?=e($p['name'])?>"><?php else:?><?=e(mb_strtoupper(mb_substr($p['name'],0,1)))?><?php endif;?></div>
             <div class="candidate-main">
               <strong><?=e($p['name'])?></strong>
               <span><?=e($p['headline']?:'Profissional TurnoPronto')?></span>
@@ -98,7 +98,7 @@ $followers=$followers??[];
             if($phoneDigits!=='' && !str_starts_with($phoneDigits,'55')) $phoneDigits='55'.$phoneDigits;
           ?>
           <article class="candidate-card follower-card">
-            <div class="avatar-md"><?=e(mb_strtoupper(mb_substr($p['name'],0,1)))?></div>
+            <div class="avatar-md <?=!empty($p['avatar_url'])?'has-photo':''?>"><?php if(!empty($p['avatar_url'])):?><img src="<?=e($p['avatar_url'])?>" alt="<?=e($p['name'])?>"><?php else:?><?=e(mb_strtoupper(mb_substr($p['name'],0,1)))?><?php endif;?></div>
             <div class="candidate-main">
               <strong><?=e($p['name'])?></strong>
               <span><?=e($p['headline']?:'Profissional TurnoPronto')?></span>
