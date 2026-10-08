@@ -11,7 +11,7 @@ $followers=$followers??[];
     <p><?=e($shift['title'])?> · <?=e($shift['city'].' - '.$shift['state'])?></p>
   </div>
   <div class="head-actions">
-    <?php if(!in_array($shift['status'],['cancelled','completed'],true) && strtotime($shift['starts_at'])>time()):?>
+    <?php if(!in_array($shift['status'],['cancelled','completed'],true) && strtotime($shift['ends_at'])>time()):?>
       <a class="btn btn-soft" href="<?=e(url('empresa/vagas/'.$shift['id'].'/editar'))?>"><?=icon('file',15)?> Editar vaga</a>
       <form method="post" action="<?=e(url('empresa/vagas/'.$shift['id'].'/cancelar'))?>" data-confirm="Cancelar esta vaga e liberar os profissionais confirmados?">
         <?=csrf_field()?><input type="hidden" name="reason" value="Cancelada pela empresa">
