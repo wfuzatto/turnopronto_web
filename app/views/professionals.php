@@ -9,7 +9,7 @@
 <div class="professional-grid">
 <?php foreach($professionals as $p):?>
 <article class="panel pro-card" id="profissional-<?=$p['id']?>">
-  <div class="avatar-xl"><?=e(mb_strtoupper(mb_substr($p['name'],0,1)))?></div>
+  <div class="avatar-xl <?=!empty($p['avatar_url'])?'has-photo':''?>"><?php if(!empty($p['avatar_url'])):?><img src="<?=e($p['avatar_url'])?>" alt="<?=e($p['name'])?>"><?php else:?><?=e(mb_strtoupper(mb_substr($p['name'],0,1)))?><?php endif;?></div>
   <div class="grow">
     <h3><?=e($p['name'])?></h3>
     <p><?=e($p['headline']?:'Profissional TurnoPronto')?></p>
