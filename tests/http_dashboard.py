@@ -170,6 +170,14 @@ assert 'admin-support-upload' not in professional_review or 'enctype="multipart/
 assert 'data-inline-field="name"' in professional_review, 'professional admin review missing inline editing'
 assert 'data-inline-field="company_email"' in company_review, 'company admin review missing inline editing'
 
+appearance = json.loads(admin.open(base + '/api/v1/appearance', timeout=20).read().decode())
+assert appearance.get('ok') is True and appearance.get('data', {}).get('web_skin') in ['classic', 'modern', 'minimal']
+
+settings_html = admin.open(base + '/admin/configuracoes', timeout=20).read().decode()
+for marker in ['Configurações da plataforma', 'Skins da primeira página', 'Clássica (atual)', 'Moderna Extra Jobs', 'Minimalista']:
+    assert marker in settings_html, 'ADMIN skin settings missing ' + marker
+print('ADMIN platform skins: PASS')
+
 admin_support = admin.open(base + '/admin/suporte', timeout=20).read().decode()
 for marker in ['Central de suporte', 'Fila de atendimento', 'Empresas', 'Profissionais']:
     assert marker in admin_support, 'ADMIN support center missing ' + marker
@@ -185,7 +193,7 @@ print('ADMIN verification review pages: PASS')
 # Professionals browse vacancies before any signup.
 public = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
 jobs = public.open(base + '/vagas', timeout=20).read().decode()
-for marker in ['Veja as vagas primeiro', 'Vagas disponíveis', 'Tenho interesse', 'data-public-job-modal-open', 'public-job-modal', 'Acompanhar vaga']:
+for marker in ['Veja as vagas primeiro', 'Vagas em destaque', 'Todas as vagas', 'Tenho interesse', 'data-public-job-modal-open', 'public-job-modal', 'Acompanhar vaga', 'Qual cidade?', 'Qual função?']:
     assert marker in jobs, 'public vacancy page missing ' + marker
 assert 'name="cpf"' not in jobs and 'name="password"' not in jobs, 'public browsing unexpectedly asks for registration data'
 assert re.search(r'<button[^>]+data-public-job-modal-open=[^>]*>Ver detalhes</button>', jobs), 'public vacancy details still redirect instead of opening a modal'
