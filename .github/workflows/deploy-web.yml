@@ -114,6 +114,10 @@ jobs:
           test -f app/views/support_ticket.php
           grep -q 'supportDashboard' app/Data.php
           grep -q 'createSupportTicket' app/Data.php
+          grep -q 'supportTicketUpdates' app/Data.php
+          grep -q 'data-support-thread' app/views/support_ticket.php
+          grep -q 'data-support-updates-url' app/views/support_ticket.php
+          grep -q 'Chat de suporte: busca incremental' public/assets/js/app.js
           grep -q 'empresa/suporte' app/views/layout.php
           grep -q 'profissional/suporte' app/views/layout.php
           grep -q 'admin/suporte' app/views/layout.php
@@ -189,6 +193,7 @@ jobs:
           grep -q '.support-page' public/assets/css/app.css
           grep -q '.support-ticket-row' public/assets/css/app.css
           grep -q '.support-message' public/assets/css/app.css
+          grep -q '.support-message-new' public/assets/css/app.css
           grep -q '.admin-inline-editor' public/assets/css/app.css
           grep -q '.checkout-lock-note' public/assets/css/app.css
           grep -q '.notification-toast' public/assets/css/app.css
