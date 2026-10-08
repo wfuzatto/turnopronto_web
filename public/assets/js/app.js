@@ -799,6 +799,73 @@
       }
     };
 
+    if(composer){
+      composer.addEventListener('submit',async event=>{
+        event.preventDefault();
+        if(composer.dataset.sending==='1') return;
+
+        const textarea=q('textarea[name="message"]',composer);
+        const submit=q('button[type="submit"]',composer);
+        const message=(textarea?.value||'').trim();
+        if(message.length<2){
+          textarea?.focus();
+          return;
+        }
+
+        composer.dataset.sending='1';
+        if(submit){
+          submit.disabled=true;
+          submit.dataset.originalText=submit.textContent||'Enviar mensagem';
+          submit.textContent='Enviando…';
+        }
+
+        try{
+          const response=await fetch(composer.action,{
+            method:'POST',
+            credentials:'same-origin',
+            body:new FormData(composer),
+            cache:'no-store',
+            headers:{
+              'Accept':'application/json',
+              'X-Requested-With':'XMLHttpRequest'
+            }
+          });
+          const payload=await response.json().catch(()=>null);
+          if(!response.ok || !payload?.ok || !payload?.data){
+            throw new Error(payload?.error||'Não foi possível enviar a mensagem.');
+          }
+
+          appendMessages(payload.data.messages||[]);
+          applyStatus(payload.data.status||'');
+          if(textarea){
+            textarea.value='';
+            textarea.focus();
+          }
+          const newest=thread.lastElementChild;
+          newest?.scrollIntoView({behavior:'smooth',block:'nearest'});
+          failures=0;
+          schedule(1200);
+        }catch(error){
+          const text=error?.message||'Não foi possível enviar a mensagem.';
+          let feedback=q('[data-support-send-error]',composer);
+          if(!feedback){
+            feedback=document.createElement('div');
+            feedback.className='support-send-error';
+            feedback.dataset.supportSendError='1';
+            composer.appendChild(feedback);
+          }
+          feedback.textContent=text;
+          window.setTimeout(()=>feedback?.remove(),5000);
+        }finally{
+          composer.dataset.sending='0';
+          if(submit){
+            submit.disabled=false;
+            submit.textContent=submit.dataset.originalText||'Enviar mensagem';
+          }
+        }
+      });
+    }
+
     document.addEventListener('visibilitychange',()=>{
       if(document.visibilityState==='visible') schedule(150);
     });
