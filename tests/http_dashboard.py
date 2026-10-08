@@ -62,13 +62,23 @@ for role, route, defaults in [
         account_html = opener.open(base + '/empresa/conta', timeout=20).read().decode()
         assert 'name="maps_url"' in account_html, 'company account missing maps_url field'
         assert 'Link do Google Maps' in account_html
-        print('COMPANY Google Maps field: PASS')
+        for marker in ['enctype="multipart/form-data"', 'name="profile_image"', 'data-profile-image-input',
+                       'data-profile-image-preview', 'Foto / logotipo da empresa']:
+            assert marker in account_html, 'company account image UI missing ' + marker
+        print('COMPANY Google Maps + profile image fields: PASS')
 
         verification_html = opener.open(base + '/empresa/verificacao', timeout=20).read().decode()
         for marker in ['Verificação da empresa', 'verification-checklist', 'WhatsApp', 'Cartão do CNPJ',
                        'Documento do responsável', 'Comprovante de endereço']:
             assert marker in verification_html, 'company verification center missing ' + marker
         print('COMPANY verification center: PASS')
+
+    if role == 'PROFESSIONAL':
+        profile_html = opener.open(base + '/profissional/perfil', timeout=20).read().decode()
+        for marker in ['enctype="multipart/form-data"', 'name="profile_image"', 'data-profile-image-input',
+                       'data-profile-image-preview', 'Foto de perfil']:
+            assert marker in profile_html, 'professional profile image UI missing ' + marker
+        print('PROFESSIONAL profile image fields: PASS')
 
     support_route = '/empresa/suporte' if role == 'COMPANY' else '/profissional/suporte'
     support_html = opener.open(base + support_route, timeout=20).read().decode()
