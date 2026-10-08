@@ -356,6 +356,43 @@ final class Data
         return $value;
     }
 
+    private static function storeAccountImage(array $file): ?string
+    {
+        $error=(int)($file['error']??UPLOAD_ERR_NO_FILE);
+        if($error===UPLOAD_ERR_NO_FILE) return null;
+        if($error!==UPLOAD_ERR_OK) throw new RuntimeException('Não foi possível receber a imagem do cadastro.');
+        $sizeBytes=(int)($file['size']??0);
+        if($sizeBytes<=0 || $sizeBytes>8*1024*1024) throw new RuntimeException('A imagem deve ter no máximo 8 MB.');
+
+        $tmp=(string)($file['tmp_name']??'');
+        if(!is_uploaded_file($tmp)) throw new RuntimeException('Upload da imagem não reconhecido pelo servidor.');
+
+        $finfo=new finfo(FILEINFO_MIME_TYPE);
+        $mime=$finfo->file($tmp) ?: '';
+        $allowed=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
+        if(!isset($allowed[$mime])) throw new RuntimeException('Envie uma imagem em JPG, PNG ou WEBP.');
+
+        $image=@getimagesize($tmp);
+        if(!$image || (int)($image[0]??0)<1 || (int)($image[1]??0)<1) throw new RuntimeException('O arquivo enviado não é uma imagem válida.');
+
+        $dir=dirname(__DIR__).'/storage/uploads/profile_images';
+        if(!is_dir($dir) && !mkdir($dir,0770,true) && !is_dir($dir)) throw new RuntimeException('Não foi possível preparar a pasta das imagens de cadastro.');
+
+        $filename=bin2hex(random_bytes(20)).'.'.$allowed[$mime];
+        $absolute=$dir.'/'.$filename;
+        if(!move_uploaded_file($tmp,$absolute)) throw new RuntimeException('Falha ao salvar a imagem do cadastro.');
+        @chmod($absolute,0660);
+        return '/media/perfis/'.$filename;
+    }
+
+    private static function deleteAccountImage(?string $url): void
+    {
+        $url=trim((string)$url);
+        if(!preg_match('#^/media/perfis/([a-f0-9]{40}\.(?:jpg|png|webp))$#',$url,$m)) return;
+        $absolute=dirname(__DIR__).'/storage/uploads/profile_images/'.$m[1];
+        if(is_file($absolute)) @unlink($absolute);
+    }
+
     public static function companyProfile(int $userId): array
     {
         self::ensureCompanyMapsColumn();
@@ -1977,7 +2014,7 @@ final class Data
     }
 
 
-    public static function updateCompanyAccount(int $userId, array $data): void
+    public static function updateCompanyAccount(int $userId, array $data, ?array $imageFile=null): void
     {
         $companyId=self::companyIdForUser($userId);
         if(!$companyId) throw new RuntimeException('Empresa não encontrada.');
@@ -1997,9 +2034,13 @@ final class Data
         self::ensureCompanyMapsColumn();
         self::ensureCompanyEmailColumn();
         $pdo=Database::connection();
-        $current=$pdo->prepare('SELECT phone FROM tp_users WHERE id=? LIMIT 1');
+        $current=$pdo->prepare('SELECT u.phone,c.logo_url FROM tp_users u JOIN tp_company_members cm ON cm.user_id=u.id JOIN tp_companies c ON c.id=cm.company_id WHERE u.id=? LIMIT 1');
         $current->execute([$userId]);
-        $currentPhone=(string)$current->fetchColumn();
+        $currentRow=$current->fetch() ?: [];
+        $currentPhone=(string)($currentRow['phone']??'');
+        $oldImage=(string)($currentRow['logo_url']??'');
+        $newImage=$imageFile ? self::storeAccountImage($imageFile) : null;
+        $imageUrl=$newImage ?: ($oldImage!==''?$oldImage:null);
         $phoneChanged=$phone!==$currentPhone;
 
         $pdo->beginTransaction();
@@ -2009,12 +2050,17 @@ final class Data
             }else{
                 $pdo->prepare('UPDATE tp_users SET name=?,phone=?,updated_at=NOW() WHERE id=?')->execute([$name,$phone,$userId]);
             }
-            $pdo->prepare('UPDATE tp_companies SET legal_name=?,trade_name=?,cnpj=?,company_email=?,address=?,city=?,state=?,maps_url=? WHERE id=?')->execute([$legal,$trade,$cnpj,$companyEmail,$address,$city,$state,$mapsUrl,$companyId]);
-            self::audit($userId,'account.company_updated','company',$companyId);
+            $pdo->prepare('UPDATE tp_companies SET legal_name=?,trade_name=?,cnpj=?,company_email=?,address=?,city=?,state=?,maps_url=?,logo_url=? WHERE id=?')->execute([$legal,$trade,$cnpj,$companyEmail,$address,$city,$state,$mapsUrl,$imageUrl,$companyId]);
+            self::audit($userId,'account.company_updated','company',$companyId,['image_changed'=>(bool)$newImage]);
             $pdo->commit();
-        }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+            if($newImage && $oldImage!=='' && $oldImage!==$newImage) self::deleteAccountImage($oldImage);
+        }catch(Throwable $e){
+            if($pdo->inTransaction())$pdo->rollBack();
+            if($newImage) self::deleteAccountImage($newImage);
+            throw $e;
+        }
     }
-    public static function updateProfessionalAccount(int $userId, array $data): void
+    public static function updateProfessionalAccount(int $userId, array $data, ?array $imageFile=null): void
     {
         $professionalId=self::professionalIdForUser($userId);
         if(!$professionalId) throw new RuntimeException('Perfil profissional não encontrado.');
@@ -2034,18 +2080,29 @@ final class Data
         $dup->execute([$email,$userId]);
         if($dup->fetchColumn()) throw new RuntimeException('Este e-mail já está vinculado a outra conta.');
 
+        $current=$pdo->prepare('SELECT avatar_url FROM tp_users WHERE id=? LIMIT 1');
+        $current->execute([$userId]);
+        $oldImage=(string)$current->fetchColumn();
+        $newImage=$imageFile ? self::storeAccountImage($imageFile) : null;
+        $imageUrl=$newImage ?: ($oldImage!==''?$oldImage:null);
+
         $pdo->beginTransaction();
         try{
-            $pdo->prepare('UPDATE tp_users SET name=?,email=?,updated_at=NOW() WHERE id=?')
-                ->execute([$name,$email,$userId]);
+            $pdo->prepare('UPDATE tp_users SET name=?,email=?,avatar_url=?,updated_at=NOW() WHERE id=?')
+                ->execute([$name,$email,$imageUrl,$userId]);
             $pdo->prepare('UPDATE tp_professionals SET headline=?,bio=? WHERE id=?')
                 ->execute([$headline!==''?$headline:null,$bio,$professionalId]);
             $pdo->prepare('DELETE FROM tp_professional_categories WHERE professional_id=?')->execute([$professionalId]);
             $cat=$pdo->prepare('INSERT IGNORE INTO tp_professional_categories (professional_id,category_id,experience_level) SELECT ?,id,"experienced" FROM tp_job_categories WHERE id=? AND active=1');
             foreach($categories as $categoryId)$cat->execute([$professionalId,$categoryId]);
-            self::audit($userId,'account.professional_updated','professional',$professionalId);
+            self::audit($userId,'account.professional_updated','professional',$professionalId,['image_changed'=>(bool)$newImage]);
             $pdo->commit();
-        }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+            if($newImage && $oldImage!=='' && $oldImage!==$newImage) self::deleteAccountImage($oldImage);
+        }catch(Throwable $e){
+            if($pdo->inTransaction())$pdo->rollBack();
+            if($newImage) self::deleteAccountImage($newImage);
+            throw $e;
+        }
     }
 
     public static function professionalCategoryIds(int $userId): array
