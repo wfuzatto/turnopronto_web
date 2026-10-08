@@ -17,7 +17,7 @@ $requester=$isCompany?($ticket['company_name']?:$ticket['requester_name']):$tick
       <h1>Chamado #<?=e((string)$ticket['id'])?></h1>
       <p><?=e($ticket['subject'])?></p>
     </div>
-    <span class="support-status <?=$statusClass[$ticket['status']]??'open'?>"><?=e($statusLabels[$ticket['status']]??$ticket['status'])?></span>
+    <span class="support-status <?=$statusClass[$ticket['status']]??'open'?>" data-support-status><?=e($statusLabels[$ticket['status']]??$ticket['status'])?></span>
   </div>
 
   <div class="support-thread-layout">
@@ -27,11 +27,15 @@ $requester=$isCompany?($ticket['company_name']?:$ticket['requester_name']):$tick
         <?php if(!empty($ticket['context_ref'])):?><span>Referência: <?=e($ticket['context_ref'])?></span><?php endif;?>
       </div>
 
-      <div class="support-messages">
+      <div class="support-messages"
+           data-support-thread
+           data-support-updates-url="<?=e(url($prefix.'/suporte/chamados/'.$ticket['id'].'/atualizacoes'))?>"
+           data-support-last-message-id="<?=e((string)(!empty($messages)?max(array_map(fn($row)=>(int)$row['id'],$messages)):0))?>"
+           data-support-ticket-status="<?=e((string)$ticket['status'])?>">
         <?php foreach($messages as $message):
           $fromSupport=$message['author_role']==='admin';
         ?>
-          <article class="support-message <?=$fromSupport?'support':'requester'?>">
+          <article class="support-message <?=$fromSupport?'support':'requester'?>" data-support-message-id="<?=e((string)$message['id'])?>">
             <div class="support-message-author">
               <span class="avatar-sm"><?=$fromSupport?'TP':e(mb_strtoupper(mb_substr($message['author_name']?:$requester,0,1)))?></span>
               <div><strong><?=$fromSupport?'Equipe TurnoPronto':e($message['author_name']?:$requester)?></strong><small><?=$fromSupport?'Suporte':($isCompany?'Empresa':'Profissional')?> · <?=date('d/m/Y H:i',strtotime($message['created_at']))?></small></div>
@@ -41,16 +45,15 @@ $requester=$isCompany?($ticket['company_name']?:$ticket['requester_name']):$tick
         <?php endforeach;?>
       </div>
 
-      <?php if($ticket['status']!=='closed' || $isAdmin):?>
-        <form class="support-reply-form" method="post" action="<?=e(url($prefix.'/suporte/chamados/'.$ticket['id'].'/mensagens'))?>">
-          <?=csrf_field()?>
-          <label><?=$isAdmin?'Responder chamado':'Enviar nova mensagem'?>
-            <textarea name="message" rows="4" maxlength="5000" placeholder="<?=$isAdmin?'Escreva a orientação para o cliente...':'Acrescente informações que ajudem o suporte...'?>" required></textarea>
-          </label>
-          <div><small><?=$isAdmin?'A resposta será notificada ao usuário.':'Nossa equipe verá sua mensagem na fila de atendimento.'?></small><button class="btn btn-primary" type="submit">Enviar mensagem</button></div>
-        </form>
-      <?php else:?>
-        <div class="support-closed-note"><?=icon('check',17)?><span>Este chamado foi encerrado. Se precisar tratar um novo assunto, abra outro chamado.</span></div>
+      <form class="support-reply-form" data-support-composer method="post" action="<?=e(url($prefix.'/suporte/chamados/'.$ticket['id'].'/mensagens'))?>" <?=(!$isAdmin && $ticket['status']==='closed')?'hidden':''?>>
+        <?=csrf_field()?>
+        <label><?=$isAdmin?'Responder chamado':'Enviar nova mensagem'?>
+          <textarea name="message" rows="4" maxlength="5000" placeholder="<?=$isAdmin?'Escreva a orientação para o cliente...':'Acrescente informações que ajudem o suporte...'?>" required></textarea>
+        </label>
+        <div><small><?=$isAdmin?'A resposta será notificada ao usuário.':'Nossa equipe verá sua mensagem na fila de atendimento.'?></small><button class="btn btn-primary" type="submit">Enviar mensagem</button></div>
+      </form>
+      <?php if(!$isAdmin):?>
+        <div class="support-closed-note" data-support-closed-note <?=$ticket['status']==='closed'?'':'hidden'?>><?=icon('check',17)?><span>Este chamado foi encerrado. Se precisar tratar um novo assunto, abra outro chamado.</span></div>
       <?php endif;?>
     </section>
 
@@ -73,7 +76,7 @@ $requester=$isCompany?($ticket['company_name']?:$ticket['requester_name']):$tick
           <p>Atualize o status para organizar a fila operacional.</p>
           <form method="post" action="<?=e(url('admin/suporte/chamados/'.$ticket['id'].'/status'))?>">
             <?=csrf_field()?>
-            <select name="status">
+            <select name="status" data-support-status-select>
               <?php foreach($statusLabels as $key=>$label):?><option value="<?=e($key)?>" <?=$ticket['status']===$key?'selected':''?>><?=e($label)?></option><?php endforeach;?>
             </select>
             <button class="btn btn-primary btn-block" type="submit">Atualizar status</button>
