@@ -38,23 +38,41 @@ $nav=$role==='company'?$navCompany:($role==='professional'?$navPro:$navAdmin);
       <?php foreach($nav as [$href,$ico,$label]): $active=str_starts_with(trim($current,'/'),$href) || ($href==='empresa/vagas'&&$current==='/empresa/vagas'); ?>
       <a class="side-link <?=$active?'active':''?>" href="<?=e(url($href))?>"><?=icon($ico,20)?><span><?=e($label)?></span></a>
       <?php endforeach;?>
+      <?php if($role==='admin' && str_starts_with($current,'/admin/configuracoes')):?>
+        <div class="admin-settings-subnav">
+          <span>Geral</span>
+          <span>Aparência</span>
+          <a class="active" href="<?=e(url('admin/configuracoes'))?>">Skins da primeira página</a>
+          <span>Conteúdo</span>
+          <span>Notificações</span>
+          <span>Integrações</span>
+          <span>Usuários</span>
+          <span>Planos e cobrança</span>
+        </div>
+      <?php endif;?>
     </nav>
+    <?php if($role!=='admin'):?>
     <div class="side-promo">
       <div class="promo-avatar">TP</div>
       <strong><?=$role==='company'?'Equipe extra quando você precisa':'Mais oportunidades para você!'?></strong>
       <p><?=$role==='company'?'Profissionais qualificados para o seu negócio.':'Complete seu perfil e aumente suas chances de ser chamado.'?></p>
       <a href="<?=e(url($role==='company'?'empresa/vagas/nova':'profissional/oportunidades'))?>" class="btn btn-primary btn-block"><?=$role==='company'?'Publicar nova vaga':'Ver oportunidades'?> →</a>
     </div>
+    <?php endif;?>
   </aside>
   <section class="workspace">
     <header class="topbar">
       <button class="mobile-menu" data-sidebar-toggle aria-label="Menu">☰</button>
+      <?php if($role==='admin'):?>
+        <div class="admin-topbar-spacer"></div>
+      <?php else:?>
       <form class="top-search" action="<?=e(url('buscar'))?>" method="get" role="search" data-global-search>
         <?=icon('search',18)?>
-        <input name="q" value="<?=e($current==='/buscar'?(string)($_GET['q']??''):'')?>" placeholder="<?=$role==='company'?'Buscar profissionais, vagas ou palavras-chave...':($role==='admin'?'Buscar empresas, profissionais ou vagas...':'Buscar oportunidades, cidades ou estabelecimentos...')?>" autocomplete="off" spellcheck="false" data-global-search-input>
+        <input name="q" value="<?=e($current==='/buscar'?(string)($_GET['q']??''):'')?>" placeholder="<?=$role==='company'?'Buscar profissionais, vagas ou palavras-chave...':'Buscar oportunidades, cidades ou estabelecimentos...'?>" autocomplete="off" spellcheck="false" data-global-search-input>
         <button class="top-search-submit" type="submit" aria-label="Buscar"><?=icon('search',16)?></button>
         <div class="global-search-dropdown" data-global-search-dropdown hidden></div>
       </form>
+      <?php endif;?>
       <?php
         $accountHref=$role==='company'?'empresa/conta':($role==='professional'?'profissional/perfil':'admin/conta');
         $notificationIcon=function(string $type): string {
