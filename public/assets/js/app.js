@@ -762,6 +762,69 @@
     return found;
   };
 
+  const roadDistanceCache=new Map();
+  const routeCacheKey=(origin,destination)=>[
+    origin.lat.toFixed(5),origin.lng.toFixed(5),
+    destination.lat.toFixed(5),destination.lng.toFixed(5)
+  ].join(',');
+
+  const roadDistancesKm=async(origin,items)=>{
+    const results=new Map();
+    const pending=[];
+
+    items.forEach(item=>{
+      const key=routeCacheKey(origin,item.destination);
+      let cached=roadDistanceCache.get(key);
+      if(cached===undefined){
+        try{
+          const stored=sessionStorage.getItem('tp-road:'+key);
+          cached=stored===null?undefined:Number(stored);
+        }catch(_){}
+      }
+      if(Number.isFinite(cached)){
+        results.set(item.row,cached);
+      }else{
+        pending.push({...item,key});
+      }
+    });
+
+    const batchSize=20;
+    for(let start=0;start<pending.length;start+=batchSize){
+      const batch=pending.slice(start,start+batchSize);
+      const coordinates=[origin,...batch.map(item=>item.destination)]
+        .map(point=>point.lng+','+point.lat)
+        .join(';');
+      const destinations=batch.map((_,index)=>index+1).join(';');
+      const url='https://router.project-osrm.org/table/v1/driving/'+coordinates
+        +'?sources=0&destinations='+destinations+'&annotations=distance';
+
+      try{
+        const response=await fetch(url,{headers:{'Accept':'application/json'},cache:'no-store'});
+        if(!response.ok) throw new Error('routing failed');
+        const payload=await response.json();
+        const distances=Array.isArray(payload?.distances?.[0])?payload.distances[0]:[];
+
+        batch.forEach((item,index)=>{
+          const meters=Number(distances[index]);
+          if(Number.isFinite(meters)&&meters>=0){
+            const km=meters/1000;
+            results.set(item.row,km);
+            roadDistanceCache.set(item.key,km);
+            try{sessionStorage.setItem('tp-road:'+item.key,String(km));}catch(_){}
+          }
+        });
+      }catch(_){}
+    }
+
+    return results;
+  };
+
+  const formatAccuracy=meters=>{
+    if(!Number.isFinite(meters)||meters<=0) return '';
+    if(meters<1000) return '±'+Math.round(meters)+' m';
+    return '±'+(meters/1000).toFixed(meters<10000?1:0)+' km';
+  };
+
   qa('[data-opportunity-location]').forEach(root=>{
     const rows=qa('[data-opportunity-row]',root);
     if(!rows.length) return;
@@ -769,6 +832,9 @@
     const status=q('[data-location-status]',root);
     const title=q('[data-location-title]',root);
     const requestButtons=qa('[data-location-request]',root);
+    const manualInput=q('[data-manual-location-input]',root);
+    const manualApply=q('[data-manual-location-apply]',root);
+    const manualStatus=q('[data-manual-location-status]',root);
     const search=q('[data-opportunity-search]',root);
     const radius=q('[data-opportunity-radius]',root);
     const days=q('[data-opportunity-days]',root);
@@ -822,26 +888,66 @@
 
     const calculateDistances=async location=>{
       userLocation=location;
-      if(title) title.textContent='Localização autorizada';
-      if(status) status.textContent='Calculando a distância das vagas a partir da sua posição atual'+(location.accuracy?' (precisão aproximada de '+Math.round(location.accuracy)+' m).':'.');
+      const accuracyText=location.manual?'endereço informado manualmente':formatAccuracy(location.accuracy);
+      if(title) title.textContent=location.manual?'Ponto de partida definido manualmente':'Localização autorizada';
+      if(status){
+        if(location.manual){
+          status.textContent='Calculando as distâncias pelas rotas viárias a partir do endereço informado.';
+        }else if(Number(location.accuracy)>1000){
+          status.textContent='O Chrome forneceu uma localização aproximada ('+accuracyText+'). As distâncias usam rotas viárias, mas você pode informar um endereço manual abaixo para melhorar a origem.';
+        }else{
+          status.textContent='Calculando as distâncias pelas rotas viárias'+(accuracyText?' com precisão da origem de '+accuracyText+'.':'.');
+        }
+      }
 
+      const resolved=[];
       for(const row of rows){
         const label=q('[data-opportunity-distance]',row);
-        if(label) label.textContent='Calculando…';
+        const kind=q('[data-opportunity-distance-kind]',row);
+        if(label) label.textContent='Calculando rota…';
+        if(kind) kind.textContent='pela rota';
         const destination=await resolveOpportunityCoordinates(row);
         if(!destination){
           row.dataset.distanceKm='';
+          row.dataset.distanceMode='';
           if(label) label.textContent='Distância indisponível';
+          if(kind) kind.textContent='local';
           continue;
         }
-        const km=haversineKm(location.lat,location.lng,destination.lat,destination.lng);
-        row.dataset.distanceKm=String(km);
-        if(label) label.textContent=formatDistance(km);
+        resolved.push({row,destination});
       }
+
+      const road=await roadDistancesKm(location,resolved);
+      resolved.forEach(item=>{
+        const label=q('[data-opportunity-distance]',item.row);
+        const kind=q('[data-opportunity-distance-kind]',item.row);
+        const routeKm=road.get(item.row);
+        if(Number.isFinite(routeKm)){
+          item.row.dataset.distanceKm=String(routeKm);
+          item.row.dataset.distanceMode='road';
+          if(label) label.textContent=formatDistance(routeKm);
+          if(kind) kind.textContent='pela rota';
+          return;
+        }
+
+        const straightKm=haversineKm(location.lat,location.lng,item.destination.lat,item.destination.lng);
+        item.row.dataset.distanceKm=String(straightKm);
+        item.row.dataset.distanceMode='straight';
+        if(label) label.textContent=formatDistance(straightKm);
+        if(kind) kind.textContent='linha reta';
+      });
 
       sortByDistance();
       applyFilters();
-      if(status) status.textContent='Distâncias calculadas usando a localização autorizada pelo navegador.';
+      if(status){
+        const routeCount=resolved.filter(item=>item.row.dataset.distanceMode==='road').length;
+        const fallbackCount=resolved.filter(item=>item.row.dataset.distanceMode==='straight').length;
+        const base=location.manual
+          ?'Ponto de partida manual aplicado.'
+          :'Localização do navegador aplicada'+(accuracyText?' ('+accuracyText+').':'.');
+        status.textContent=base+' '+routeCount+' vaga(s) calculada(s) pela rota viária'
+          +(fallbackCount?' e '+fallbackCount+' com estimativa em linha reta porque o serviço de rotas não respondeu.':'.');
+      }
     };
 
     const requestLocation=async(force=false)=>{
@@ -868,6 +974,36 @@
     radius?.addEventListener('change',applyFilters);
     days?.addEventListener('change',applyFilters);
     requestButtons.forEach(button=>button.addEventListener('click',()=>requestLocation(true)));
+
+    manualApply?.addEventListener('click',async()=>{
+      const address=(manualInput?.value||'').trim();
+      if(address.length<5){
+        if(manualStatus) manualStatus.textContent='Informe rua, número e cidade para localizar o ponto de partida.';
+        manualInput?.focus();
+        return;
+      }
+      manualApply.disabled=true;
+      if(manualStatus) manualStatus.textContent='Localizando o endereço informado…';
+      try{
+        let origin=await geocodeAddress(address);
+        if(!origin && !/brasil/i.test(address)) origin=await geocodeAddress(address+', Brasil');
+        if(!origin){
+          if(manualStatus) manualStatus.textContent='Não consegui localizar esse endereço. Inclua número, cidade e UF e tente novamente.';
+          return;
+        }
+        if(manualStatus) manualStatus.textContent='Endereço localizado. Calculando as rotas…';
+        await calculateDistances({...origin,accuracy:0,manual:true});
+        if(manualStatus) manualStatus.textContent='Endereço manual em uso para o cálculo das distâncias.';
+      }finally{
+        manualApply.disabled=false;
+      }
+    });
+    manualInput?.addEventListener('keydown',event=>{
+      if(event.key==='Enter'){
+        event.preventDefault();
+        manualApply?.click();
+      }
+    });
 
     applyFilters();
     requestLocation(false);
