@@ -139,7 +139,11 @@ jobs:
           grep -q 'next_payout' app/Data.php
           grep -q 'data-opportunity-location' app/views/opportunities.php
           grep -q 'navigator.geolocation' public/assets/js/app.js
+          grep -q 'valhalla1.openstreetmap.de/sources_to_targets' public/assets/js/app.js
           grep -q 'router.project-osrm.org/table/v1/driving' public/assets/js/app.js
+          grep -q "relative==='/home'" app/Api.php
+          grep -q '/follow' app/Api.php
+          grep -q '/unfollow' app/Api.php
           grep -q 'data-manual-location-input' app/views/opportunities.php
           grep -q 'pela rota' app/views/opportunities.php
           if grep -q 'R$ 780,00' app/views/earnings.php app/views/professional_dashboard.php; then
