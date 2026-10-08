@@ -90,6 +90,23 @@ for role, route, defaults in [
     assert search_json.get('ok') is True and search_json.get('data', {}).get('items'), role + ' live search endpoint failed'
     print(role + ' global search: PASS')
 
+    if role == 'PROFESSIONAL':
+        opportunities_html = opener.open(base + '/profissional/oportunidades', timeout=20).read().decode()
+        assert 'data-opportunity-location' in opportunities_html
+        assert 'data-opportunity-distance' in opportunities_html
+        assert 'data-opportunity-radius' in opportunities_html
+        print('PROFESSIONAL browser geolocation UI: PASS')
+
+        earnings_html = opener.open(base + '/profissional/ganhos', timeout=20).read().decode()
+        assert 'Próximo repasse' in earnings_html
+        assert 'R$ 780,00' not in earnings_html, 'professional earnings still contains the old hardcoded payout'
+        print('PROFESSIONAL real payout values: PASS')
+
+        reputation_html = opener.open(base + '/profissional/reputacao', timeout=20).read().decode()
+        assert 'Confiabilidade ainda não calculada' in reputation_html
+        assert 'Aguardando avaliação' in reputation_html
+        print('PROFESSIONAL reputation waits for company feedback: PASS')
+
     print(role + ' authenticated dashboard and CSS: PASS')
 
 
