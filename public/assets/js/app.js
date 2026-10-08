@@ -1384,6 +1384,36 @@
     requestLocation(false);
   });
 
+  // Imagem do cadastro: preview local para empresa e profissional.
+  qa('[data-profile-image-input]').forEach(input=>{
+    input.addEventListener('change',()=>{
+      const file=input.files?.[0];
+      const form=input.closest('form');
+      const preview=form?q('[data-profile-image-preview]',form):null;
+      if(!preview || !file) return;
+
+      if(file.size>8*1024*1024){
+        input.value='';
+        window.alert('A imagem deve ter no máximo 8 MB.');
+        return;
+      }
+      if(!['image/jpeg','image/png','image/webp'].includes(file.type)){
+        input.value='';
+        window.alert('Envie uma imagem em JPG, PNG ou WEBP.');
+        return;
+      }
+
+      const url=URL.createObjectURL(file);
+      preview.innerHTML='';
+      const img=document.createElement('img');
+      img.src=url;
+      img.alt='Prévia da imagem do cadastro';
+      img.onload=()=>URL.revokeObjectURL(url);
+      preview.appendChild(img);
+      preview.classList.add('has-image');
+    });
+  });
+
   // Foto da vaga: preview local antes de publicar/salvar.
   qa('[data-shift-image-input]').forEach(input=>{
     input.addEventListener('change',()=>{
