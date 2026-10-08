@@ -79,6 +79,41 @@ for role, route, defaults in [
     for marker in expected_support_markers:
         assert marker in support_html, role + ' support page missing ' + marker
     assert 'Novo chamado' in support_html and 'Meus chamados' in support_html
+
+    if role == 'COMPANY':
+        ticket_match = re.search(
+            r'<a class="support-ticket-row[^"]*" href="([^"]+)">.*?Dúvida de cobrança CI.*?</a>',
+            support_html,
+            re.S
+        )
+        assert ticket_match, 'COMPANY support integration ticket not found'
+        ticket_path = ticket_match.group(1)
+        ticket_html = opener.open(base + ticket_path, timeout=20).read().decode()
+        assert 'data-support-thread' in ticket_html and 'data-support-composer' in ticket_html
+        assert 'data-support-updates-url' in ticket_html
+        chat_csrf = re.search(r'name="_csrf" value="([^"]+)"', ticket_html).group(1)
+        send_path = re.search(r'<form class="support-reply-form"[^>]+action="([^"]+)"', ticket_html).group(1)
+        ajax_text = 'Mensagem AJAX sem refresh CI'
+        ajax_request = urllib.request.Request(
+            urllib.parse.urljoin(base, send_path),
+            data=urllib.parse.urlencode({'_csrf': chat_csrf, 'message': ajax_text}).encode(),
+            headers={
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        )
+        ajax_response = opener.open(ajax_request, timeout=20)
+        assert ajax_response.headers.get_content_type() == 'application/json', 'support AJAX send did not return JSON'
+        ajax_payload = json.loads(ajax_response.read().decode())
+        assert ajax_payload.get('ok') is True
+        ajax_messages = ajax_payload.get('data', {}).get('messages', [])
+        assert len(ajax_messages) == 1 and ajax_messages[0].get('body') == ajax_text
+        ticket_after_ajax = opener.open(base + ticket_path, timeout=20).read().decode()
+        assert 'Mensagem enviada.' not in ticket_after_ajax, 'support AJAX send still creates green success flash'
+        assert ajax_text in ticket_after_ajax, 'support AJAX message was not persisted'
+        print('COMPANY support AJAX append: PASS')
+
     print(role + ' segmented support page: PASS')
 
     search_term = 'Juliana' if role == 'COMPANY' else 'Vale'
