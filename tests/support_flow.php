@@ -51,7 +51,10 @@ if(!$denied) throw new RuntimeException('Support ticket ownership isolation fail
 $before=Data::supportTicket($professionalUserId,'professional',$professionalTicket);
 $lastBefore=(int)end($before['messages'])['id'];
 
-Data::addSupportMessage($adminUserId,'admin',$professionalTicket,'Resposta do suporte no teste de integração.');
+$sent=Data::addSupportMessage($adminUserId,'admin',$professionalTicket,'Resposta do suporte no teste de integração.');
+if(($sent['status']??'')!=='answered') throw new RuntimeException('AJAX support send payload did not include answered status.');
+if(count($sent['messages']??[])!==1 || ($sent['messages'][0]['body']??'')!=='Resposta do suporte no teste de integração.') throw new RuntimeException('AJAX support send payload did not include the new message.');
+
 $updates=Data::supportTicketUpdates($professionalUserId,'professional',$professionalTicket,$lastBefore);
 if(($updates['status']??'')!=='answered') throw new RuntimeException('Realtime support status did not report the admin reply.');
 if(count($updates['messages']??[])!==1) throw new RuntimeException('Realtime support endpoint did not return exactly the new admin message.');
@@ -67,7 +70,9 @@ try{ Data::supportTicketUpdates($companyUserId,'company',$professionalTicket,0);
 catch(RuntimeException $e){ $deniedUpdates=true; }
 if(!$deniedUpdates) throw new RuntimeException('Realtime support endpoint ownership isolation failed.');
 
-Data::addSupportMessage($professionalUserId,'professional',$professionalTicket,'Obrigado. Estou respondendo ao suporte pelo chamado.');
+$sentByRequester=Data::addSupportMessage($professionalUserId,'professional',$professionalTicket,'Obrigado. Estou respondendo ao suporte pelo chamado.');
+if(($sentByRequester['status']??'')!=='open') throw new RuntimeException('Requester AJAX send payload did not reopen the support queue.');
+if(count($sentByRequester['messages']??[])!==1) throw new RuntimeException('Requester AJAX send payload did not include exactly one new message.');
 $detail=Data::supportTicket($adminUserId,'admin',$professionalTicket);
 if(($detail['ticket']['status']??'')!=='open') throw new RuntimeException('Requester reply did not reopen the support queue.');
 
