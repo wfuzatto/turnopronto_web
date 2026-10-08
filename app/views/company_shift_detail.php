@@ -2,6 +2,7 @@
 $statusLabel=['published'=>'Publicada','filling'=>'Em preenchimento','confirmed'=>'Confirmada','cancelled'=>'Cancelada','draft'=>'Rascunho'][$shift['status']]??ucfirst($shift['status']);
 $fill=min(100,round(((int)$shift['assigned']/max(1,(int)$shift['required_workers']))*100));
 $activeCandidates=array_values(array_filter($candidates,fn($c)=>in_array($c['status'],['applied','invited'],true)));
+$followers=$followers??[];
 ?>
 <div class="page-head">
   <div>
@@ -11,7 +12,7 @@ $activeCandidates=array_values(array_filter($candidates,fn($c)=>in_array($c['sta
   </div>
   <div class="head-actions">
     <?php if(!in_array($shift['status'],['cancelled','completed'],true) && strtotime($shift['starts_at'])>time()):?>
-      <a class="btn btn-soft" href="<?=e(url('empresa/vagas/'.$shift['id'].'/editar'))?>">Editar</a>
+      <a class="btn btn-soft" href="<?=e(url('empresa/vagas/'.$shift['id'].'/editar'))?>"><?=icon('file',15)?> Editar vaga</a>
       <form method="post" action="<?=e(url('empresa/vagas/'.$shift['id'].'/cancelar'))?>" data-confirm="Cancelar esta vaga e liberar os profissionais confirmados?">
         <?=csrf_field()?><input type="hidden" name="reason" value="Cancelada pela empresa">
         <button class="btn btn-danger" type="submit">Cancelar vaga</button>
@@ -24,7 +25,7 @@ $activeCandidates=array_values(array_filter($candidates,fn($c)=>in_array($c['sta
   <div class="kpi"><div class="kpi-icon blue"><?=icon('calendar')?></div><div><small>Data</small><strong><?=br_date($shift['starts_at'],'d/m')?></strong><span><?=date('H:i',strtotime($shift['starts_at']))?> – <?=date('H:i',strtotime($shift['ends_at']))?></span></div></div>
   <div class="kpi"><div class="kpi-icon green"><?=icon('wallet')?></div><div><small>Valor por profissional</small><strong><?=money($shift['shift_value'])?></strong><span>Total previsto: <?=money($shift['shift_value']*$shift['required_workers'])?></span></div></div>
   <div class="kpi"><div class="kpi-icon blue"><?=icon('users')?></div><div><small>Preenchimento</small><strong><?=$shift['assigned']?> / <?=$shift['required_workers']?></strong><span><?=$fill?>% confirmado</span></div></div>
-  <div class="kpi"><div class="kpi-icon green"><?=icon('shield')?></div><div><small>Modo de aceite</small><strong><?=($shift['acceptance_mode']??'automatic')==='manual'?'Aprovação':'Automático'?></strong><span><?=count($activeCandidates)?> pendente(s)</span></div></div>
+  <div class="kpi"><div class="kpi-icon green"><?=icon('shield')?></div><div><small>Interesse na vaga</small><strong><?=count($followers)?> acompanhando</strong><span><?=count($activeCandidates)?> candidatura(s) pendente(s)</span></div></div>
 </div>
 
 <div class="manage-grid">
@@ -76,6 +77,50 @@ $activeCandidates=array_values(array_filter($candidates,fn($c)=>in_array($c['sta
             </div>
           </article>
         <?php endforeach;?>
+        </div>
+      <?php endif;?>
+    </section>
+
+    <section class="panel shift-followers-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Profissionais acompanhando</h2>
+          <p>Demonstraram interesse sem assumir o compromisso do turno. Ao acompanhar, autorizaram a empresa a visualizar seus contatos para conversar sobre esta vaga.</p>
+        </div>
+        <span class="candidate-total"><?=count($followers)?> interessado(s)</span>
+      </div>
+      <?php if(!$followers):?>
+        <div class="mini-empty">Ninguém está acompanhando esta vaga no momento.</div>
+      <?php else:?>
+        <div class="candidate-list">
+          <?php foreach($followers as $p):
+            $phoneDigits=preg_replace('/\D+/','',(string)($p['phone']??''));
+            if($phoneDigits!=='' && !str_starts_with($phoneDigits,'55')) $phoneDigits='55'.$phoneDigits;
+          ?>
+          <article class="candidate-card follower-card">
+            <div class="avatar-md"><?=e(mb_strtoupper(mb_substr($p['name'],0,1)))?></div>
+            <div class="candidate-main">
+              <strong><?=e($p['name'])?></strong>
+              <span><?=e($p['headline']?:'Profissional TurnoPronto')?></span>
+              <div class="candidate-metrics">
+                <b><?=$p['reliability_score']?>% confiabilidade</b>
+                <span><?=$p['attendance_score']?>% presença</span>
+                <span><?=$p['punctuality_score']?>% pontualidade</span>
+                <span>★ <?=number_format((float)$p['rating'],1,',','.')?></span>
+              </div>
+              <div class="follower-contact-data">
+                <?php if(!empty($p['phone'])):?><span><strong>Telefone:</strong> <?=e($p['phone'])?></span><?php endif;?>
+                <?php if(!empty($p['email'])):?><span><strong>E-mail:</strong> <?=e($p['email'])?></span><?php endif;?>
+              </div>
+            </div>
+            <div class="candidate-side follower-actions">
+              <span class="status filling">Acompanhando</span>
+              <small>desde <?=br_date($p['followed_at'],'d/m/Y H:i')?></small>
+              <?php if($phoneDigits!==''):?><a class="btn btn-primary btn-sm" href="<?=e('https://wa.me/'.$phoneDigits)?>" target="_blank" rel="noopener">WhatsApp</a><?php endif;?>
+              <?php if(!empty($p['email'])):?><a class="btn btn-soft btn-sm" href="<?=e('mailto:'.$p['email'])?>">E-mail</a><?php endif;?>
+            </div>
+          </article>
+          <?php endforeach;?>
         </div>
       <?php endif;?>
     </section>
