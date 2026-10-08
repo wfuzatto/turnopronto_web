@@ -54,7 +54,7 @@
            data-shift-city="<?=e((string)($s['city']??''))?>"
            data-shift-state="<?=e((string)($s['state']??''))?>"
            data-shift-start="<?=e((string)($s['starts_at']??''))?>">
-        <div class="venue-thumb"><?=e(mb_substr($s['category_name'],0,1))?></div>
+        <div class="venue-thumb <?=!empty($s['image_url'])?'has-photo':''?>"><?php if(!empty($s['image_url'])):?><img src="<?=e($s['image_url'])?>" alt="<?=e($s['title']?:$s['category_name'])?>"><?php else:?><?=e(mb_substr($s['category_name'],0,1))?><?php endif;?></div>
         <div class="opp-role">
           <strong><?=e($s['category_name'])?></strong>
           <span><?=e($s['company_name'])?> · ★ <?=number_format((float)$s['company_rating'],1,',','.')?></span>
