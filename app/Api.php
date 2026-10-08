@@ -108,10 +108,38 @@ final class Api
             json_response(['ok'=>true,'data'=>Data::opportunities((int)$user['id'])]);
         }
 
+        if($relative==='/home' && $method==='GET'){
+            if($user['role']!=='professional') json_response(['ok'=>false,'error'=>'Endpoint exclusivo do profissional.'],403);
+            json_response(['ok'=>true,'data'=>Data::professionalHome((int)$user['id'])]);
+        }
+
         if(preg_match('#^/shifts/(\d+)$#',$relative,$m) && $method==='GET'){
             $shift=Data::shift((int)$m[1]);
             if(!$shift) json_response(['ok'=>false,'error'=>'Vaga não encontrada.'],404);
+            if($user['role']==='professional'){
+                $shift['following']=Data::isFollowingShift((int)$user['id'],(int)$m[1]);
+            }
             json_response(['ok'=>true,'data'=>$shift]);
+        }
+
+        if(preg_match('#^/shifts/(\d+)/follow$#',$relative,$m) && $method==='POST'){
+            if($user['role']!=='professional') json_response(['ok'=>false,'error'=>'Endpoint exclusivo do profissional.'],403);
+            try{
+                Data::followShift((int)$user['id'],(int)$m[1]);
+                json_response(['ok'=>true,'following'=>true]);
+            }catch(Throwable $e){
+                json_response(['ok'=>false,'error'=>$e->getMessage()],422);
+            }
+        }
+
+        if(preg_match('#^/shifts/(\d+)/unfollow$#',$relative,$m) && $method==='POST'){
+            if($user['role']!=='professional') json_response(['ok'=>false,'error'=>'Endpoint exclusivo do profissional.'],403);
+            try{
+                Data::unfollowShift((int)$user['id'],(int)$m[1]);
+                json_response(['ok'=>true,'following'=>false]);
+            }catch(Throwable $e){
+                json_response(['ok'=>false,'error'=>$e->getMessage()],422);
+            }
         }
 
         if(preg_match('#^/shifts/(\d+)/accept$#',$relative,$m) && $method==='POST'){
