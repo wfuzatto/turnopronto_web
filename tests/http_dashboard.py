@@ -39,8 +39,9 @@ for role, route, defaults in [
 
     if role == 'COMPANY':
         shift_html = opener.open(base + '/empresa/vagas/nova', timeout=20).read().decode()
-        for marker in ['data-category-select', 'data-category-modal-open', 'data-category-modal', 'data-category-form']:
-            assert marker in shift_html, 'category UI missing ' + marker
+        for marker in ['data-category-select', 'data-category-modal-open', 'data-category-modal', 'data-category-form',
+                       'enctype="multipart/form-data"', 'name="shift_image"', 'data-shift-image-input', 'data-shift-image-preview']:
+            assert marker in shift_html, 'shift/category UI missing ' + marker
         shift_csrf = re.search(r'name="_csrf" value="([^"]+)"', shift_html).group(1)
         category_body = urllib.parse.urlencode({'_csrf': shift_csrf, 'name': 'Categoria CI'}).encode()
         request = urllib.request.Request(
@@ -197,6 +198,13 @@ for marker in ['Veja as vagas primeiro', 'Vagas em destaque', 'Todas as vagas', 
     assert marker in jobs, 'public vacancy page missing ' + marker
 assert 'name="cpf"' not in jobs and 'name="password"' not in jobs, 'public browsing unexpectedly asks for registration data'
 assert re.search(r'<button[^>]+data-public-job-modal-open=[^>]*>Ver detalhes</button>', jobs), 'public vacancy details still redirect instead of opening a modal'
+image_path = '/media/vagas/' + ('a' * 40) + '.png'
+if image_path in jobs:
+    image_response = public.open(base + image_path, timeout=20)
+    assert image_response.status == 200
+    assert image_response.headers.get_content_type() == 'image/png'
+    assert len(image_response.read()) > 0
+    print('GUEST shift image media route: PASS')
 
 direct_signup = public.open(base + '/cadastro/profissional', timeout=20)
 assert urllib.parse.urlparse(direct_signup.url).path == '/vagas', 'professional signup must not start before vacancy interest'
