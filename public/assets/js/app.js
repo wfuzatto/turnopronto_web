@@ -665,6 +665,43 @@
   }
 
 
+  // Modal de detalhes das vagas públicas: mantém o usuário na lista.
+  qa('[data-public-job-modal-open]').forEach(button=>{
+    button.addEventListener('click',()=>{
+      const id=button.getAttribute('data-public-job-modal-open');
+      const dialog=id?document.getElementById(id):null;
+      if(!(dialog instanceof HTMLDialogElement)) return;
+      dialog.showModal();
+      document.body.classList.add('public-job-modal-opened');
+      const close=q('[data-public-job-modal-close]',dialog);
+      window.setTimeout(()=>close?.focus(),0);
+    });
+  });
+
+  qa('.public-job-modal').forEach(dialog=>{
+    if(!(dialog instanceof HTMLDialogElement)) return;
+
+    const closeModal=()=>{
+      if(dialog.open) dialog.close();
+    };
+
+    qa('[data-public-job-modal-close]',dialog).forEach(button=>{
+      button.addEventListener('click',closeModal);
+    });
+
+    dialog.addEventListener('click',event=>{
+      if(event.target!==dialog) return;
+      const rect=dialog.getBoundingClientRect();
+      const inside=event.clientX>=rect.left&&event.clientX<=rect.right
+        &&event.clientY>=rect.top&&event.clientY<=rect.bottom;
+      if(!inside) closeModal();
+    });
+
+    dialog.addEventListener('close',()=>{
+      document.body.classList.remove('public-job-modal-opened');
+    });
+  });
+
   // Distância de vagas pela localização real do navegador.
   const deg2rad=value=>value*(Math.PI/180);
   const haversineKm=(lat1,lng1,lat2,lng2)=>{
