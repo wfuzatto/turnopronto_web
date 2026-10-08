@@ -87,6 +87,23 @@ final class Web
             ],false);
         }
 
+        if (preg_match('#^/media/perfis/([a-f0-9]{40}\.(?:jpg|png|webp))$#',$path,$m) && $method==='GET') {
+            $name=(string)$m[1];
+            $absolute=dirname(__DIR__).'/storage/uploads/profile_images/'.$name;
+            if(!is_file($absolute)){
+                http_response_code(404);
+                exit;
+            }
+            $ext=mb_strtolower((string)pathinfo($name,PATHINFO_EXTENSION));
+            $mime=['jpg'=>'image/jpeg','png'=>'image/png','webp'=>'image/webp'][$ext]??'application/octet-stream';
+            header('Content-Type: '.$mime);
+            header('Content-Length: '.(string)filesize($absolute));
+            header('Cache-Control: public, max-age=604800, immutable');
+            header('X-Content-Type-Options: nosniff');
+            readfile($absolute);
+            exit;
+        }
+
         if (preg_match('#^/media/vagas/([a-f0-9]{40}\.(?:jpg|png|webp))$#',$path,$m) && $method==='GET') {
             $name=(string)$m[1];
             $absolute=dirname(__DIR__).'/storage/uploads/shift_images/'.$name;
@@ -494,7 +511,7 @@ final class Web
             if($method==='POST'){
                 verify_csrf();
                 try {
-                    Data::updateCompanyAccount((int)$u['id'],$_POST);
+                    Data::updateCompanyAccount((int)$u['id'],$_POST,$_FILES['profile_image']??null);
                     flash('success','Dados da empresa atualizados.');
                     redirect('empresa/conta');
                 } catch(Throwable $e){
@@ -842,7 +859,7 @@ final class Web
             if($method==='POST'){
                 verify_csrf();
                 try {
-                    Data::updateProfessionalAccount((int)$u['id'],$_POST);
+                    Data::updateProfessionalAccount((int)$u['id'],$_POST,$_FILES['profile_image']??null);
                     flash('success','Perfil atualizado.');
                     redirect('profissional/perfil');
                 } catch(Throwable $e){
