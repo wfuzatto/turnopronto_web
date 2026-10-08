@@ -89,9 +89,14 @@ final class Web
 
         if ($path === '/vagas' && $method==='GET') {
             if(!Database::available()) View::render('not_installed',['title'=>'Serviço indisponível'],false);
-            View::render('public_opportunities',[
+            $appearance=Data::platformAppearance();
+            $skin=(string)($appearance['web_skin']??'modern');
+            $view=$skin==='classic'?'public_opportunities':($skin==='minimal'?'public_opportunities_minimal':'public_opportunities_modern');
+            View::render($view,[
                 'title'=>'Vagas',
                 'opportunities'=>Data::publicOpportunities(),
+                'categories'=>Data::categories(),
+                'appearance'=>$appearance,
                 'user'=>Auth::check()?Auth::user():null,
             ],false);
         }
@@ -1163,6 +1168,25 @@ final class Web
             $back=trim((string)($_POST['back']??''));
             $expected='admin/verificacao/'.$m[1].'/'.$m[2];
             redirect($back===$expected?$back:'admin/dashboard');
+        }
+
+        if ($path === '/admin/configuracoes') {
+            $u=Auth::requireRole('admin');
+            if($method==='POST'){
+                verify_csrf();
+                try{
+                    Data::savePlatformAppearance((int)$u['id'],$_POST);
+                    flash('success','Configurações de aparência atualizadas.');
+                    redirect('admin/configuracoes');
+                }catch(Throwable $e){
+                    flash('error',$e->getMessage());
+                }
+            }
+            View::render('admin_platform_settings',[
+                'title'=>'Configurações da plataforma',
+                'appearance'=>Data::platformAppearance(),
+                'user'=>$u
+            ]);
         }
 
         if ($path === '/admin/conta') {
