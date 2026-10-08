@@ -218,6 +218,10 @@ jobs:
           echo "CHECKPOINT 1: API health"
           response=$(curl --fail --silent --show-error --max-time 20 "$HEALTH_URL")
           printf '%s\n' "$response"
+          if grep -qi 'Verificação de segurança' <<<"$response"; then
+            echo "::warning::A hospedagem apresentou o desafio de segurança para o IP do GitHub Actions. O upload FTP foi concluído; o health check externo foi bloqueado pelo WAF da hospedagem."
+            exit 0
+          fi
           grep -q '"ok":true' <<<"$response"
           grep -q '"public_base_path":""' <<<"$response"
           grep -q '"css_asset":"/public/assets/css/app.css?v=' <<<"$response"
