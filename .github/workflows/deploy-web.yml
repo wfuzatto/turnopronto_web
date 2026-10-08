@@ -144,6 +144,8 @@ jobs:
           grep -q "relative==='/home'" app/Api.php
           grep -q '/follow' app/Api.php
           grep -q '/unfollow' app/Api.php
+          grep -q "relative==='/onboarding'" app/Api.php
+          grep -q "relative==='/onboarding/payment'" app/Api.php
           grep -q 'data-manual-location-input' app/views/opportunities.php
           grep -q 'pela rota' app/views/opportunities.php
           if grep -q 'R$ 780,00' app/views/earnings.php app/views/professional_dashboard.php; then
