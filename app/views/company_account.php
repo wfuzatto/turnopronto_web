@@ -1,5 +1,19 @@
 <div class="page-head"><div><h1>Minha conta</h1><p>Dados da empresa e do responsável principal.</p></div><span class="status <?=e(($company['status']??'pending')==='verified'?'confirmed':'filling')?>"><?=e(ucfirst($company['status']??'pending'))?></span></div>
-<form method="post" class="account-layout"><?=csrf_field()?>
+<form method="post" enctype="multipart/form-data" class="account-layout"><?=csrf_field()?>
+  <section class="panel account-card-main">
+    <div class="panel-head"><div><h2>Foto / logotipo da empresa</h2><p>Esta imagem identifica a empresa na plataforma e pode aparecer nas vagas quando não houver uma foto específica do anúncio.</p></div></div>
+    <div class="profile-image-upload">
+      <div class="profile-image-preview company <?=!empty($company['logo_url'])?'has-image':''?>" data-profile-image-preview>
+        <?php if(!empty($company['logo_url'])):?><img src="<?=e($company['logo_url'])?>" alt="<?=e($company['trade_name']??'Empresa')?>"><?php else:?><span><?=e(mb_strtoupper(mb_substr($company['trade_name']??'E',0,1)))?></span><?php endif;?>
+      </div>
+      <div class="profile-image-controls">
+        <label for="company-profile-image">Escolher nova imagem</label>
+        <input id="company-profile-image" type="file" name="profile_image" accept="image/jpeg,image/png,image/webp" data-profile-image-input>
+        <small>JPG, PNG ou WEBP, até 8 MB. Ao salvar, a nova imagem substitui a atual.</small>
+      </div>
+    </div>
+  </section>
+
   <section class="panel account-card-main">
     <div class="panel-head"><div><h2>Responsável pela conta</h2><p>Informações usadas no acesso e contato operacional.</p></div></div>
     <div class="form-grid">
