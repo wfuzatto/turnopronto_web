@@ -227,6 +227,7 @@ final class Data
             'state'=>'UF',
             'dress_code'=>'uniforme',
             'notes'=>'orientações',
+            'image_path'=>'foto da vaga',
             'acceptance_mode'=>'modo de aceite',
         ];
         foreach($pairs as $field=>$label){
@@ -757,6 +758,7 @@ final class Data
     public static function companyShifts(int $userId, int $limit=50): array
     {
         self::ensureShiftFollowingSchema();
+        self::ensureShiftMediaSchema();
         $companyId=self::companyIdForUser($userId);
         $sql="SELECT s.*, c.name category_name,
                 (SELECT COUNT(*) FROM tp_shift_applications a WHERE a.shift_id=s.id AND a.status IN ('applied','invited')) candidates,
@@ -769,7 +771,10 @@ final class Data
             LIMIT ".max(1,(int)$limit);
         $st=Database::connection()->prepare($sql);
         $st->execute([$companyId]);
-        return $st->fetchAll();
+        $rows=$st->fetchAll();
+        foreach($rows as &$row) $row=self::attachShiftImageUrl($row);
+        unset($row);
+        return $rows;
     }
 
     public static function companyOpenShifts(int $userId): array
@@ -788,6 +793,7 @@ final class Data
     public static function companyShift(int $userId, int $shiftId): ?array
     {
         self::ensureShiftFollowingSchema();
+        self::ensureShiftMediaSchema();
         $companyId=self::companyIdForUser($userId);
         $sql="SELECT s.*,c.name category_name,
               (SELECT COUNT(*) FROM tp_shift_applications a WHERE a.shift_id=s.id AND a.status IN ('applied','invited')) candidates,
@@ -799,7 +805,7 @@ final class Data
         $st->execute([$shiftId,$companyId]);
         $row=$st->fetch() ?: null;
         if($row && !array_key_exists('acceptance_mode',$row)) $row['acceptance_mode']='automatic';
-        return $row;
+        return self::attachShiftImageUrl($row);
     }
     public static function companyShiftCandidates(int $userId, int $shiftId): array
     {
@@ -969,6 +975,63 @@ final class Data
         return mb_substr($slug,0,110);
     }
 
+    private static function ensureShiftMediaSchema(): void
+    {
+        if(self::hasColumn('tp_shifts','image_path')) return;
+        Database::connection()->exec('ALTER TABLE tp_shifts ADD COLUMN image_path VARCHAR(255) NULL AFTER description');
+        self::$columnCache['tp_shifts.image_path']=true;
+    }
+
+    private static function storeShiftImage(array $file): ?string
+    {
+        $error=(int)($file['error']??UPLOAD_ERR_NO_FILE);
+        if($error===UPLOAD_ERR_NO_FILE) return null;
+        if($error!==UPLOAD_ERR_OK) throw new RuntimeException('Não foi possível receber a foto da vaga.');
+        if((int)($file['size']??0)<=0 || (int)$file['size']>8*1024*1024) throw new RuntimeException('A foto da vaga deve ter no máximo 8 MB.');
+
+        $tmp=(string)($file['tmp_name']??'');
+        if(!is_uploaded_file($tmp)) throw new RuntimeException('Upload da foto não reconhecido pelo servidor.');
+
+        $finfo=new finfo(FILEINFO_MIME_TYPE);
+        $mime=$finfo->file($tmp) ?: '';
+        $allowed=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
+        if(!isset($allowed[$mime])) throw new RuntimeException('Envie a foto da vaga em JPG, PNG ou WEBP.');
+
+        $size=@getimagesize($tmp);
+        if(!$size || (int)($size[0]??0)<1 || (int)($size[1]??0)<1) throw new RuntimeException('O arquivo enviado não é uma imagem válida.');
+
+        $dir=dirname(__DIR__).'/storage/uploads/shift_images';
+        if(!is_dir($dir) && !mkdir($dir,0770,true) && !is_dir($dir)) throw new RuntimeException('Não foi possível preparar a pasta de fotos das vagas.');
+
+        $filename=bin2hex(random_bytes(20)).'.'.$allowed[$mime];
+        $absolute=$dir.'/'.$filename;
+        if(!move_uploaded_file($tmp,$absolute)) throw new RuntimeException('Falha ao salvar a foto da vaga.');
+        @chmod($absolute,0660);
+        return 'storage/uploads/shift_images/'.$filename;
+    }
+
+    private static function deleteShiftImage(?string $path): void
+    {
+        $path=trim((string)$path);
+        if($path==='' || !str_starts_with(str_replace('\\','/',$path),'storage/uploads/shift_images/')) return;
+        $absolute=dirname(__DIR__).'/'.ltrim(str_replace('\\','/',$path),'/');
+        if(is_file($absolute)) @unlink($absolute);
+    }
+
+    private static function shiftImageUrl(?string $path): ?string
+    {
+        $name=basename(str_replace('\\','/',trim((string)$path)));
+        if($name==='' || !preg_match('/^[a-f0-9]{40}\.(?:jpg|png|webp)$/',$name)) return null;
+        return url('media/vagas/'.$name);
+    }
+
+    private static function attachShiftImageUrl(?array $row): ?array
+    {
+        if(!$row) return null;
+        $row['image_url']=self::shiftImageUrl($row['image_path']??null);
+        return $row;
+    }
+
     private static function normalizedShiftInput(array $data): array
     {
         $required=['category_id','title','date','start_time','end_time','value','required_workers','address','city','state'];
@@ -1015,35 +1078,43 @@ final class Data
         ];
     }
 
-    public static function createShift(int $userId, array $data): int
+    public static function createShift(int $userId, array $data, ?array $imageFile=null): int
     {
+        self::ensureShiftMediaSchema();
         $companyId=self::companyIdForUser($userId);
         if(!$companyId) throw new RuntimeException('Empresa não encontrada para este usuário.');
         $company=self::companyProfile($userId);
         if(($company['status']??'pending')!=='verified') throw new RuntimeException('A empresa precisa ser verificada antes de publicar vagas.');
         $d=self::normalizedShiftInput($data);
         $pdo=Database::connection();
+        $imagePath=$imageFile ? self::storeShiftImage($imageFile) : null;
 
         if(self::hasColumn('tp_shifts','acceptance_mode')){
-            $sql='INSERT INTO tp_shifts (company_id,category_id,title,description,starts_at,ends_at,shift_value,required_workers,address,city,state,latitude,longitude,dress_code,notes,checkin_pin,acceptance_mode,status,created_at)
-                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"published",NOW())';
-            $params=[$companyId,$d['category_id'],$d['title'],$d['description'],$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['latitude'],$d['longitude'],$d['dress_code'],$d['notes'],sprintf('%06d',random_int(0,999999)),$d['acceptance_mode']];
+            $sql='INSERT INTO tp_shifts (company_id,category_id,title,description,image_path,starts_at,ends_at,shift_value,required_workers,address,city,state,latitude,longitude,dress_code,notes,checkin_pin,acceptance_mode,status,created_at)
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"published",NOW())';
+            $params=[$companyId,$d['category_id'],$d['title'],$d['description'],$imagePath,$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['latitude'],$d['longitude'],$d['dress_code'],$d['notes'],sprintf('%06d',random_int(0,999999)),$d['acceptance_mode']];
         } else {
-            $sql='INSERT INTO tp_shifts (company_id,category_id,title,description,starts_at,ends_at,shift_value,required_workers,address,city,state,latitude,longitude,dress_code,notes,checkin_pin,status,created_at)
-                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"published",NOW())';
-            $params=[$companyId,$d['category_id'],$d['title'],$d['description'],$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['latitude'],$d['longitude'],$d['dress_code'],$d['notes'],sprintf('%06d',random_int(0,999999))];
+            $sql='INSERT INTO tp_shifts (company_id,category_id,title,description,image_path,starts_at,ends_at,shift_value,required_workers,address,city,state,latitude,longitude,dress_code,notes,checkin_pin,status,created_at)
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"published",NOW())';
+            $params=[$companyId,$d['category_id'],$d['title'],$d['description'],$imagePath,$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['latitude'],$d['longitude'],$d['dress_code'],$d['notes'],sprintf('%06d',random_int(0,999999))];
         }
 
-        $st=$pdo->prepare($sql);
-        $st->execute($params);
-        $id=(int)$pdo->lastInsertId();
+        try{
+            $st=$pdo->prepare($sql);
+            $st->execute($params);
+            $id=(int)$pdo->lastInsertId();
+        }catch(Throwable $e){
+            if($imagePath) self::deleteShiftImage($imagePath);
+            throw $e;
+        }
         self::audit($userId,'shift.created','shift',$id,['title'=>$d['title'],'acceptance_mode'=>$d['acceptance_mode']]);
         self::notifyProfessionalsForShift($id);
         return $id;
     }
 
-    public static function updateShift(int $userId, int $shiftId, array $data): void
+    public static function updateShift(int $userId, int $shiftId, array $data, ?array $imageFile=null): void
     {
+        self::ensureShiftMediaSchema();
         $current=self::companyShift($userId,$shiftId);
         if(!$current) throw new RuntimeException('Vaga não encontrada.');
         if(in_array($current['status'],['cancelled','completed'],true)) throw new RuntimeException('Esta vaga não pode mais ser editada.');
@@ -1054,17 +1125,27 @@ final class Data
             throw new RuntimeException('A quantidade de profissionais não pode ser menor que o número já confirmado neste turno.');
         }
         $pdo=Database::connection();
+        $oldImagePath=(string)($current['image_path']??'');
+        $newImagePath=$imageFile ? self::storeShiftImage($imageFile) : null;
+        $imagePath=$newImagePath ?: ($oldImagePath!==''?$oldImagePath:null);
+        $d['image_path']=$imagePath;
 
         if(self::hasColumn('tp_shifts','acceptance_mode')){
-            $sql='UPDATE tp_shifts SET category_id=?,title=?,description=?,starts_at=?,ends_at=?,shift_value=?,required_workers=?,address=?,city=?,state=?,latitude=?,longitude=?,dress_code=?,notes=?,acceptance_mode=?,updated_at=NOW() WHERE id=? AND company_id=?';
-            $params=[$d['category_id'],$d['title'],$d['description'],$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['latitude'],$d['longitude'],$d['dress_code'],$d['notes'],$d['acceptance_mode'],$shiftId,$current['company_id']];
+            $sql='UPDATE tp_shifts SET category_id=?,title=?,description=?,image_path=?,starts_at=?,ends_at=?,shift_value=?,required_workers=?,address=?,city=?,state=?,latitude=?,longitude=?,dress_code=?,notes=?,acceptance_mode=?,updated_at=NOW() WHERE id=? AND company_id=?';
+            $params=[$d['category_id'],$d['title'],$d['description'],$imagePath,$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['latitude'],$d['longitude'],$d['dress_code'],$d['notes'],$d['acceptance_mode'],$shiftId,$current['company_id']];
         } else {
-            $sql='UPDATE tp_shifts SET category_id=?,title=?,description=?,starts_at=?,ends_at=?,shift_value=?,required_workers=?,address=?,city=?,state=?,latitude=?,longitude=?,dress_code=?,notes=?,updated_at=NOW() WHERE id=? AND company_id=?';
-            $params=[$d['category_id'],$d['title'],$d['description'],$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['latitude'],$d['longitude'],$d['dress_code'],$d['notes'],$shiftId,$current['company_id']];
+            $sql='UPDATE tp_shifts SET category_id=?,title=?,description=?,image_path=?,starts_at=?,ends_at=?,shift_value=?,required_workers=?,address=?,city=?,state=?,latitude=?,longitude=?,dress_code=?,notes=?,updated_at=NOW() WHERE id=? AND company_id=?';
+            $params=[$d['category_id'],$d['title'],$d['description'],$imagePath,$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['latitude'],$d['longitude'],$d['dress_code'],$d['notes'],$shiftId,$current['company_id']];
         }
 
-        $pdo->prepare($sql)->execute($params);
-        self::audit($userId,'shift.updated','shift',$shiftId,['title'=>$d['title']]);
+        try{
+            $pdo->prepare($sql)->execute($params);
+        }catch(Throwable $e){
+            if($newImagePath) self::deleteShiftImage($newImagePath);
+            throw $e;
+        }
+        if($newImagePath && $oldImagePath!=='' && $oldImagePath!==$newImagePath) self::deleteShiftImage($oldImagePath);
+        self::audit($userId,'shift.updated','shift',$shiftId,['title'=>$d['title'],'image_changed'=>(bool)$newImagePath]);
         self::notifyShiftParticipantsOfUpdate($shiftId,$current,$d);
         if((int)$current['category_id']!==(int)$d['category_id']) self::notifyProfessionalsForShift($shiftId);
     }
@@ -1620,6 +1701,7 @@ final class Data
 
     public static function opportunities(int $userId, int $limit=50): array
     {
+        self::ensureShiftMediaSchema();
         $pid=self::professionalIdForUser($userId);
         $mode=self::hasColumn('tp_shifts','acceptance_mode') ? ',s.acceptance_mode' : '';
         $sql="SELECT s.*,jc.name category_name,co.trade_name company_name,co.rating company_rating $mode,
@@ -1646,14 +1728,17 @@ final class Data
         $rows=$st->fetchAll();
         foreach($rows as &$row){
             if(!array_key_exists('acceptance_mode',$row)) $row['acceptance_mode']='automatic';
+            $row=self::attachShiftImageUrl($row);
         }
+        unset($row);
         return $rows;
     }
 
     public static function publicOpportunities(int $limit=80): array
     {
+        self::ensureShiftMediaSchema();
         $mode=self::hasColumn('tp_shifts','acceptance_mode') ? ',s.acceptance_mode' : '';
-        $sql="SELECT s.id,s.title,s.description,s.category_id,s.starts_at,s.ends_at,s.address,s.city,s.state,s.latitude,s.longitude,
+        $sql="SELECT s.id,s.title,s.description,s.image_path,s.category_id,s.starts_at,s.ends_at,s.address,s.city,s.state,s.latitude,s.longitude,
                      s.shift_value,s.required_workers,s.dress_code,s.notes,
                      jc.name category_name,co.trade_name company_name,co.rating company_rating,co.logo_url company_logo $mode,
                      TIMESTAMPDIFF(MINUTE,s.starts_at,s.ends_at) duration_minutes,
@@ -1667,12 +1752,15 @@ final class Data
         $rows=Database::connection()->query($sql)->fetchAll();
         foreach($rows as &$row){
             if(!array_key_exists('acceptance_mode',$row)) $row['acceptance_mode']='automatic';
+            $row=self::attachShiftImageUrl($row);
         }
+        unset($row);
         return $rows;
     }
 
     public static function publicShift(int $id): ?array
     {
+        self::ensureShiftMediaSchema();
         $mode=self::hasColumn('tp_shifts','acceptance_mode') ? ',s.acceptance_mode' : '';
         $sql="SELECT s.*,jc.name category_name,co.trade_name company_name,co.rating company_rating,co.logo_url company_logo $mode,
                      TIMESTAMPDIFF(MINUTE,s.starts_at,s.ends_at) duration_minutes,
@@ -1686,11 +1774,12 @@ final class Data
         $st->execute([$id]);
         $row=$st->fetch() ?: null;
         if($row && !array_key_exists('acceptance_mode',$row)) $row['acceptance_mode']='automatic';
-        return $row;
+        return self::attachShiftImageUrl($row);
     }
 
     public static function shift(int $id): ?array
     {
+        self::ensureShiftMediaSchema();
         $mode=self::hasColumn('tp_shifts','acceptance_mode') ? ',s.acceptance_mode' : '';
         $sql="SELECT s.*,jc.name category_name,co.trade_name company_name,co.rating company_rating,co.logo_url company_logo $mode,
                      (SELECT COUNT(*) FROM tp_shift_applications a WHERE a.shift_id=s.id) candidates
@@ -1702,7 +1791,7 @@ final class Data
         $st->execute([$id]);
         $row=$st->fetch() ?: null;
         if($row && !array_key_exists('acceptance_mode',$row)) $row['acceptance_mode']='automatic';
-        return $row;
+        return self::attachShiftImageUrl($row);
     }
     public static function acceptShift(int $userId, int $shiftId): array
     {
