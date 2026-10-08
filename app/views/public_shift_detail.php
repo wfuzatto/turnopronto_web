@@ -1,4 +1,4 @@
-<?php $success=flash('success'); $error=flash('error'); ?>
+<?php $success=flash('success'); $error=flash('error'); $following=(bool)($following??false); $viewer=$user??null; ?>
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?=e($shift['category_name'])?> • TurnoPronto</title><link rel="stylesheet" href="<?=e(asset('css/app.css'))?>"></head>
 <body class="public-jobs-page">
@@ -23,9 +23,25 @@
     </div>
     <?php if(!empty($shift['description'])):?><div class="public-job-description"><h2>Sobre a vaga</h2><p><?=nl2br(e($shift['description']))?></p></div><?php endif;?>
     <?php if(!empty($shift['dress_code'])):?><div class="public-job-description"><h2>Orientação de vestimenta</h2><p><?=e($shift['dress_code'])?></p></div><?php endif;?>
-    <div class="public-job-interest-box">
-      <div><strong>Quer se candidatar?</strong><p>O cadastro só começa agora e será dividido em 3 etapas curtas.</p></div>
-      <form method="post" action="<?=e(url('vagas/'.$shift['id'].'/interesse'))?>"><?=csrf_field()?><button class="btn btn-primary" type="submit">Tenho interesse nesta vaga →</button></form>
+    <div class="public-job-interest-box public-job-interest-box-expanded">
+      <div>
+        <strong>Gostou da vaga?</strong>
+        <p>Você pode apenas acompanhar para receber alterações, sem assumir o compromisso do turno.</p>
+        <small>Ao acompanhar, a empresa verá seu nome e seus dados de contato para poder conversar com você sobre esta oportunidade.</small>
+      </div>
+      <div class="public-job-interest-actions">
+        <?php if(!$viewer || ($viewer['role']??'')==='professional'):?>
+          <form method="post" action="<?=e(url('vagas/'.$shift['id'].'/acompanhar'))?>">
+            <?=csrf_field()?>
+            <input type="hidden" name="action" value="<?=$following?'unfollow':'follow'?>">
+            <button class="btn <?=$following?'btn-soft':'btn-ghost'?>" type="submit"><?=$following?'✓ Acompanhando':'Acompanhar vaga'?></button>
+          </form>
+        <?php endif;?>
+        <form method="post" action="<?=e(url('vagas/'.$shift['id'].'/interesse'))?>">
+          <?=csrf_field()?>
+          <button class="btn btn-primary" type="submit">Quero me candidatar →</button>
+        </form>
+      </div>
     </div>
   </section>
 </main>
