@@ -97,9 +97,12 @@ final class Api
 
         if($relative==='/me' && $method==='GET'){
             unset($user['password_hash']);
-            $profile=$user['role']==='professional'
-                ? Data::professionalProfile((int)$user['id'])
-                : ($user['role']==='company' ? Data::companyProfile((int)$user['id']) : []);
+            if($user['role']==='professional'){
+                $reputation=Data::reputation((int)$user['id']);
+                $profile=$reputation['profile']??Data::professionalProfile((int)$user['id']);
+            }else{
+                $profile=$user['role']==='company' ? Data::companyProfile((int)$user['id']) : [];
+            }
             json_response(['ok'=>true,'user'=>$user,'profile'=>$profile]);
         }
 
