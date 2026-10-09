@@ -474,6 +474,21 @@ jobs:
           grep -q '.password-field' <<<"$css"
           grep -q '.password-toggle' <<<"$css"
 
+          echo "CHECKPOINT 4b: new landing stylesheet"
+          grep -q '.tp-direct-landing' <<<"$css"
+          grep -q '.tp-direct-job-payout' <<<"$css"
+
+          echo "CHECKPOINT 4c: /vagas renders the V2 (not an older database-selected skin)"
+          landing_headers=$(mktemp)
+          landing_html=$(curl --fail --silent --show-error --max-time 20 -H 'Cache-Control: no-cache' -D "$landing_headers" "$BASE_URL/vagas?landing_verify=direto-v2-20261009")
+          grep -q 'name="turnopronto-public-build" content="direto-v2-20261009"' <<<"$landing_html"
+          grep -q 'Trabalhe hoje.' <<<"$landing_html"
+          grep -q 'Receba na hora.' <<<"$landing_html"
+          grep -q 'tp-direct-landing' <<<"$landing_html"
+          grep -qi '^x-turnopronto-landing: direto-v2-20261009' "$landing_headers"
+          rm -f "$landing_headers"
+          echo "LANDING V2 CONFIRMADA NO SERVIDOR"
+
           echo "CHECKPOINT 4B: registration password controls"
           register_html=$(curl --fail --silent --show-error --max-time 20 "$BASE_URL/cadastro/empresa")
           grep -q 'class="password-field"' <<<"$register_html"

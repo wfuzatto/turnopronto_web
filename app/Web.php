@@ -124,7 +124,11 @@ final class Web
         if ($path === '/vagas' && $method==='GET') {
             if(!Database::available()) View::render('not_installed',['title'=>'Serviço indisponível'],false);
             $appearance=Data::platformAppearance();
-            $skin=(string)($appearance['web_skin']??'modern');
+            // Landing V2 fixa para visitantes; skins anteriores permanecem acessíveis para pré-visualização.
+            // Evita que uma configuração antiga no banco substitua silenciosamente a nova página pública.
+            header('Cache-Control: no-store, max-age=0, must-revalidate');
+            header('X-TurnoPronto-Landing: direto-v2-20261009');
+            $skin='modern';
             $preview=(string)($_GET['preview_skin']??'');
             if(in_array($preview,['classic','modern','minimal'],true)) $skin=$preview;
             $view=$skin==='classic'?'public_opportunities':($skin==='minimal'?'public_opportunities_minimal':'public_opportunities_modern');

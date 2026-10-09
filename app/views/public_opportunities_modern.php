@@ -6,7 +6,7 @@ $featured=array_slice($opportunities,0,4);
 $heroPhoto='https://plus.unsplash.com/premium_photo-1661391652899-ae0e9df22e14?auto=format&fit=crop&fm=jpg&q=85&w=1800';
 ?>
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Vagas • TurnoPronto</title><link rel="stylesheet" href="<?=e(asset('css/app.css'))?>"><script src="<?=e(asset('js/app.js'))?>" defer></script></head>
+<title>Vagas • TurnoPronto</title><meta name="turnopronto-public-build" content="direto-v2-20261009"><link rel="stylesheet" href="<?=e(asset('css/app.css'))?>&landing=direto-v2-20261009"><script src="<?=e(asset('js/app.js'))?>" defer></script></head>
 <body class="tp-modern-public tp-direct-landing <?=!empty($minimal)?'tp-minimal-public':''?>">
 <header class="tp-modern-header">
   <div class="tp-modern-wrap tp-modern-header-inner">
