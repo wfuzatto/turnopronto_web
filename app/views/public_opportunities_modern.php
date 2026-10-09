@@ -50,6 +50,7 @@ $heroPhoto='https://plus.unsplash.com/premium_photo-1661391652899-ae0e9df22e14?a
       <div class="tp-modern-hero-visual" aria-label="Oportunidades para trabalhar em sua região">
         <div class="tp-modern-photo" style="background-image:url('<?=e($heroPhoto)?>')"></div>
         <div class="tp-direct-pay-card">
+          <span class="tp-direct-pay-accent" aria-hidden="true"><i></i><i></i><i></i></span>
           <div class="tp-direct-pay-heading"><span class="tp-direct-pay-bolt" aria-hidden="true"><svg class="tp-direct-bolt-svg" viewBox="0 0 24 24" fill="currentColor" focusable="false" aria-hidden="true"><path d="M13 2 4 13h7l-1 9 10-12h-7V2Z"/></svg></span><div><strong>Recebimento<br><em>imediato</em></strong><small>após o fim do turno</small></div></div>
           <ul class="tp-direct-pay-checks">
             <li><span aria-hidden="true">✓</span> Trabalhe hoje</li>

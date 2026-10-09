@@ -234,6 +234,7 @@ for marker in ['Veja vagas.', 'Trabalhe hoje.', 'Receba na hora.', 'Recebimento'
 assert 'name="cpf"' not in jobs and 'name="password"' not in jobs, 'public browsing unexpectedly asks for registration data'
 assert 'ϟ' not in jobs, 'legacy payment glyph is still present instead of the lightning SVG'
 assert jobs.count('class="tp-direct-bolt-svg"') >= 3, 'payment icons must render as SVG lightning bolts in the hero and vacancy cards'
+assert 'class="tp-direct-pay-accent" aria-hidden="true"><i></i><i></i><i></i>' in jobs, 'green three-ray decoration missing from immediate payment card'
 assert re.search(r'<button[^>]+data-public-job-modal-open=[^>]*>Ver detalhes</button>', jobs), 'public vacancy details still redirect instead of opening a modal'
 
 direct_signup = public.open(base + '/cadastro/profissional', timeout=20)

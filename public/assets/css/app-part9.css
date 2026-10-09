@@ -106,6 +106,11 @@
 .tp-direct-landing .tp-modern-hero-visual{min-height:416px;position:relative;isolation:isolate}
 .tp-direct-landing .tp-modern-photo{position:absolute;inset:0 calc(-1 * max(24px,(100vw - 1260px)/2)) 0 -46px;background-position:48% center;background-size:cover;border-radius:0;clip-path:polygon(15% 0,100% 0,100% 100%,11% 100%,0 58%)}
 .tp-direct-pay-card{position:absolute;z-index:2;top:68px;right:-64px;width:272px;color:#082246}
+.tp-direct-pay-accent{position:absolute;left:-37px;top:19px;width:37px;height:70px;z-index:3;pointer-events:none}
+.tp-direct-pay-accent i{display:block;position:absolute;width:24px;height:6px;border-radius:999px;background:#04bd8c;box-shadow:0 2px 7px rgba(0,166,122,.26)}
+.tp-direct-pay-accent i:nth-child(1){top:7px;left:15px;transform:rotate(43deg)}
+.tp-direct-pay-accent i:nth-child(2){top:32px;left:3px}
+.tp-direct-pay-accent i:nth-child(3){top:57px;left:15px;transform:rotate(-43deg)}
 .tp-direct-pay-heading{display:flex;align-items:center;gap:16px;padding:18px 19px;border-radius:19px;background:rgba(255,255,255,.97);box-shadow:0 13px 32px rgba(19,55,82,.1);min-height:104px}
 .tp-direct-pay-bolt{width:66px;height:66px;flex:none;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#09c89c,#049966);color:#fff}.tp-direct-pay-bolt .tp-direct-bolt-svg{display:block;width:40px;height:40px}
 .tp-direct-pay-heading strong{font-size:20px;line-height:1.13;display:block;letter-spacing:-.6px}
