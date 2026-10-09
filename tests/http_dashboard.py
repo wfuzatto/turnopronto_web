@@ -229,7 +229,7 @@ print('ADMIN verification review pages: PASS')
 # Professionals browse vacancies before any signup.
 public = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
 jobs = public.open(base + '/vagas', timeout=20).read().decode()
-for marker in ['Veja as vagas primeiro', 'Vagas em destaque', 'Todas as vagas', 'Tenho interesse', 'data-public-job-modal-open', 'public-job-modal', 'Acompanhar vaga', 'Qual cidade?', 'Qual função?']:
+for marker in ['Veja vagas.', 'Trabalhe hoje.', 'Receba na hora.', 'Recebimento', 'imediato', 'Vagas em destaque', 'Todas as vagas', 'Tenho interesse', 'data-public-job-modal-open', 'public-job-modal', 'Acompanhar vaga', 'Qual cidade?', 'Qual função?', 'tp-direct-job-payout']:
     assert marker in jobs, 'public vacancy page missing ' + marker
 assert 'name="cpf"' not in jobs and 'name="password"' not in jobs, 'public browsing unexpectedly asks for registration data'
 assert re.search(r'<button[^>]+data-public-job-modal-open=[^>]*>Ver detalhes</button>', jobs), 'public vacancy details still redirect instead of opening a modal'
