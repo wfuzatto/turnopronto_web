@@ -18,11 +18,12 @@ $navPro=[
 ];
 $navAdmin=[
  ['admin/dashboard','home','Painel'],
- ['admin/dashboard#vagas','briefcase','Vagas'],
- ['admin/dashboard#candidatos','users','Candidatos'],
- ['admin/dashboard#empresas','file','Empresas'],
- ['admin/dashboard#locais','map','Locais'],
- ['admin/dashboard#relatorios','chart','Relatórios'],
+ ['admin/vagas','briefcase','Vagas'],
+ ['admin/candidatos','users','Candidatos'],
+ ['admin/empresas','file','Empresas'],
+ ['admin/usuarios','users','Usuários'],
+ ['admin/locais','map','Locais'],
+ ['admin/relatorios','chart','Relatórios'],
  ['admin/configuracoes','settings','Configurações'],
  ['admin/suporte','help','Suporte']
 ];
