@@ -2,12 +2,12 @@
 $success=flash('success');
 $error=flash('error');
 $categories=$categories??[];
-$featured=array_slice($opportunities,0,3);
+$featured=array_slice($opportunities,0,4);
 $heroPhoto='https://plus.unsplash.com/premium_photo-1661391652899-ae0e9df22e14?auto=format&fit=crop&fm=jpg&q=85&w=1800';
 ?>
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Vagas • TurnoPronto</title><link rel="stylesheet" href="<?=e(asset('css/app.css'))?>"><script src="<?=e(asset('js/app.js'))?>" defer></script></head>
-<body class="tp-modern-public <?=!empty($minimal)?'tp-minimal-public':''?>">
+<body class="tp-modern-public tp-direct-landing <?=!empty($minimal)?'tp-minimal-public':''?>">
 <header class="tp-modern-header">
   <div class="tp-modern-wrap tp-modern-header-inner">
     <a href="<?=e(url('vagas'))?>" class="tp-modern-brand"><img src="<?=e(asset('img/logo.svg'))?>" alt="TurnoPronto"></a>
@@ -30,38 +30,42 @@ $heroPhoto='https://plus.unsplash.com/premium_photo-1661391652899-ae0e9df22e14?a
   <section class="tp-modern-hero">
     <div class="tp-modern-wrap tp-modern-hero-grid">
       <div class="tp-modern-hero-copy">
-        <span class="tp-modern-eyebrow">Oportunidades de trabalho extra</span>
-        <h1>Veja as vagas primeiro.<br><span>Cadastre-se só quando</span><br>quiser se candidatar.</h1>
-        <p>Explore horários, valores, empresas e locais sem preencher nada.<br>O cadastro começa apenas quando você clicar em <strong>Tenho interesse</strong>.</p>
+        <h1><span class="tp-direct-dark">Veja vagas.</span><br><span class="tp-direct-blue">Trabalhe hoje.</span><br><span class="tp-direct-green">Receba na hora.</span></h1>
+        <p>Turnos flexíveis perto de você, com pagamento imediato<br class="tp-direct-desktop-break"> após o fim do turno. Simples, rápido e sem burocracia.</p>
 
-        <form class="tp-modern-search" action="#todas-vagas" method="get" data-modern-job-search>
-          <label><?=icon('map',22)?><span><small>Qual cidade?</small><input name="city" placeholder="Ex.: Virgínia - MG" autocomplete="off"></span></label>
-          <label><?=icon('search',22)?><span><small>Qual função?</small><input name="role" placeholder="Ex.: cozinha, limpeza, garçom..." autocomplete="off"></span></label>
-          <button type="submit">Buscar vagas <b>›</b></button>
+        <form class="tp-modern-search" action="#todas-vagas" method="get" data-modern-job-search role="search" aria-label="Buscar vagas">
+          <label><?=icon('map',22)?><span><small>Qual cidade?</small><input name="city" placeholder="Ex.: São Paulo - SP" autocomplete="address-level2" aria-label="Cidade"></span></label>
+          <label><?=icon('briefcase',22)?><span><small>Qual função?</small><input name="role" placeholder="Ex.: cozinha, limpeza, garçom" autocomplete="off" aria-label="Função"></span></label>
+          <button type="submit">Buscar vagas <b aria-hidden="true">›</b></button>
         </form>
 
-        <div class="tp-modern-category-chips">
-          <button class="active" type="button" data-modern-category=""><?=icon('briefcase',15)?> Todas</button>
-          <?php foreach(array_slice($categories,0,6) as $cat):?>
-            <button type="button" data-modern-category="<?=e(mb_strtolower((string)$cat['name'],'UTF-8'))?>"><?=e($cat['name'])?></button>
-          <?php endforeach;?>
+        <div class="tp-direct-benefits" id="como-funciona">
+          <div class="tp-direct-benefit"><span class="tp-direct-benefit-icon tp-direct-lightning" aria-hidden="true">ϟ</span><div><strong>Pagamento imediato</strong><small>após o fim do turno</small></div></div>
+          <div class="tp-direct-benefit"><span class="tp-direct-benefit-icon"><?=icon('calendar',26)?></span><div><strong>Turnos flexíveis</strong><small>diurnos e noturnos</small></div></div>
+          <div class="tp-direct-benefit"><span class="tp-direct-benefit-icon"><?=icon('map',26)?></span><div><strong>Vagas perto de você</strong><small>na sua cidade</small></div></div>
+          <div class="tp-direct-benefit"><span class="tp-direct-benefit-icon"><?=icon('users',26)?></span><div><strong>Cadastro gratuito</strong><small>e sem burocracia</small></div></div>
         </div>
       </div>
 
-      <div class="tp-modern-hero-visual">
+      <div class="tp-modern-hero-visual" aria-label="Oportunidades para trabalhar em sua região">
         <div class="tp-modern-photo" style="background-image:url('<?=e($heroPhoto)?>')"></div>
-        <div class="tp-modern-float tp-modern-float-left"><?=icon('map',25)?><div><strong>Vagas perto<br>de você</strong><span>Encontre oportunidades<br>na sua cidade.</span></div></div>
-        <div class="tp-modern-float tp-modern-float-top"><?=icon('calendar',24)?><div><strong>Trabalhe quando<br>quiser</strong><span>Turnos flexíveis<br>na sua rotina.</span></div></div>
-        <div class="tp-modern-float tp-modern-float-bottom"><?=icon('users',24)?><div><strong>Diversas áreas</strong><span>Cozinha, eventos,<br>atendimento e mais.</span></div></div>
+        <div class="tp-direct-pay-card">
+          <div class="tp-direct-pay-heading"><span class="tp-direct-pay-bolt" aria-hidden="true">ϟ</span><div><strong>Recebimento<br><em>imediato</em></strong><small>após o fim do turno</small></div></div>
+          <ul class="tp-direct-pay-checks">
+            <li><span aria-hidden="true">✓</span> Trabalhe hoje</li>
+            <li><span aria-hidden="true">✓</span> Termine seu turno</li>
+            <li><span aria-hidden="true">✓</span> Receba na hora</li>
+          </ul>
+        </div>
       </div>
     </div>
   </section>
 
-  <section class="tp-modern-featured" id="como-funciona">
+  <section class="tp-modern-featured">
     <div class="tp-modern-wrap">
       <div class="tp-modern-section-head">
-        <div><h2>Vagas em destaque</h2><p>Oportunidades recentes e bem avaliadas na sua região.</p></div>
-        <a href="#todas-vagas">Ver todas as vagas ›</a>
+        <div><h2>Vagas em destaque</h2><p>Turnos com pagamento imediato, perto de você.</p></div>
+        <a href="#todas-vagas">Ver todas as vagas <span aria-hidden="true">→</span></a>
       </div>
       <div class="tp-modern-feature-grid">
         <?php foreach($featured as $index=>$s):?>
@@ -70,22 +74,25 @@ $heroPhoto='https://plus.unsplash.com/premium_photo-1661391652899-ae0e9df22e14?a
               <div class="tp-modern-job-thumb thumb-<?=($index%3)+1?>"><?php if(!empty($s['image_url'])):?><img src="<?=e($s['image_url'])?>" alt="<?=e($s['title']?:$s['category_name'])?>"><?php elseif(!empty($s['company_logo'])):?><img src="<?=e($s['company_logo'])?>" alt="<?=e($s['company_name'])?>"><?php else:?><span><?=e(mb_strtoupper(mb_substr($s['category_name'],0,1)))?></span><?php endif;?></div>
               <div class="tp-modern-job-info">
                 <span class="tp-modern-role-pill"><?=e($s['category_name'])?></span>
-                <h3><?=e($s['title']?:$s['category_name'])?></h3>
-                <span><?=icon('users',14)?> <?=e($s['company_name'])?></span>
+                <h3><button class="tp-direct-job-title" type="button" data-public-job-modal-open="public-job-modal-<?=e((string)$s['id'])?>" aria-label="Ver detalhes da vaga <?=e($s['title']?:$s['category_name'])?>"><?=e($s['title']?:$s['category_name'])?></button></h3>
+                <span><?=icon('map',14)?> <?=e($s['company_name'])?></span>
                 <span><?=icon('map',14)?> <?=e($s['city'].' - '.$s['state'])?></span>
               </div>
-              <div class="tp-modern-job-price"><strong><?=money($s['shift_value'])?></strong><span>por turno</span></div>
             </div>
             <div class="tp-modern-job-time">
               <span><?=icon('calendar',16)?> <?=br_date($s['starts_at'],'d/m/Y')?></span>
               <span><?=icon('clock',16)?> <?=date('H:i',strtotime($s['starts_at']))?> – <?=date('H:i',strtotime($s['ends_at']))?></span>
             </div>
+            <div class="tp-modern-job-price"><strong><?=money($s['shift_value'])?></strong><span>por turno</span></div>
+            <div class="tp-direct-job-payout"><span class="tp-direct-payout-icon" aria-hidden="true">ϟ</span> Receba ao final do turno</div>
             <div class="tp-modern-job-actions">
-              <button class="btn btn-soft" type="button" data-public-job-modal-open="public-job-modal-<?=e((string)$s['id'])?>">Ver detalhes</button>
-              <form method="post" action="<?=e(url('vagas/'.$s['id'].'/interesse'))?>"><?=csrf_field()?><button class="btn btn-primary" type="submit">Tenho interesse</button></form>
+              <form method="post" action="<?=e(url('vagas/'.$s['id'].'/interesse'))?>"><?=csrf_field()?><button class="btn btn-primary" type="submit">Tenho interesse <span aria-hidden="true">→</span></button></form>
             </div>
           </article>
         <?php endforeach;?>
+        <?php if(!$featured):?>
+          <p class="tp-direct-no-vacancies">Novas oportunidades serão publicadas aqui em breve.</p>
+        <?php endif;?>
       </div>
     </div>
   </section>
@@ -93,13 +100,7 @@ $heroPhoto='https://plus.unsplash.com/premium_photo-1661391652899-ae0e9df22e14?a
   <section class="tp-modern-all" id="todas-vagas">
     <div class="tp-modern-wrap">
       <div class="tp-modern-all-head">
-        <div><h2>Todas as vagas</h2><p><span data-modern-job-count><?=count($opportunities)?></span> oportunidades encontradas</p></div>
-        <div class="tp-modern-filter-pills">
-          <button type="button"><?=icon('map',15)?> Cidade <b>Todas</b>⌄</button>
-          <button type="button"><?=icon('briefcase',15)?> Função <b>Todas</b>⌄</button>
-          <button type="button"><?=icon('calendar',15)?> Data <b>Todas</b>⌄</button>
-          <button type="button">⇅ Ordenar por <b>Mais recentes</b>⌄</button>
-        </div>
+        <div><h2>Todas as vagas</h2><p>Turnos com pagamento imediato na sua região. <span class="tp-direct-count">(<span data-modern-job-count><?=count($opportunities)?></span> disponíveis)</span></p></div>
       </div>
 
       <div class="tp-modern-all-list" data-modern-job-list>

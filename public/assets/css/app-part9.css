@@ -67,3 +67,131 @@
 @media(max-width:900px){.admin-user-detail-grid,.admin-report-grid{grid-template-columns:1fr}.admin-user-detail-grid>.panel:first-child,.admin-user-company-panel,.admin-user-standalone{grid-column:auto}.admin-user-info-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:620px){.admin-user-info-grid{grid-template-columns:1fr}.admin-linked-company{grid-template-columns:auto 1fr}.admin-linked-company .btn{grid-column:1/-1}}
 
+
+
+/* TurnoPronto 2.0 - página /vagas, referência visual "Trabalhe hoje. Receba na hora".
+   Escopado à página pública: não altera menus, dashboards ou demais skins. */
+.tp-direct-landing{color:#0b2346;background:#fbfdff}
+.tp-direct-landing .tp-modern-wrap{width:min(1260px,calc(100% - 48px))}
+.tp-direct-landing .tp-modern-header{height:60px;position:relative}
+.tp-direct-landing .tp-modern-header-inner{grid-template-columns:1fr auto 1fr}
+.tp-direct-landing .tp-modern-brand img{width:168px}
+.tp-direct-landing .tp-modern-nav{gap:38px}
+.tp-direct-landing .tp-modern-nav a{font-size:12px;color:#0b2346;font-weight:800}
+.tp-direct-landing .tp-modern-header-actions .btn{min-height:36px;font-size:12px;border-radius:9px;padding:0 24px}
+.tp-direct-landing .tp-modern-header-actions .btn-primary,.tp-direct-landing .tp-modern-search button,.tp-direct-landing .tp-modern-job-actions .btn-primary{background:#0664f9;color:#fff;border:0;box-shadow:0 5px 13px rgba(0,92,227,.18)}
+.tp-direct-landing .tp-modern-hero{background:radial-gradient(circle at 3% 48%,rgba(188,246,242,.54),transparent 28%),linear-gradient(105deg,#f2fdff 0%,#eefaff 48%,#e5f8ff 67%,#e6fff5 100%);overflow:hidden}
+.tp-direct-landing .tp-modern-hero-grid{min-height:416px;grid-template-columns:58% 42%;gap:0}
+.tp-direct-landing .tp-modern-hero-copy{padding:31px 0 27px;position:relative;z-index:2;min-width:0}
+.tp-direct-landing .tp-modern-hero h1{font-size:56px;line-height:1.01;letter-spacing:-2.4px;font-weight:900;margin:0 0 7px;color:#0b2346}
+.tp-direct-landing .tp-modern-hero h1 span{background:none;-webkit-background-clip:initial;background-clip:initial}
+.tp-direct-landing .tp-modern-hero h1 .tp-direct-dark{color:#082046}
+.tp-direct-landing .tp-modern-hero h1 .tp-direct-blue{color:#066bcb}
+.tp-direct-landing .tp-modern-hero h1 .tp-direct-green{color:#0cab7a}
+.tp-direct-landing .tp-modern-hero-copy>p{font-size:17px;line-height:1.33;color:#65748e;margin:0 0 19px;max-width:680px}
+.tp-direct-landing .tp-modern-search{position:relative;z-index:3;width:756px;max-width:calc(100vw - 60px);height:65px;margin:0;padding:5px 6px 5px 0;grid-template-columns:1fr 1fr 215px;border-radius:15px;border:1px solid #e1e9f3;box-shadow:0 6px 22px rgba(28,83,124,.09)}
+.tp-direct-landing .tp-modern-search label{padding:0 20px;gap:13px}
+.tp-direct-landing .tp-modern-search label>.tp-icon{color:#0866ff}
+.tp-direct-landing .tp-modern-search small{font-size:12px;color:#0a234c;font-weight:850}
+.tp-direct-landing .tp-modern-search input{font-size:12px;color:#4d5f79}
+.tp-direct-landing .tp-modern-search button{height:52px;border-radius:12px;font-size:13px}
+.tp-direct-landing .tp-modern-search button b{font-size:22px;margin-left:24px}
+.tp-direct-benefits{display:grid;grid-template-columns:repeat(4,max-content);gap:28px;align-items:center;margin-top:21px;max-width:calc(100vw - 60px)}
+.tp-direct-benefit{display:flex;align-items:center;gap:9px;min-width:0}
+.tp-direct-benefit-icon{width:30px;height:32px;display:grid;place-items:center;flex:none;color:#00b47f}
+.tp-direct-benefit-icon.tp-direct-lightning{font-size:32px;font-weight:900}
+.tp-direct-benefit strong,.tp-direct-benefit small{display:block;white-space:nowrap}
+.tp-direct-benefit strong{font-size:11px;color:#0b2346;font-weight:850}
+.tp-direct-benefit small{font-size:10px;color:#677b97;line-height:1.3}
+.tp-direct-landing .tp-modern-hero-visual{min-height:416px;position:relative;isolation:isolate}
+.tp-direct-landing .tp-modern-photo{position:absolute;inset:0 calc(-1 * max(24px,(100vw - 1260px)/2)) 0 -46px;background-position:48% center;background-size:cover;border-radius:0;clip-path:polygon(15% 0,100% 0,100% 100%,11% 100%,0 58%)}
+.tp-direct-pay-card{position:absolute;z-index:2;top:68px;right:-64px;width:272px;color:#082246}
+.tp-direct-pay-heading{display:flex;align-items:center;gap:16px;padding:18px 19px;border-radius:19px;background:rgba(255,255,255,.97);box-shadow:0 13px 32px rgba(19,55,82,.1);min-height:104px}
+.tp-direct-pay-bolt{width:66px;height:66px;flex:none;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#09c89c,#049966);color:#fff;font-size:51px;font-weight:900;line-height:1}
+.tp-direct-pay-heading strong{font-size:20px;line-height:1.13;display:block;letter-spacing:-.6px}
+.tp-direct-pay-heading em{font-size:24px;color:#06a970;font-style:normal}
+.tp-direct-pay-heading small{display:block;font-size:13px;color:#486080;margin-top:5px}
+.tp-direct-pay-checks{list-style:none;margin:11px 0 0 12px;padding:0;display:grid;gap:12px}
+.tp-direct-pay-checks li{display:flex;gap:12px;align-items:center;font-size:16px;font-weight:650}
+.tp-direct-pay-checks li span{display:grid;place-items:center;background:#05ac78;color:#fff;width:23px;height:23px;border-radius:50%;font-weight:900;font-size:14px}
+.tp-direct-landing .tp-modern-featured{padding:18px 0 9px;background:#fbfdff}
+.tp-direct-landing .tp-modern-section-head h2,.tp-direct-landing .tp-modern-all-head h2{font-size:25px;font-weight:900;letter-spacing:-.5px}
+.tp-direct-landing .tp-modern-section-head p,.tp-direct-landing .tp-modern-all-head p{font-size:13px;margin-top:2px;color:#76849b}
+.tp-direct-landing .tp-modern-section-head>a{font-size:12px;color:#0061ed}
+.tp-direct-landing .tp-modern-feature-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:16px}
+.tp-direct-landing .tp-modern-feature-card{min-width:0;padding:12px 13px 11px;border-radius:15px;border:1px solid #dce7f4;box-shadow:0 6px 20px rgba(66,98,141,.05)}
+.tp-direct-landing .tp-modern-feature-top{grid-template-columns:92px minmax(0,1fr);gap:11px}
+.tp-direct-landing .tp-modern-job-thumb{height:83px;border-radius:10px}
+.tp-direct-landing .tp-modern-job-info{gap:3px}
+.tp-direct-landing .tp-modern-role-pill{font-size:10px;padding:3px 8px}
+.tp-direct-landing .tp-modern-job-info h3{font-size:16px;line-height:1.14;font-weight:850;margin:2px 0}
+.tp-direct-job-title{border:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;text-align:left;padding:0;cursor:pointer}
+.tp-direct-job-title:hover,.tp-direct-job-title:focus-visible{color:#0866ff;text-decoration:underline}
+.tp-direct-landing .tp-modern-job-info>span:not(.tp-modern-role-pill){font-size:10px;line-height:1.25;color:#627794}
+.tp-direct-landing .tp-modern-job-info>span:not(.tp-modern-role-pill) .tp-icon{width:12px;height:12px;flex:none}
+.tp-direct-landing .tp-modern-job-time{margin:10px 0 2px;gap:14px;font-size:11px;white-space:nowrap}
+.tp-direct-landing .tp-modern-job-time span{gap:4px}
+.tp-direct-landing .tp-modern-job-time .tp-icon{width:14px;height:14px}
+.tp-direct-landing .tp-modern-job-price{display:flex;align-items:center;text-align:left;gap:9px;min-height:51px;white-space:nowrap}
+.tp-direct-landing .tp-modern-job-price strong{color:#05774c;font-size:clamp(31px,2.38vw,41px);font-weight:950;letter-spacing:-1.6px;line-height:1.1}
+.tp-direct-landing .tp-modern-job-price span{font-size:11px;color:#546b8c;font-weight:500}
+.tp-direct-job-payout{display:flex;align-items:center;gap:8px;border-radius:10px;background:#dbf9ea;color:#047342;font-size:11px;font-weight:850;min-height:25px;padding:3px 10px;white-space:nowrap}
+.tp-direct-payout-icon{font-size:22px;font-weight:900;line-height:1}
+.tp-direct-landing .tp-modern-job-actions{display:block;margin-top:5px}
+.tp-direct-landing .tp-modern-job-actions .btn{display:flex;align-items:center;justify-content:center;gap:12px;height:34px;min-height:34px;font-size:12px;font-weight:800;border-radius:9px}
+.tp-direct-landing .tp-modern-job-actions form{width:100%;margin:0}
+.tp-direct-no-vacancies{grid-column:1/-1;border:1px solid #deebf6;border-radius:14px;padding:20px;color:#6b7b93;background:#fff}
+.tp-direct-landing .tp-modern-all{padding-top:8px}
+.tp-direct-landing .tp-modern-all-head{align-items:start}
+.tp-direct-count{font-size:11px;opacity:.8}
+.tp-direct-landing .tp-modern-row-price strong{color:#05774c;font-size:21px;font-weight:900}
+.tp-direct-landing .tp-modern-row .btn-primary{background:#0664f9}
+.tp-direct-landing [data-modern-job][hidden]{display:none!important}
+@media (max-width:1300px){
+  .tp-direct-landing .tp-modern-hero h1{font-size:clamp(39px,4.25vw,56px)}
+  .tp-direct-benefits{gap:18px}
+  .tp-direct-pay-card{right:0;width:245px}
+  .tp-direct-pay-checks li{font-size:14px}
+}
+@media (max-width:1100px){
+  .tp-direct-landing .tp-modern-hero-grid{grid-template-columns:1fr;min-height:0}
+  .tp-direct-landing .tp-modern-hero-copy{padding:38px 0 27px}
+  .tp-direct-landing .tp-modern-hero-visual{display:none}
+  .tp-direct-landing .tp-modern-hero h1{font-size:50px}
+  .tp-direct-landing .tp-modern-search{width:100%;max-width:none}
+  .tp-direct-benefits{grid-template-columns:repeat(2,minmax(0,1fr));width:100%;gap:12px}
+  .tp-direct-landing .tp-modern-feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tp-direct-landing .tp-modern-job-price strong{font-size:43px}
+}
+@media (max-width:720px){
+  .tp-direct-landing .tp-modern-wrap{width:calc(100% - 28px)}
+  .tp-direct-landing .tp-modern-header{height:62px}
+  .tp-direct-landing .tp-modern-brand img{width:150px}
+  .tp-direct-landing .tp-modern-header-actions .btn{font-size:11px;padding:0 14px}
+  .tp-direct-landing .tp-modern-hero-copy{padding:30px 0 25px}
+  .tp-direct-landing .tp-modern-hero h1{font-size:clamp(37px,9.5vw,48px);letter-spacing:-1.65px}
+  .tp-direct-landing .tp-modern-hero-copy>p{font-size:14px;line-height:1.45;margin:12px 0 16px}
+  .tp-direct-desktop-break{display:none}
+  .tp-direct-landing .tp-modern-search{height:auto;grid-template-columns:1fr;padding:7px}
+  .tp-direct-landing .tp-modern-search label{height:54px}
+  .tp-direct-landing .tp-modern-search label+label{border-top:1px solid #e1e8f1;border-left:0}
+  .tp-direct-landing .tp-modern-search button{height:49px}
+  .tp-direct-benefits{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:19px;gap:14px 8px}
+  .tp-direct-benefit-icon{width:25px}
+  .tp-direct-benefit-icon .tp-icon{width:23px;height:23px}
+  .tp-direct-benefit strong{font-size:10px;white-space:normal}
+  .tp-direct-benefit small{font-size:9px;white-space:normal}
+  .tp-direct-landing .tp-modern-featured{padding-top:22px}
+  .tp-direct-landing .tp-modern-section-head h2,.tp-direct-landing .tp-modern-all-head h2{font-size:22px}
+  .tp-direct-landing .tp-modern-section-head>a{font-size:11px;text-align:right}
+  .tp-direct-landing .tp-modern-feature-grid{display:grid;grid-template-columns:1fr;overflow:visible;scroll-snap-type:none}
+  .tp-direct-landing .tp-modern-feature-card{min-width:0}
+  .tp-direct-landing .tp-modern-job-price strong{font-size:44px}
+  .tp-direct-landing .tp-modern-row{grid-template-columns:50px minmax(0,1fr) auto;gap:9px;padding:10px}
+  .tp-direct-landing .tp-modern-row-role{grid-column:2}
+  .tp-direct-landing .tp-modern-row-price{grid-column:3;grid-row:1}
+  .tp-direct-landing .tp-modern-row-price strong{font-size:17px}
+  .tp-direct-landing .tp-modern-row>.btn{display:none}
+  .tp-direct-landing .tp-modern-row>form{grid-column:2/4;grid-row:2}
+  .tp-direct-landing .tp-modern-row>form .btn{font-size:12px}
+}
