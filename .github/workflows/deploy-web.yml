@@ -169,6 +169,17 @@ jobs:
           grep -q "relative==='/appearance'" app/Api.php
           grep -q '.tp-modern-hero' public/assets/css/app.css
           grep -q '.admin-skin-grid' public/assets/css/app.css
+          grep -q 'admin/usuarios' app/views/layout.php
+          grep -q 'admin/vagas' app/views/layout.php
+          grep -q 'admin/candidatos' app/views/layout.php
+          grep -q 'admin/empresas' app/views/layout.php
+          grep -q 'admin/locais' app/views/layout.php
+          grep -q 'admin/relatorios' app/views/layout.php
+          grep -q 'adminUsers' app/Data.php
+          grep -q 'adminShifts' app/Data.php
+          grep -q 'Abrir usuário' app/views/admin_directory.php
+          grep -q 'Cadastro do usuário' app/views/admin_user_detail.php
+          grep -q '.admin-user-detail-grid' public/assets/css/app.css
           grep -Fq "role-thumb <?=!empty(\$s['image_url'])" app/views/company_shifts.php
           grep -Fq "role-thumb <?=!empty(\$s['image_url'])" app/views/company_dashboard.php
           grep -Fq "venue-thumb <?=!empty(\$s['image_url'])" app/views/professional_dashboard.php
