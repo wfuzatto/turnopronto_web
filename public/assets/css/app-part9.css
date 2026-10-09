@@ -111,7 +111,7 @@
 .tp-direct-pay-heading strong{font-size:20px;line-height:1.13;display:block;letter-spacing:-.6px}
 .tp-direct-pay-heading em{font-size:24px;color:#06a970;font-style:normal}
 .tp-direct-pay-heading small{display:block;font-size:13px;color:#486080;margin-top:5px}
-.tp-direct-pay-checks{list-style:none;margin:11px 0 0 12px;padding:0;display:grid;gap:12px}
+.tp-direct-pay-checks{list-style:none;margin:-1px 0 0 34px;padding:16px 18px 19px 17px;display:grid;gap:12px;background:#fff;border-radius:0 0 20px 20px;box-shadow:0 14px 30px rgba(19,55,82,.12)}
 .tp-direct-pay-checks li{display:flex;gap:12px;align-items:center;font-size:16px;font-weight:650}
 .tp-direct-pay-checks li span{display:grid;place-items:center;background:#05ac78;color:#fff;width:23px;height:23px;border-radius:50%;font-weight:900;font-size:14px}
 .tp-direct-landing .tp-modern-featured{padding:18px 0 9px;background:#fbfdff}
