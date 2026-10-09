@@ -181,6 +181,31 @@ assert 'admin-support-upload' not in professional_review or 'enctype="multipart/
 assert 'data-inline-field="name"' in professional_review, 'professional admin review missing inline editing'
 assert 'data-inline-field="company_email"' in company_review, 'company admin review missing inline editing'
 
+admin_pages = {
+    '/admin/vagas': ['<h1>Vagas</h1>', 'Todas as vagas publicadas', 'data-filter-table'],
+    '/admin/candidatos': ['Candidatos / profissionais', 'data-filter-table', 'Abrir cadastro'],
+    '/admin/empresas': ['<h1>Empresas</h1>', 'Empresas cadastradas', 'data-filter-table'],
+    '/admin/usuarios': ['<h1>Usuários</h1>', 'inclusive administradores', 'Abrir usuário'],
+    '/admin/locais': ['<h1>Locais</h1>', 'Cidades onde existem empresas', 'data-filter-table'],
+    '/admin/relatorios': ['<h1>Relatórios</h1>', 'Usuários por tipo', 'Vagas por status'],
+}
+for path, markers in admin_pages.items():
+    page = admin.open(base + path, timeout=20).read().decode()
+    for marker in markers:
+        assert marker in page, 'ADMIN page ' + path + ' missing ' + marker
+
+users_html = admin.open(base + '/admin/usuarios', timeout=20).read().decode()
+user_match = re.search(r'href="(/admin/usuarios/\d+)">Abrir usuário</a>', users_html)
+assert user_match, 'ADMIN users page has no user detail link'
+user_detail = admin.open(base + user_match.group(1), timeout=20).read().decode()
+for marker in ['Cadastro do usuário', 'Tipo de conta', 'Último acesso']:
+    assert marker in user_detail, 'ADMIN user detail missing ' + marker
+
+dashboard_html = admin.open(base + '/admin/dashboard', timeout=20).read().decode()
+for route in ['/admin/vagas','/admin/candidatos','/admin/empresas','/admin/usuarios','/admin/locais','/admin/relatorios']:
+    assert ('href="' + route + '"') in dashboard_html, 'ADMIN menu missing route ' + route
+print('ADMIN functional navigation: PASS')
+
 appearance = json.loads(admin.open(base + '/api/v1/appearance', timeout=20).read().decode())
 assert appearance.get('ok') is True and appearance.get('data', {}).get('web_skin') in ['classic', 'modern', 'minimal']
 
