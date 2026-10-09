@@ -1,0 +1,56 @@
+name: Publish Android APK on FTP
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-android-apk.yml"
+      - "scripts/publish_android_apk.py"
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: turnopronto-web-production
+  cancel-in-progress: false
+
+jobs:
+  publish-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate script
+        run: python3 -m py_compile scripts/publish_android_apk.py
+
+      - name: Publish GitHub Android DEV APK to FTP
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_PROTOCOL: ${{ secrets.FTP_PROTOCOL || 'ftp' }}
+          FTP_PORT: ${{ secrets.FTP_PORT || '21' }}
+          FTP_PATH: ${{ secrets.FTP_PATH || '/public_html/' }}
+        run: |
+          set -euo pipefail
+          test -n "$FTP_SERVER" && test -n "$FTP_USERNAME" && test -n "$FTP_PASSWORD"
+          python3 scripts/publish_android_apk.py
+
+      - name: Check public download
+        run: |
+          set -euo pipefail
+          url="https://turnopronto.com.br/download"
+          curl -fSL --retry 3 --max-time 60 "$url/index.html" -o index.html
+          grep -q 'Versão de desenvolvimento (DEV)' index.html
+          curl -fSL --retry 3 --max-time 60 "$url/TurnoPronto.sha256" -o file.sha256
+          grep -Eq '^[0-9a-f]{64}  TurnoPronto.apk$' file.sha256
+          grep -Eq '^[0-9a-f]{64}  TurnoPronto-arm64.apk$' file.sha256
+          for name in TurnoPronto.apk TurnoPronto-arm64.apk; do
+            curl -fSLI --retry 3 --max-time 60 "$url/$name" > /dev/null
+            echo "Verified public URL: $url/$name"
+          done
