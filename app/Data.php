@@ -3434,6 +3434,131 @@ final class Data
         return self::platformAppearance();
     }
 
+    public static function adminUsers(int $limit=300): array
+    {
+        $limit=max(1,min(1000,$limit));
+        $sql="SELECT u.id,u.name,u.email,u.phone,u.avatar_url,u.role,u.status,u.last_login_at,u.created_at,u.updated_at,
+                     p.id professional_id,p.status professional_status,p.headline,p.city professional_city,p.state professional_state,
+                     cm.company_id,cm.member_role,c.trade_name company_name,c.status company_status
+              FROM tp_users u
+              LEFT JOIN tp_professionals p ON p.user_id=u.id
+              LEFT JOIN tp_company_members cm ON cm.user_id=u.id
+              LEFT JOIN tp_companies c ON c.id=cm.company_id
+              ORDER BY u.created_at DESC,u.id DESC
+              LIMIT {$limit}";
+        return Database::connection()->query($sql)->fetchAll();
+    }
+
+    public static function adminUserDetail(int $userId): array
+    {
+        $pdo=Database::connection();
+        $st=$pdo->prepare("SELECT id,name,email,phone,avatar_url,role,status,phone_verified_at,last_login_at,created_at,updated_at
+                           FROM tp_users WHERE id=? LIMIT 1");
+        $st->execute([$userId]);
+        $user=$st->fetch();
+        if(!$user) throw new RuntimeException('Usuário não encontrado.');
+
+        $professional=null;
+        $ps=$pdo->prepare("SELECT p.*,
+                                  (SELECT COUNT(*) FROM tp_shift_applications a WHERE a.professional_id=p.id) application_count,
+                                  (SELECT COUNT(*) FROM tp_shift_followers f WHERE f.professional_id=p.id) following_count,
+                                  (SELECT COUNT(*) FROM tp_assignments x WHERE x.professional_id=p.id) assignment_count
+                           FROM tp_professionals p WHERE p.user_id=? LIMIT 1");
+        $ps->execute([$userId]);
+        $professional=$ps->fetch() ?: null;
+
+        $companies=$pdo->prepare("SELECT c.*,cm.member_role,
+                                         (SELECT COUNT(*) FROM tp_shifts s WHERE s.company_id=c.id) shift_count
+                                  FROM tp_company_members cm
+                                  JOIN tp_companies c ON c.id=cm.company_id
+                                  WHERE cm.user_id=?
+                                  ORDER BY c.trade_name");
+        $companies->execute([$userId]);
+
+        return ['user'=>$user,'professional'=>$professional,'companies'=>$companies->fetchAll()];
+    }
+
+    public static function adminCompanies(int $limit=300): array
+    {
+        $limit=max(1,min(1000,$limit));
+        $sql="SELECT c.*,
+                     (SELECT COUNT(*) FROM tp_company_members cm WHERE cm.company_id=c.id) member_count,
+                     (SELECT COUNT(*) FROM tp_shifts s WHERE s.company_id=c.id) shift_count,
+                     (SELECT u.name FROM tp_company_members cm JOIN tp_users u ON u.id=cm.user_id WHERE cm.company_id=c.id ORDER BY (cm.member_role='owner') DESC,cm.id ASC LIMIT 1) owner_name,
+                     (SELECT u.email FROM tp_company_members cm JOIN tp_users u ON u.id=cm.user_id WHERE cm.company_id=c.id ORDER BY (cm.member_role='owner') DESC,cm.id ASC LIMIT 1) owner_email
+              FROM tp_companies c
+              ORDER BY c.created_at DESC,c.id DESC
+              LIMIT {$limit}";
+        return Database::connection()->query($sql)->fetchAll();
+    }
+
+    public static function adminProfessionals(int $limit=300): array
+    {
+        $limit=max(1,min(1000,$limit));
+        $sql="SELECT p.*,u.name,u.email,u.phone,u.avatar_url,u.status user_status,u.last_login_at,
+                     (SELECT COUNT(*) FROM tp_shift_applications a WHERE a.professional_id=p.id) application_count,
+                     (SELECT COUNT(*) FROM tp_shift_followers f WHERE f.professional_id=p.id) following_count,
+                     (SELECT COUNT(*) FROM tp_assignments x WHERE x.professional_id=p.id) assignment_count
+              FROM tp_professionals p
+              JOIN tp_users u ON u.id=p.user_id
+              ORDER BY p.created_at DESC,p.id DESC
+              LIMIT {$limit}";
+        return Database::connection()->query($sql)->fetchAll();
+    }
+
+    public static function adminShifts(int $limit=500): array
+    {
+        self::ensureShiftMediaSchema();
+        $limit=max(1,min(1500,$limit));
+        $sql="SELECT s.*,jc.name category_name,c.trade_name company_name,c.logo_url company_logo,
+                     (SELECT COUNT(*) FROM tp_shift_applications a WHERE a.shift_id=s.id) application_count,
+                     (SELECT COUNT(*) FROM tp_shift_followers f WHERE f.shift_id=s.id) follower_count,
+                     (SELECT COUNT(*) FROM tp_assignments x WHERE x.shift_id=s.id AND x.status<>'cancelled') assignment_count
+              FROM tp_shifts s
+              JOIN tp_job_categories jc ON jc.id=s.category_id
+              JOIN tp_companies c ON c.id=s.company_id
+              ORDER BY s.starts_at DESC,s.id DESC
+              LIMIT {$limit}";
+        $rows=Database::connection()->query($sql)->fetchAll();
+        foreach($rows as &$row) $row=self::attachShiftImageUrl($row);
+        unset($row);
+        return $rows;
+    }
+
+    public static function adminLocations(): array
+    {
+        $sql="SELECT c.city,c.state,
+                     COUNT(DISTINCT c.id) company_count,
+                     COUNT(DISTINCT s.id) shift_count,
+                     SUM(CASE WHEN s.status IN ('published','filling') AND s.starts_at>NOW() THEN 1 ELSE 0 END) open_shift_count
+              FROM tp_companies c
+              LEFT JOIN tp_shifts s ON s.company_id=c.id
+              WHERE COALESCE(c.city,'')<>''
+              GROUP BY c.city,c.state
+              ORDER BY c.state,c.city";
+        return Database::connection()->query($sql)->fetchAll();
+    }
+
+    public static function adminReportSummary(): array
+    {
+        $pdo=Database::connection();
+        $stats=self::adminStats();
+        $stats['active_users']=(int)$pdo->query("SELECT COUNT(*) FROM tp_users WHERE status='active'")->fetchColumn();
+        $stats['published_shifts']=(int)$pdo->query("SELECT COUNT(*) FROM tp_shifts WHERE status IN ('published','filling')")->fetchColumn();
+        $stats['completed_assignments']=(int)$pdo->query("SELECT COUNT(*) FROM tp_assignments WHERE status='completed'")->fetchColumn();
+        $stats['pending_professionals']=(int)$pdo->query("SELECT COUNT(*) FROM tp_professionals WHERE status='pending'")->fetchColumn();
+        $stats['pending_companies']=(int)$pdo->query("SELECT COUNT(*) FROM tp_companies WHERE status='pending'")->fetchColumn();
+
+        $roles=$pdo->query("SELECT role,COUNT(*) total FROM tp_users GROUP BY role ORDER BY total DESC")->fetchAll();
+        $shiftStatus=$pdo->query("SELECT status,COUNT(*) total FROM tp_shifts GROUP BY status ORDER BY total DESC")->fetchAll();
+        $months=$pdo->query("SELECT DATE_FORMAT(created_at,'%Y-%m') month,COUNT(*) total
+                             FROM tp_users
+                             WHERE created_at>=DATE_SUB(CURDATE(),INTERVAL 11 MONTH)
+                             GROUP BY DATE_FORMAT(created_at,'%Y-%m')
+                             ORDER BY month")->fetchAll();
+        return ['stats'=>$stats,'roles'=>$roles,'shift_status'=>$shiftStatus,'user_months'=>$months];
+    }
+
     public static function adminStats(): array
     {
         $pdo=Database::connection();
