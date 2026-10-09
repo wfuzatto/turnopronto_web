@@ -40,7 +40,7 @@ $heroPhoto='https://plus.unsplash.com/premium_photo-1661391652899-ae0e9df22e14?a
         </form>
 
         <div class="tp-direct-benefits" id="como-funciona">
-          <div class="tp-direct-benefit"><span class="tp-direct-benefit-icon tp-direct-lightning" aria-hidden="true">ϟ</span><div><strong>Pagamento imediato</strong><small>após o fim do turno</small></div></div>
+          <div class="tp-direct-benefit"><span class="tp-direct-benefit-icon tp-direct-lightning" aria-hidden="true"><svg class="tp-direct-bolt-svg" viewBox="0 0 24 24" fill="currentColor" focusable="false" aria-hidden="true"><path d="M13 2 4 13h7l-1 9 10-12h-7V2Z"/></svg></span><div><strong>Pagamento imediato</strong><small>após o fim do turno</small></div></div>
           <div class="tp-direct-benefit"><span class="tp-direct-benefit-icon"><?=icon('calendar',26)?></span><div><strong>Turnos flexíveis</strong><small>diurnos e noturnos</small></div></div>
           <div class="tp-direct-benefit"><span class="tp-direct-benefit-icon"><?=icon('map',26)?></span><div><strong>Vagas perto de você</strong><small>na sua cidade</small></div></div>
           <div class="tp-direct-benefit"><span class="tp-direct-benefit-icon"><?=icon('users',26)?></span><div><strong>Cadastro gratuito</strong><small>e sem burocracia</small></div></div>
@@ -50,7 +50,7 @@ $heroPhoto='https://plus.unsplash.com/premium_photo-1661391652899-ae0e9df22e14?a
       <div class="tp-modern-hero-visual" aria-label="Oportunidades para trabalhar em sua região">
         <div class="tp-modern-photo" style="background-image:url('<?=e($heroPhoto)?>')"></div>
         <div class="tp-direct-pay-card">
-          <div class="tp-direct-pay-heading"><span class="tp-direct-pay-bolt" aria-hidden="true">ϟ</span><div><strong>Recebimento<br><em>imediato</em></strong><small>após o fim do turno</small></div></div>
+          <div class="tp-direct-pay-heading"><span class="tp-direct-pay-bolt" aria-hidden="true"><svg class="tp-direct-bolt-svg" viewBox="0 0 24 24" fill="currentColor" focusable="false" aria-hidden="true"><path d="M13 2 4 13h7l-1 9 10-12h-7V2Z"/></svg></span><div><strong>Recebimento<br><em>imediato</em></strong><small>após o fim do turno</small></div></div>
           <ul class="tp-direct-pay-checks">
             <li><span aria-hidden="true">✓</span> Trabalhe hoje</li>
             <li><span aria-hidden="true">✓</span> Termine seu turno</li>
@@ -84,7 +84,7 @@ $heroPhoto='https://plus.unsplash.com/premium_photo-1661391652899-ae0e9df22e14?a
               <span><?=icon('clock',16)?> <?=date('H:i',strtotime($s['starts_at']))?> – <?=date('H:i',strtotime($s['ends_at']))?></span>
             </div>
             <div class="tp-modern-job-price"><strong><?=money($s['shift_value'])?></strong><span>por turno</span></div>
-            <div class="tp-direct-job-payout"><span class="tp-direct-payout-icon" aria-hidden="true">ϟ</span> Receba ao final do turno</div>
+            <div class="tp-direct-job-payout"><span class="tp-direct-payout-icon" aria-hidden="true"><svg class="tp-direct-bolt-svg" viewBox="0 0 24 24" fill="currentColor" focusable="false" aria-hidden="true"><path d="M13 2 4 13h7l-1 9 10-12h-7V2Z"/></svg></span> Receba ao final do turno</div>
             <div class="tp-modern-job-actions">
               <form method="post" action="<?=e(url('vagas/'.$s['id'].'/interesse'))?>"><?=csrf_field()?><button class="btn btn-primary" type="submit">Tenho interesse <span aria-hidden="true">→</span></button></form>
             </div>
