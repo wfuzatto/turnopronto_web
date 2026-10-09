@@ -1206,6 +1206,80 @@ final class Web
             redirect($back===$expected?$back:'admin/dashboard');
         }
 
+        if ($path === '/admin/vagas') {
+            $u=Auth::requireRole('admin');
+            View::render('admin_directory',[
+                'title'=>'Vagas',
+                'section'=>'shifts',
+                'items'=>Data::adminShifts(),
+                'user'=>$u
+            ]);
+        }
+
+        if ($path === '/admin/candidatos') {
+            $u=Auth::requireRole('admin');
+            View::render('admin_directory',[
+                'title'=>'Candidatos',
+                'section'=>'candidates',
+                'items'=>Data::adminProfessionals(),
+                'user'=>$u
+            ]);
+        }
+
+        if ($path === '/admin/empresas') {
+            $u=Auth::requireRole('admin');
+            View::render('admin_directory',[
+                'title'=>'Empresas',
+                'section'=>'companies',
+                'items'=>Data::adminCompanies(),
+                'user'=>$u
+            ]);
+        }
+
+        if ($path === '/admin/usuarios') {
+            $u=Auth::requireRole('admin');
+            View::render('admin_directory',[
+                'title'=>'Usuários',
+                'section'=>'users',
+                'items'=>Data::adminUsers(),
+                'user'=>$u
+            ]);
+        }
+
+        if (preg_match('#^/admin/usuarios/(\d+)$#',$path,$m) && $method==='GET') {
+            $u=Auth::requireRole('admin');
+            try{
+                View::render('admin_user_detail',[
+                    'title'=>'Usuário',
+                    'detail'=>Data::adminUserDetail((int)$m[1]),
+                    'user'=>$u
+                ]);
+            }catch(Throwable $e){
+                flash('error',$e->getMessage());
+                redirect('admin/usuarios');
+            }
+        }
+
+        if ($path === '/admin/locais') {
+            $u=Auth::requireRole('admin');
+            View::render('admin_directory',[
+                'title'=>'Locais',
+                'section'=>'locations',
+                'items'=>Data::adminLocations(),
+                'user'=>$u
+            ]);
+        }
+
+        if ($path === '/admin/relatorios') {
+            $u=Auth::requireRole('admin');
+            View::render('admin_directory',[
+                'title'=>'Relatórios',
+                'section'=>'reports',
+                'report'=>Data::adminReportSummary(),
+                'user'=>$u
+            ]);
+        }
+
         if ($path === '/admin/configuracoes') {
             $u=Auth::requireRole('admin');
             if($method==='POST'){
