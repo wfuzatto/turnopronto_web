@@ -479,6 +479,12 @@ jobs:
           grep -q '.tp-direct-landing' <<<"$css"
           grep -q '.tp-direct-job-payout' <<<"$css"
 
+          echo "CHECKPOINT 4b-UX: new landing CSS and JavaScript assets"
+          landing_css=$(curl --fail --silent --show-error --max-time 20 "$BASE_URL/public/assets/css/landing-ux-v3.css")
+          grep -q '.tp3-feature-grid' <<<"$landing_css"
+          landing_js=$(curl --fail --silent --show-error --max-time 20 "$BASE_URL/public/assets/js/landing-ux-v3.js")
+          grep -q 'data-tp3-search' <<<"$landing_js"
+
           echo "CHECKPOINT 4c: /vagas renders the V2 (not an older database-selected skin)"
           landing_headers=$(mktemp)
           landing_html=$(curl --fail --silent --show-error --max-time 20 -H 'Cache-Control: no-cache' -D "$landing_headers" "$BASE_URL/vagas?landing_verify=direto-v2-20261009")
@@ -486,6 +492,9 @@ jobs:
           grep -q 'Trabalhe hoje.' <<<"$landing_html"
           grep -q 'Receba na hora.' <<<"$landing_html"
           grep -q 'tp-direct-landing' <<<"$landing_html"
+          grep -q 'name="turnopronto-visual-build" content="ux-v3-20261014"' <<<"$landing_html"
+          grep -q 'landing-ux-v3.css' <<<"$landing_html"
+          grep -q 'landing-ux-v3.js' <<<"$landing_html"
           grep -qi '^x-turnopronto-landing: direto-v2-20261009' "$landing_headers"
           rm -f "$landing_headers"
           echo "LANDING V2 CONFIRMADA NO SERVIDOR"
