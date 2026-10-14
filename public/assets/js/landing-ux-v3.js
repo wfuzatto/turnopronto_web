@@ -80,7 +80,6 @@
   categories.forEach(button=>{
     button.addEventListener('click',()=>{
       updateCategory(button.dataset.tp3Category||'');
-      root.querySelector('#todas-vagas')?.scrollIntoView({behavior:'smooth',block:'start'});
     });
   });
   cityTrigger?.addEventListener('click',()=>{
