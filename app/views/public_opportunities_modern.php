@@ -70,7 +70,7 @@ $tomorrow=date('Y-m-d',strtotime('+1 day'));
             <button type="submit">Buscar vagas <span aria-hidden="true">→</span></button>
           </form>
           <div class="tp3-benefits" aria-label="Vantagens da plataforma">
-            <div><span class="tp3-benefit-symbol tp3-bolt" aria-hidden="true">ϟ</span><span><strong>Pagamento imediato</strong><small>após o fim do turno</small></span></div>
+            <div><span class="tp3-benefit-symbol tp3-bolt" aria-hidden="true"><svg class="tp3-bolt-svg" viewBox="0 0 24 24" fill="currentColor" focusable="false" aria-hidden="true"><path d="M13 2 4 13h7l-1 9 10-12h-7V2Z"/></svg></span><span><strong>Pagamento imediato</strong><small>após o fim do turno</small></span></div>
             <div><span class="tp3-benefit-symbol"><?=icon('calendar',25)?></span><span><strong>Turnos flexíveis</strong><small>diurnos e noturnos</small></span></div>
             <div><span class="tp3-benefit-symbol"><?=icon('map',25)?></span><span><strong>Vagas perto de você</strong><small>na sua cidade</small></span></div>
             <div><span class="tp3-benefit-symbol"><?=icon('shield',25)?></span><span><strong>Mais transparência</strong><small>valores antes de candidatar</small></span></div>
@@ -78,7 +78,7 @@ $tomorrow=date('Y-m-d',strtotime('+1 day'));
         </div>
         <div class="tp3-hero-photo" style="--tp3-photo:url('<?=e($heroPhoto)?>')" role="img" aria-label="Profissional de atendimento em ambiente de trabalho">
           <div class="tp3-pay-card">
-            <div class="tp3-pay-title"><span class="tp3-pay-circle" aria-hidden="true">ϟ</span><div><strong>Recebimento <em>imediato</em></strong><small>após o fim do turno</small></div></div>
+            <div class="tp3-pay-title"><span class="tp3-pay-circle" aria-hidden="true"><svg class="tp3-bolt-svg" viewBox="0 0 24 24" fill="currentColor" focusable="false" aria-hidden="true"><path d="M13 2 4 13h7l-1 9 10-12h-7V2Z"/></svg></span><div><strong>Recebimento <em>imediato</em></strong><small>após o fim do turno</small></div></div>
             <ul>
               <li><span aria-hidden="true">✓</span> Trabalhe hoje</li>
               <li><span aria-hidden="true">✓</span> Turnos flexíveis</li>
