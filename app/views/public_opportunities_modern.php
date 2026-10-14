@@ -52,7 +52,7 @@ $tomorrow=date('Y-m-d',strtotime('+1 day'));
     <section class="tp3-hero" aria-labelledby="tp3-headline">
       <div class="tp3-wrap tp3-hero-inner">
         <div class="tp3-hero-copy">
-          <h1 id="tp3-headline"><span class="tp3-blue">Trabalhe hoje.</span><br><span class="tp3-green">Receba na hora.</span></h1>
+          <h1 id="tp3-headline"><span>Trabalhe hoje.</span><br><span class="tp3-green">Receba na hora.</span></h1>
           <p>Turnos flexíveis perto de você, com pagamento imediato após o fim do turno. Simples, rápido e sem burocracia.</p>
           <form class="tp3-search" data-tp3-search role="search" action="#todas-vagas" method="get">
             <label class="tp3-search-field tp3-search-role">
