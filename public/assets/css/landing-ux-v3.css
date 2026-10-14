@@ -27,7 +27,7 @@
 .tp3-hero-copy{position:relative;z-index:2;width:73%;padding:40px 0 27px}
 .tp3 .tp3-hero h1{font-size:clamp(44px,4vw,61px);line-height:1.03;letter-spacing:-2.7px;font-weight:900;margin:0 0 10px;max-width:600px;color:var(--tp3-ink)}
 .tp3 .tp3-hero h1 .tp3-blue{color:#076bfc;background:none;-webkit-text-fill-color:currentColor}
-.tp3 .tp3-hero h1 .tp3-green{color:#06af7b;background:none;-webkit-text-fill-color:currentColor}
+.tp3 .tp3-hero h1 .tp3-green{background:linear-gradient(90deg,#076bfc 0%,#076bfc 39%,#06af7b 39%,#06af7b 100%);background-clip:text;-webkit-background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
 .tp3-only-sr{position:absolute!important;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 .tp3-hero-copy>p{font-size:17px;line-height:1.45;color:#607594;max-width:565px;margin:0 0 19px}
 .tp3-hero-photo{position:absolute;z-index:0;top:0;bottom:0;left:54%;right:-90px;background-image:linear-gradient(90deg,rgba(249,255,253,.08),rgba(249,255,253,0)),var(--tp3-photo);background-size:cover;background-position:center;clip-path:polygon(13% 0,100% 0,100% 100%,12% 100%,0 58%);pointer-events:none}
