@@ -21,3 +21,6 @@ jobs:
 
       - name: Validate PHP syntax
         run: find . -type f -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
+
+      - name: Validate landing JavaScript syntax
+        run: node --check public/assets/js/landing-ux-v3.js
