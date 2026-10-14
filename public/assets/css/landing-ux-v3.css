@@ -1,4 +1,7 @@
 /* TurnoPronto landing UX V3 — scoped to /vagas; does not alter backoffice. */
+.tp3-bolt-svg{width:30px;height:30px;display:block}
+.tp3-pay-circle .tp3-bolt-svg{width:36px;height:36px}
+
 .tp3{--tp3-ink:#0b2147;--tp3-blue:#0567f7;--tp3-green:#04a978;--tp3-muted:#6b7e9b;--tp3-line:#e1eaf5;background:#f9fbff;color:var(--tp3-ink);font-family:Inter,"Segoe UI",Arial,sans-serif;font-size:15px;line-height:1.45}
 .tp3 *, .tp3 *::before,.tp3 *::after{box-sizing:border-box}
 .tp3 [hidden]{display:none!important}
