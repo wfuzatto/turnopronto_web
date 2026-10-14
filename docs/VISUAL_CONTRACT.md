@@ -48,3 +48,21 @@ Quando screenshots finais homologados forem adicionados ao repositório, eles de
 docs/visual-baseline/
 
 Esses arquivos passam a ser a referência de comparação visual para futuras alterações.
+
+
+## Baseline aprovada — página pública /vagas (UX V3, 14/10/2026)
+
+Referência: mockup aprovado de vagas, com hero em azul/verde, busca central, chips de categoria, cards de oportunidades com **remuneração evidente** e painel "Como funciona?".
+
+Implementação:
+- HTML/PHP: \`app/views/public_opportunities_modern.php\`
+- CSS isolado: \`public/assets/css/landing-ux-v3.css\`
+- JS isolado: \`public/assets/js/landing-ux-v3.js\`
+
+**Regras de preservação**
+1. Não trocar valores reais, empresas, fotos ou datas por demonstrações fictícias.
+2. Destacar remuneração, data, hora, local e forma de candidatura sem impor cadastro apenas para navegar.
+3. Preservar os formulários POST, CSRF e diálogos de detalhes, acompanhamento e interesse.
+4. Busca por profissão, cidade, data e categorias deve continuar funcional. Lista e cards devem ser responsivos.
+5. Não interferir no CSS de telas autenticadas, skins antigas de pré-visualização ou rotas do backoffice.
+6. Manter o verificador de produção sensível à presença dos assets UX V3 e à versão declarada no HTML.
