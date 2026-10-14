@@ -92,6 +92,22 @@ final class Api
             }
         }
 
+        // Consulta pública: o aplicativo e o site exibem vagas antes do cadastro.
+        // Ações como acompanhar e candidatar-se continuam exigindo token.
+        if($relative==='/public/opportunities' && $method==='GET'){
+            json_response(['ok'=>true,'data'=>Data::publicOpportunities()]);
+        }
+
+        if(preg_match('#^/public/shifts/(\\d+)$#',$relative,$m) && $method==='GET'){
+            $shift=Data::publicShift((int)$m[1]);
+            if(!$shift) json_response(['ok'=>false,'error'=>'Vaga não encontrada ou indisponível.'],404);
+            $fields=['id','title','description','image_url','category_name','company_name',
+                'company_rating','starts_at','ends_at','shift_value','address','city',
+                'state','latitude','longitude','dress_code','notes','acceptance_mode',
+                'required_workers','candidates'];
+            json_response(['ok'=>true,'data'=>array_intersect_key($shift,array_flip($fields))]);
+        }
+
         $user=self::user();
 
         if($relative==='/auth/logout' && $method==='POST'){
