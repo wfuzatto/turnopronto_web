@@ -26,15 +26,17 @@
 .tp3-company:hover,.tp3-how-cta:hover,.tp3-search button:hover,.tp3-interest:hover{background:#0054d6;color:#fff}
 .tp3-hero{position:relative;overflow:hidden;background:radial-gradient(circle at 12% 45%,rgba(107,240,209,.17),transparent 35%),linear-gradient(110deg,#ebfffa 0%,#f3faff 54%,#e4f5ff 73%,#fff 100%)}
 .tp3-hero::before{content:"";position:absolute;width:440px;height:440px;border:40px solid rgba(229,246,255,.55);border-radius:55% 45%;top:-280px;left:44%;pointer-events:none}
+.tp3-hero{width:100%}
 .tp3-hero-inner{position:relative;min-height:425px}
 .tp3-hero-copy{position:relative;z-index:2;width:73%;padding:40px 0 27px}
 .tp3 .tp3-hero h1{font-size:clamp(44px,4vw,61px);line-height:1.03;letter-spacing:-2.7px;font-weight:900;margin:0 0 10px;max-width:600px;color:var(--tp3-ink)}
-.tp3 .tp3-hero h1 .tp3-blue{color:#076bfc;background:none;-webkit-text-fill-color:currentColor}
-.tp3 .tp3-hero h1 .tp3-green{background:linear-gradient(90deg,#076bfc 0%,#076bfc 39%,#06af7b 39%,#06af7b 100%);background-clip:text;-webkit-background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+.tp3 .tp3-hero h1 .tp3-dark{color:#0b2147;background:none;-webkit-text-fill-color:#0b2147}
+.tp3 .tp3-hero h1 .tp3-blue{color:#0567f7;background:none;-webkit-text-fill-color:#0567f7}
+.tp3 .tp3-hero h1 .tp3-green{background:none;color:#04a978;-webkit-text-fill-color:#04a978}
 .tp3-only-sr{position:absolute!important;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 .tp3-hero-copy>p{font-size:17px;line-height:1.45;color:#607594;max-width:565px;margin:0 0 19px}
-.tp3-hero-photo{position:absolute;z-index:0;top:0;bottom:0;left:54%;right:-90px;background-image:linear-gradient(90deg,rgba(249,255,253,.08),rgba(249,255,253,0)),var(--tp3-photo);background-size:cover;background-position:center;clip-path:polygon(13% 0,100% 0,100% 100%,12% 100%,0 58%);pointer-events:none}
-.tp3-pay-card{position:absolute;top:45px;right:max(28px,calc((100vw - 1380px)/2 + 4px));min-width:238px;max-width:258px;display:flex;flex-direction:column;gap:0}
+.tp3-hero-photo{position:absolute;z-index:0;top:0;bottom:0;left:auto;right:0;width:49%;background-image:linear-gradient(90deg,rgba(249,255,253,.08),rgba(249,255,253,0)),var(--tp3-photo);background-size:cover;background-position:center;clip-path:polygon(13% 0,100% 0,100% 100%,12% 100%,0 58%);pointer-events:none}
+.tp3-pay-card{position:absolute;top:45px;right:clamp(24px,3vw,54px);min-width:238px;max-width:258px;display:flex;flex-direction:column;gap:0}
 .tp3-pay-title{background:rgba(249,255,255,.95);border:1px solid rgba(214,237,236,.8);box-shadow:0 12px 35px rgba(11,61,76,.13);border-radius:23px;padding:15px 17px;display:flex;align-items:center;gap:12px}
 .tp3-pay-circle{width:58px;height:58px;display:grid;place-items:center;border-radius:50%;background:linear-gradient(155deg,#0fcfa5,#079e77);color:white;box-shadow:0 0 0 7px #e2faf2;font-size:42px;font-weight:900;flex:none;line-height:1}
 .tp3-pay-title strong{font-size:16px;line-height:1.15;display:block;color:#10284c}
