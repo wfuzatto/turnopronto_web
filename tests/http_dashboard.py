@@ -229,8 +229,10 @@ print('ADMIN verification review pages: PASS')
 # Professionals browse vacancies before any signup.
 public = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
 jobs = public.open(base + '/vagas', timeout=20).read().decode()
-for marker in ['Trabalhe hoje.', 'Receba na hora.', 'Recebimento', 'imediato', 'Vagas em destaque', 'Todas as vagas', 'Tenho interesse', 'data-public-job-modal-open', 'public-job-modal', 'Acompanhar vaga', 'Qual vaga você procura?', 'Sua cidade', 'Quando?', 'data-tp3-category', 'data-tp3-sort', 'tp3-feature-card', 'ux-v3-20261014', 'landing-ux-v3.css', 'landing-ux-v3.js']:
+for marker in ['Veja vagas.', 'Trabalhe hoje.', 'Receba na hora.', 'Recebimento', 'imediato', 'Vagas em destaque', 'Todas as vagas', 'Tenho interesse', 'data-public-job-modal-open', 'public-job-modal', 'Acompanhar vaga', 'Qual vaga você procura?', 'Sua cidade', 'Quando?', 'data-tp3-category', 'data-tp3-sort', 'tp3-feature-card', 'ux-v3-20261014', 'landing-ux-v3.css', 'landing-ux-v3.js']:
     assert marker in jobs, 'public vacancy page missing ' + marker
+assert jobs.index('class="tp3-hero-photo"') < jobs.index('class="tp3-wrap tp3-hero-inner"'), 'hero image must sit outside the centered container to reach the viewport edge'
+assert jobs.index('tp3-dark') < jobs.index('tp3-blue') < jobs.index('tp3-green'), 'three-line headline colors must follow the approved order'
 assert 'name="cpf"' not in jobs and 'name="password"' not in jobs, 'public browsing unexpectedly asks for registration data'
 assert 'ϟ' not in jobs, 'payment lightning icon must be an SVG, not a font glyph'
 assert jobs.count('class="tp3-bolt-svg"') >= 2, 'payment lightning icons must be inline SVG in the hero'
