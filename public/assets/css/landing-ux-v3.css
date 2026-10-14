@@ -30,7 +30,7 @@
 .tp3 .tp3-hero h1 .tp3-green{color:#06af7b;background:none;-webkit-text-fill-color:currentColor}
 .tp3-only-sr{position:absolute!important;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 .tp3-hero-copy>p{font-size:17px;line-height:1.45;color:#607594;max-width:565px;margin:0 0 19px}
-.tp3-hero-photo{position:absolute;z-index:0;top:0;bottom:0;left:54%;right:calc((min(100vw,1380px) - 100vw)/2 - 32px);background-image:linear-gradient(90deg,rgba(249,255,253,.08),rgba(249,255,253,0)),var(--tp3-photo);background-size:cover;background-position:center;clip-path:polygon(13% 0,100% 0,100% 100%,12% 100%,0 58%);pointer-events:none}
+.tp3-hero-photo{position:absolute;z-index:0;top:0;bottom:0;left:54%;right:-90px;background-image:linear-gradient(90deg,rgba(249,255,253,.08),rgba(249,255,253,0)),var(--tp3-photo);background-size:cover;background-position:center;clip-path:polygon(13% 0,100% 0,100% 100%,12% 100%,0 58%);pointer-events:none}
 .tp3-pay-card{position:absolute;top:45px;right:max(28px,calc((100vw - 1380px)/2 + 4px));min-width:238px;max-width:258px;display:flex;flex-direction:column;gap:0}
 .tp3-pay-title{background:rgba(249,255,255,.95);border:1px solid rgba(214,237,236,.8);box-shadow:0 12px 35px rgba(11,61,76,.13);border-radius:23px;padding:15px 17px;display:flex;align-items:center;gap:12px}
 .tp3-pay-circle{width:58px;height:58px;display:grid;place-items:center;border-radius:50%;background:linear-gradient(155deg,#0fcfa5,#079e77);color:white;box-shadow:0 0 0 7px #e2faf2;font-size:42px;font-weight:900;flex:none;line-height:1}
