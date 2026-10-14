@@ -285,15 +285,27 @@ jobs:
           sha = os.environ.get("GITHUB_SHA", "")[:7] or "manual"
           backup_name = f"turnopronto_predeploy_{stamp}_{sha}.zip"
 
-          if protocol in {"ftps", "ftpes", "ftp-tls"}:
-              ftp = ftplib.FTP_TLS(timeout=45)
-              ftp.connect(server, port)
-              ftp.login(username, password)
-              ftp.prot_p()
-          else:
-              ftp = ftplib.FTP(timeout=45)
-              ftp.connect(server, port)
-              ftp.login(username, password)
+          def connect_ftp():
+              if protocol in {"ftps", "ftpes", "ftp-tls"}:
+                  connection = ftplib.FTP_TLS(timeout=45)
+                  connection.connect(server, port)
+                  connection.login(username, password)
+                  connection.prot_p()
+              else:
+                  connection = ftplib.FTP(timeout=45)
+                  connection.connect(server, port)
+                  connection.login(username, password)
+              return connection
+
+          ftp = connect_ftp()
+
+          def reconnect_ftp():
+              global ftp
+              try:
+                  ftp.close()
+              except Exception:
+                  pass
+              ftp = connect_ftp()
 
           skip_prefixes = {
               "storage/uploads",
@@ -325,8 +337,40 @@ jobs:
               path.parent.mkdir(parents=True, exist_ok=True)
               return path
 
+          def download_file(remote, target):
+              # Resume partial RETR after a dropped FTP data connection.
+              # Never accept a partial backup as success.
+              last_error = None
+              for attempt in range(8):
+                  offset = target.stat().st_size if target.exists() else 0
+                  try:
+                      with target.open("ab" if offset else "wb") as handle:
+                          ftp.retrbinary(
+                              f"RETR {remote}",
+                              handle.write,
+                              blocksize=65536,
+                              rest=offset if offset else None,
+                          )
+                      return
+                  except ftplib.all_errors as exc:
+                      last_error = exc
+                      if isinstance(exc, ftplib.error_perm):
+                          if not offset:
+                              raise
+                          # FTP server refused REST; restart this file safely.
+                          target.unlink(missing_ok=True)
+                      if attempt == 7:
+                          break
+                      print(f"FTP transfer interrupted at {remote} ({attempt + 1}/8), reconnecting: {type(exc).__name__}")
+                      time.sleep(min(2 ** min(attempt, 3), 8))
+                      reconnect_ftp()
+              raise RuntimeError(f"Unable to backup {remote} after retries") from last_error
+
           def mirror_dir(remote_dir, rel=""):
               try:
+                  entries = list(ftp.mlsd(remote_dir))
+              except (ConnectionResetError, BrokenPipeError, TimeoutError, EOFError):
+                  reconnect_ftp()
                   entries = list(ftp.mlsd(remote_dir))
               except Exception:
                   current = ftp.pwd()
@@ -359,8 +403,7 @@ jobs:
                       mirror_dir(child_remote, child_rel)
                   elif kind == "file":
                       target = ensure_local(child_rel)
-                      with target.open("wb") as handle:
-                          ftp.retrbinary(f"RETR {child_remote}", handle.write)
+                      download_file(child_remote, target)
 
           mirror_dir(remote_root)
 
