@@ -229,12 +229,12 @@ print('ADMIN verification review pages: PASS')
 # Professionals browse vacancies before any signup.
 public = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
 jobs = public.open(base + '/vagas', timeout=20).read().decode()
-for marker in ['Veja vagas.', 'Trabalhe hoje.', 'Receba na hora.', 'Recebimento', 'imediato', 'Vagas em destaque', 'Todas as vagas', 'Tenho interesse', 'data-public-job-modal-open', 'public-job-modal', 'Acompanhar vaga', 'Qual cidade?', 'Qual função?', 'tp-direct-job-payout']:
+for marker in ['Trabalhe hoje.', 'Receba na hora.', 'Recebimento', 'imediato', 'Vagas em destaque', 'Todas as vagas', 'Tenho interesse', 'data-public-job-modal-open', 'public-job-modal', 'Acompanhar vaga', 'Qual vaga você procura?', 'Sua cidade', 'Quando?', 'data-tp3-category', 'data-tp3-sort', 'tp3-feature-card', 'ux-v3-20261014', 'landing-ux-v3.css', 'landing-ux-v3.js']:
     assert marker in jobs, 'public vacancy page missing ' + marker
 assert 'name="cpf"' not in jobs and 'name="password"' not in jobs, 'public browsing unexpectedly asks for registration data'
-assert 'ϟ' not in jobs, 'legacy payment glyph is still present instead of the lightning SVG'
-assert jobs.count('class="tp-direct-bolt-svg"') >= 3, 'payment icons must render as SVG lightning bolts in the hero and vacancy cards'
-assert 'class="tp-direct-pay-accent" aria-hidden="true"><i></i><i></i><i></i>' in jobs, 'green three-ray decoration missing from immediate payment card'
+assert 'ϟ' not in jobs, 'payment lightning icon must be an SVG, not a font glyph'
+assert jobs.count('class="tp3-bolt-svg"') >= 2, 'payment lightning icons must be inline SVG in the hero'
+assert 'class="tp3-pay-circle"' in jobs, 'payment emphasis missing from hero'
 assert re.search(r'<button[^>]+data-public-job-modal-open=[^>]*>Ver detalhes</button>', jobs), 'public vacancy details still redirect instead of opening a modal'
 
 direct_signup = public.open(base + '/cadastro/profissional', timeout=20)
