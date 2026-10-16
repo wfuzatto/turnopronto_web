@@ -58,7 +58,7 @@
 .tp3-search-date small{display:none}
 .tp3-search>button{border:0;background:#0868fb;color:#fff;border-radius:15px;box-shadow:0 6px 15px rgba(4,100,239,.25);font-size:15px;font-weight:850;white-space:nowrap}
 .tp3-search>button span{font-size:22px;margin-left:14px}
-.tp3-benefits{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;width:min(970px,calc(100vw - 105px));margin-top:19px}
+.tp3-benefits{position:relative;z-index:3;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;width:min(970px,calc(100vw - 105px));margin-top:19px;padding:17px 20px;background:#fff;border:1px solid #e5edf5;border-radius:16px;box-shadow:0 8px 24px rgba(19,58,95,.08)}
 .tp3-benefits>div{display:flex;align-items:center;gap:9px;min-width:0}
 .tp3-benefit-symbol{display:grid;place-items:center;min-width:34px;color:#00b98b}
 .tp3-bolt{font-size:33px;font-weight:900;line-height:1}
@@ -243,3 +243,7 @@
  .tp3-all-list.is-grid .tp3-row form{grid-column:2;grid-row:auto}
 }
 @media(prefers-reduced-motion:reduce){.tp3 *, .tp3 *::before, .tp3 *::after{scroll-behavior:auto!important;transition:none!important}}
+
+/* Keep all four benefit labels on a solid readable surface, including over hero photography. */
+@media(max-width:800px){.tp3-benefits{padding:16px;max-width:100%}}
+@media(max-width:560px){.tp3-benefits{padding:14px 12px}}
