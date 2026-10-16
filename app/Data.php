@@ -1739,9 +1739,11 @@ final class Data
     public static function opportunities(int $userId, int $limit=50): array
     {
         self::ensureShiftMediaSchema();
+        self::ensureShiftFollowingSchema();
         $pid=self::professionalIdForUser($userId);
         $mode=self::hasColumn('tp_shifts','acceptance_mode') ? ',s.acceptance_mode' : '';
         $sql="SELECT s.*,jc.name category_name,co.trade_name company_name,co.rating company_rating $mode,
+                     EXISTS (SELECT 1 FROM tp_shift_followers f WHERE f.shift_id=s.id AND f.professional_id=?) following,
                      TIMESTAMPDIFF(MINUTE,s.starts_at,s.ends_at) duration_minutes,
                      (SELECT COUNT(*) FROM tp_shift_applications a WHERE a.shift_id=s.id AND a.status IN ('applied','invited','accepted')) candidates
               FROM tp_shifts s
@@ -1761,7 +1763,7 @@ final class Data
                 )
               ORDER BY s.starts_at ASC LIMIT ".max(1,(int)$limit);
         $st=Database::connection()->prepare($sql);
-        $st->execute([$pid,$pid,$pid]);
+        $st->execute([$pid,$pid,$pid,$pid]);
         $rows=$st->fetchAll();
         foreach($rows as &$row){
             if(!array_key_exists('acceptance_mode',$row)) $row['acceptance_mode']='automatic';
