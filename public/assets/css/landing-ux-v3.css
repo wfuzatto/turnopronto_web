@@ -254,3 +254,8 @@
 .tp3-benefits-strip .tp3-benefits>div{min-width:0}
 @media(max-width:800px){.tp3-benefits-strip{padding:14px 0}.tp3-benefits-strip .tp3-benefits{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}}
 @media(max-width:560px){.tp3-benefits-strip .tp3-benefits{gap:16px 10px}}
+
+/* 2026-10-15: benefits strip restored below the hero with 25% larger copy. */
+.tp3-benefits-strip .tp3-benefits strong{font-size:13.75px;line-height:1.3}
+.tp3-benefits-strip .tp3-benefits small{font-size:12.5px;line-height:1.3}
+@media(max-width:560px){.tp3-benefits-strip .tp3-benefits strong{font-size:12.5px;white-space:normal}.tp3-benefits-strip .tp3-benefits small{font-size:11.25px}}
