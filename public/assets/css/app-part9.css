@@ -200,3 +200,7 @@
   .tp-direct-landing .tp-modern-row>form{grid-column:2/4;grid-row:2}
   .tp-direct-landing .tp-modern-row>form .btn{font-size:12px}
 }
+
+/* Filtro de vagas acompanhadas na página de oportunidades do profissional. */
+.opportunity-follow-filter{display:inline-flex;align-items:center;gap:9px;padding:9px 12px;border:1px solid #d8e5f3;border-radius:11px;background:#f5faff;color:#10284d;font-size:13px;font-weight:700;cursor:pointer;white-space:normal}
+.opportunity-follow-filter input{width:18px;height:18px;accent-color:#0567f7;cursor:pointer;flex:none}
