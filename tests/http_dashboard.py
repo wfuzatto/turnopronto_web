@@ -235,8 +235,8 @@ assert jobs.index('class="tp3-hero-photo"') < jobs.index('class="tp3-wrap tp3-he
 assert jobs.index('tp3-dark') < jobs.index('tp3-blue') < jobs.index('tp3-green'), 'three-line headline colors must follow the approved order'
 assert 'name="cpf"' not in jobs and 'name="password"' not in jobs, 'public browsing unexpectedly asks for registration data'
 assert 'ϟ' not in jobs, 'payment lightning icon must be an SVG, not a font glyph'
-assert jobs.count('class="tp3-bolt-svg"') >= 1, 'payment lightning icon must remain inline SVG in the hero'
-assert 'class="tp3-benefits-strip"' not in jobs, 'removed benefits strip must not be rendered'
+assert jobs.count('class="tp3-bolt-svg"') >= 2, 'hero and benefits lightning icons must remain SVG'
+assert 'class="tp3-benefits-strip"' in jobs, 'benefits strip must be rendered'
 assert 'class="tp3-pay-circle"' in jobs, 'payment emphasis missing from hero'
 assert re.search(r'<button[^>]+data-public-job-modal-open=[^>]*>Ver detalhes</button>', jobs), 'public vacancy details still redirect instead of opening a modal'
 
