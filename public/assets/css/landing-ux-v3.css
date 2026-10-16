@@ -247,3 +247,10 @@
 /* Keep all four benefit labels on a solid readable surface, including over hero photography. */
 @media(max-width:800px){.tp3-benefits{padding:16px;max-width:100%}}
 @media(max-width:560px){.tp3-benefits{padding:14px 12px}}
+
+/* Separate full-width benefits band; hero photography never reaches these labels. */
+.tp3-benefits-strip{position:relative;z-index:2;background:#fff;border-bottom:1px solid #e8eff7;padding:15px 0}
+.tp3-benefits-strip .tp3-benefits{width:100%;max-width:100%;margin:0;padding:6px 0;background:#fff;border:0;border-radius:0;box-shadow:none;gap:24px}
+.tp3-benefits-strip .tp3-benefits>div{min-width:0}
+@media(max-width:800px){.tp3-benefits-strip{padding:14px 0}.tp3-benefits-strip .tp3-benefits{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}}
+@media(max-width:560px){.tp3-benefits-strip .tp3-benefits{gap:16px 10px}}
