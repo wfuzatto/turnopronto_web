@@ -80,14 +80,19 @@ $tomorrow=date('Y-m-d',strtotime('+1 day'));
             </label>
             <button type="submit">Buscar vagas <span aria-hidden="true">→</span></button>
           </form>
+
+        </div>
+
+      </div>
+    </section>
+    <section class="tp3-benefits-strip" aria-label="Vantagens da plataforma">
+      <div class="tp3-wrap">
           <div class="tp3-benefits" aria-label="Vantagens da plataforma">
             <div><span class="tp3-benefit-symbol tp3-bolt" aria-hidden="true"><svg class="tp3-bolt-svg" viewBox="0 0 24 24" fill="currentColor" focusable="false" aria-hidden="true"><path d="M13 2 4 13h7l-1 9 10-12h-7V2Z"/></svg></span><span><strong>Pagamento imediato</strong><small>após o fim do turno</small></span></div>
             <div><span class="tp3-benefit-symbol"><?=icon('calendar',25)?></span><span><strong>Turnos flexíveis</strong><small>diurnos e noturnos</small></span></div>
             <div><span class="tp3-benefit-symbol"><?=icon('map',25)?></span><span><strong>Vagas perto de você</strong><small>na sua cidade</small></span></div>
             <div><span class="tp3-benefit-symbol"><?=icon('shield',25)?></span><span><strong>Mais transparência</strong><small>valores antes de candidatar</small></span></div>
           </div>
-        </div>
-
       </div>
     </section>
 
