@@ -1213,6 +1213,7 @@
     const search=q('[data-opportunity-search]',root);
     const radius=q('[data-opportunity-radius]',root);
     const days=q('[data-opportunity-days]',root);
+    const following=q('[data-opportunity-following]',root);
     const list=q('[data-opportunity-list]',root)||rows[0]?.parentElement;
     const empty=q('[data-opportunity-empty]',root);
     let userLocation=null;
@@ -1244,7 +1245,8 @@
         const okSearch=!term||hay.includes(term);
         const okRadius=!maxKm||!userLocation||!hasDistance||distance<=maxKm;
         const okDay=dayMatches(row);
-        row.hidden=!(okSearch&&okRadius&&okDay);
+        const okFollowing=!following?.checked||row.dataset.following==='1';
+        row.hidden=!(okSearch&&okRadius&&okDay&&okFollowing);
         if(!row.hidden) visible++;
       });
       if(empty) empty.hidden=visible!==0;
@@ -1348,6 +1350,7 @@
     search?.addEventListener('input',applyFilters);
     radius?.addEventListener('change',applyFilters);
     days?.addEventListener('change',applyFilters);
+    following?.addEventListener('change',applyFilters);
     requestButtons.forEach(button=>button.addEventListener('click',()=>requestLocation(true)));
 
     manualApply?.addEventListener('click',async()=>{
