@@ -11,6 +11,7 @@
 <div class="opportunities-location-shell" data-opportunity-location>
   <div class="filter-row panel">
     <div class="top-search inline-search"><?=icon('search',17)?><input data-opportunity-search placeholder="Função, empresa ou cidade"></div>
+    <label class="opportunity-follow-filter"><input type="checkbox" data-opportunity-following><span>Apenas vagas acompanhadas</span></label>
     <select data-opportunity-radius aria-label="Distância máxima">
       <option value="10">Até 10 km</option>
       <option value="25">Até 25 km</option>
@@ -47,6 +48,7 @@
       <?php foreach($opportunities as $s):?>
       <div class="opportunity-row"
            data-opportunity-row
+           data-following="<?=!empty($s['following'])?'1':'0'?>"
            data-search="<?=e(mb_strtolower(($s['category_name']??'').' '.($s['company_name']??'').' '.($s['city']??'').' '.($s['state']??''),'UTF-8'))?>"
            data-shift-lat="<?=e((string)($s['latitude']??''))?>"
            data-shift-lng="<?=e((string)($s['longitude']??''))?>"
