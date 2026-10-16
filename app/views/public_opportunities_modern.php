@@ -39,7 +39,6 @@ $tomorrow=date('Y-m-d',strtotime('+1 day'));
         <a href="<?=e(url('suporte'))?>">Ajuda</a>
       </nav>
       <div class="tp3-head-actions">
-        <button type="button" class="tp3-location" data-tp3-focus-city><?=icon('map',16)?><span>Sua cidade</span><span aria-hidden="true">⌄</span></button>
         <a class="tp3-login" href="<?=e(url('login'))?>">Entrar</a>
         <a class="tp3-company" href="<?=e(url('cadastro/empresa'))?>">Sou empresa</a>
       </div>
