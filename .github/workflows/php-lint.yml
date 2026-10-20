@@ -31,4 +31,6 @@ jobs:
           node --check public/assets/js/app.js
 
       - name: Test inclusive shift date ranges
-        run: php tests/shift_batch_dates_unit.php
+        run: |
+          php tests/shift_batch_dates_unit.php
+          php tests/shift_batch_simple_layout.php
