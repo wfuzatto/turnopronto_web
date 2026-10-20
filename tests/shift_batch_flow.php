@@ -45,7 +45,7 @@ $full=$pdo->prepare('INSERT INTO tp_shifts (company_id,category_id,title,descrip
                     FROM tp_companies WHERE user_id=? LIMIT 1');
 $full->execute([$categoryId,date('Y-m-d H:i:s',strtotime('-2 days')),date('Y-m-d H:i:s',strtotime('-1 hour')),$companyId]);
 $confirmedId=(int)$pdo->lastInsertId();
-Data::closeExpiredShifts();
+Data::closeExpiredShifts(true);
 $verify=$pdo->prepare('SELECT status FROM tp_shifts WHERE id=?');
 $verify->execute([$expiredId]);
 if($verify->fetchColumn()!=='expired') throw new RuntimeException('Unfilled past shift not marked as expired.');
