@@ -773,11 +773,11 @@ final class Data
     }
 
     /** Atualização preguiçosa: ao acessar listas, encerra vagas não completas cujo FIM já passou. */
-    public static function closeExpiredShifts(): int
+    public static function closeExpiredShifts(bool $force=false): int
     {
         static $ran=false;
         $pdo=Database::connection();
-        if($ran || $pdo->inTransaction()) return 0;
+        if(($ran && !$force) || $pdo->inTransaction()) return 0;
         $st=$pdo->prepare("UPDATE tp_shifts SET status='expired',updated_at=NOW() WHERE status IN ('published','filling') AND ends_at<=?");
         $st->execute([date('Y-m-d H:i:s')]);
         $ran=true;
