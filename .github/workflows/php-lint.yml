@@ -22,5 +22,8 @@ jobs:
       - name: Validate PHP syntax
         run: find . -type f -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
 
+      - name: Test notification radius calculation
+        run: php tests/push_distance_unit.php
+
       - name: Validate landing JavaScript syntax
         run: node --check public/assets/js/landing-ux-v3.js
