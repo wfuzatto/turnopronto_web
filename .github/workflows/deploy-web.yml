@@ -63,6 +63,7 @@ jobs:
           php tests/notification_flow.php
           php tests/shift_following.php
           php tests/shift_image_flow.php
+          php tests/shift_batch_flow.php
           php tests/support_flow.php
           php tests/admin_ops_flow.php
           php -S 127.0.0.1:8080 -t . > /tmp/tp-http.log 2>&1 &
