@@ -28,7 +28,7 @@ $mapEmbedUrl='https://www.google.com/maps?q='.rawurlencode($mapQuery).'&z=16&out
   <section class="panel span-main">
     <div class="panel-head"><div><h2>Vagas e turnos em aberto</h2></div><div class="head-actions"><a class="link" href="<?=e(url('empresa/vagas'))?>">Ver todas as vagas →</a><a class="btn btn-primary" href="<?=e(url('empresa/vagas/nova'))?>">+ Nova vaga</a></div></div>
     <div class="table-wrap"><table class="tp-table"><thead><tr><th>Função</th><th>Data</th><th>Horário</th><th>Valor</th><th>Status</th><th>Candidatos</th><th>Ações</th></tr></thead><tbody>
-    <?php foreach($data['shifts'] as $s): $status=['published'=>'Publicada','filling'=>'Em preenchimento','confirmed'=>'Confirmada','cancelled'=>'Cancelada','draft'=>'Rascunho'][$s['status']]??ucfirst($s['status']); ?>
+    <?php foreach($data['shifts'] as $s): $status=['published'=>'Publicada','filling'=>'Em preenchimento','confirmed'=>'Confirmada','cancelled'=>'Cancelada','expired'=>'Encerrada','draft'=>'Rascunho'][$s['status']]??ucfirst($s['status']); ?>
       <tr>
         <td><div class="role-cell"><div class="role-thumb <?=!empty($s['image_url'])?'has-photo':''?>"><?php if(!empty($s['image_url'])):?><img src="<?=e($s['image_url'])?>" alt="<?=e($s['title']?:$s['category_name'])?>"><?php else:?><?=e(mb_strtoupper(mb_substr($s['category_name'],0,1)))?><?php endif;?></div><div><strong><?=e($s['category_name'])?></strong><small><?=e($s['title'])?></small></div></div></td>
         <td><strong><?=br_date($s['starts_at'],'d M')?></strong><small><?=date('Y-m-d')===date('Y-m-d',strtotime($s['starts_at']))?'Hoje':date('D',strtotime($s['starts_at']))?></small></td>
