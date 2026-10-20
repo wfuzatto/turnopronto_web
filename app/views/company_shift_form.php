@@ -9,7 +9,6 @@ $mode=$source['acceptance_mode']??'automatic';
 $rangeMode=!$editing && ($source['date_mode']??'single')==='range';
 $rangeFrom=(string)($source['date_from']??$date);
 $rangeTo=(string)($source['date_to']??date('Y-m-d',strtotime($date.' +6 days')));
-$selectedWeekdays=array_map('strval',is_array($source['weekdays']??null)?$source['weekdays']:range(0,6));
 ?>
 <div class="shift-form-page">
 <div class="page-head">
@@ -79,29 +78,32 @@ $selectedWeekdays=array_map('strval',is_array($source['weekdays']??null)?$source
     <label class="<?=$rangeMode?'selected':''?>"><input type="radio" name="date_mode" value="range" <?=$rangeMode?'checked':''?> data-date-mode> Vários dias (em lote)</label>
   </div>
   <?php endif;?>
-  <div class="form-grid three">
-    <div data-single-date <?=$rangeMode?'hidden':''?>><label for="shift-date">Data *</label><input id="shift-date" type="date" name="date" value="<?=e($date)?>" <?=$rangeMode?'disabled':''?> required></div>
-    <div><label>Entrada *</label><input type="time" name="start_time" value="<?=e($start)?>" required></div>
-    <div><label>Saída *</label><input type="time" name="end_time" value="<?=e($end)?>" required></div>
+  <div class="form-grid three shift-date-fields <?=$rangeMode?'is-range':''?>" data-shift-date-grid>
+    <div data-single-date <?=$rangeMode?'hidden':''?>>
+      <label for="shift-date">Data *</label>
+      <input id="shift-date" type="date" name="date" value="<?=e($date)?>" <?=$rangeMode?'disabled':''?> required>
+    </div>
+    <?php if(!$editing):?>
+    <div data-shift-range <?=$rangeMode?'':'hidden'?>>
+      <label for="shift-range-from">Data inicial *</label>
+      <input id="shift-range-from" type="date" name="date_from" value="<?=e($rangeFrom)?>" data-range-from <?=$rangeMode?'required':'disabled'?>>
+    </div>
+    <div data-shift-range <?=$rangeMode?'':'hidden'?>>
+      <label for="shift-range-to">Data final *</label>
+      <input id="shift-range-to" type="date" name="date_to" value="<?=e($rangeTo)?>" data-range-to <?=$rangeMode?'required':'disabled'?>>
+    </div>
+    <?php endif;?>
+    <div>
+      <label for="shift-start-time">Entrada *</label>
+      <input id="shift-start-time" type="time" name="start_time" value="<?=e($start)?>" required>
+    </div>
+    <div>
+      <label for="shift-end-time">Saída *</label>
+      <input id="shift-end-time" type="time" name="end_time" value="<?=e($end)?>" required>
+    </div>
   </div>
   <?php if(!$editing):?>
-  <div class="shift-range-box" data-shift-range <?=$rangeMode?'':'hidden'?>>
-    <div class="shift-range-fields">
-      <div><label for="shift-range-from">Primeiro dia *</label><input id="shift-range-from" type="date" name="date_from" value="<?=e($rangeFrom)?>" data-range-from <?=$rangeMode?'required':'disabled'?>></div>
-      <div><label for="shift-range-to">Último dia *</label><input id="shift-range-to" type="date" name="date_to" value="<?=e($rangeTo)?>" data-range-to <?=$rangeMode?'required':'disabled'?>></div>
-    </div>
-    <p class="shift-range-help">Escolha início e fim no calendário abaixo, como em uma reserva de viagem. O intervalo inclui as duas datas (máximo 90 dias).</p>
-    <div class="shift-range-calendar" data-range-calendar role="group" aria-label="Escolher intervalo de dias"></div>
-    <div class="shift-range-weekdays">
-      <strong>Publicar nos dias:</strong>
-      <?php foreach(['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'] as $i=>$name):?>
-        <label><input type="checkbox" name="weekdays[]" value="<?=$i?>" data-range-weekday <?=in_array((string)$i,$selectedWeekdays,true)?'checked':''?>><?=$name?></label>
-      <?php endforeach;?>
-      <input type="hidden" name="weekdays_present" value="1">
-    </div>
-    <input type="hidden" name="excluded_dates" value="<?=e($source['excluded_dates']??'')?>" data-range-excluded>
-    <div class="shift-range-preview" data-range-preview aria-live="polite"></div>
-  </div>
+  <p class="shift-range-inline-note" data-range-preview aria-live="polite" <?=$rangeMode?'':'hidden'?>></p>
   <?php endif;?>
   <div class="acceptance-choice">
     <label class="choice-card <?=$mode==='automatic'?'selected':''?>">
