@@ -1508,4 +1508,174 @@
     });
   });
 
+  // Formulário de vagas em lote: calendário de intervalo inclusivo + prévia.
+  qa('[data-shift-form]').forEach(form=>{
+    const range=q('[data-shift-range]',form);
+    if(!range) return; // edição permanece sempre individual.
+    const from=q('[data-range-from]',form);
+    const to=q('[data-range-to]',form);
+    const single=q('[data-single-date]',form);
+    const singleInput=q('input[name="date"]',single);
+    const calendar=q('[data-range-calendar]',form);
+    const excludedInput=q('[data-range-excluded]',form);
+    const preview=q('[data-range-preview]',form);
+    const submit=q('[data-shift-submit]',form);
+    const weekdays=qa('[data-range-weekday]',form);
+    const modes=qa('[data-date-mode]',form);
+    let month=new Date();
+    let expectingEnd=false;
+    let excluded=new Set((excludedInput?.value||'').split(',').filter(Boolean));
+
+    const parseDate=value=>{
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(value||'')) return null;
+      const [y,m,d]=value.split('-').map(Number);
+      const date=new Date(y,m-1,d,12);
+      return date.getFullYear()===y&&date.getMonth()===m-1&&date.getDate()===d ? date:null;
+    };
+    const key=date=>date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0');
+    const format=date=>date.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const selected=()=>({start:parseDate(from.value),end:parseDate(to.value)});
+    const allDates=()=>{
+      const {start,end}=selected();
+      if(!start||!end||end<start) return {error:'Escolha o primeiro e o último dia do período.',dates:[]};
+      const days=Math.round((end-start)/86400000);
+      if(days>=90) return {error:'O período máximo é de 90 dias.',dates:[]};
+      const enabled=new Set(weekdays.filter(input=>input.checked).map(input=>Number(input.value)));
+      if(enabled.size===0) return {error:'Selecione pelo menos um dia da semana.',dates:[]};
+      const dates=[];
+      for(let cursor=new Date(start);cursor<=end;cursor.setDate(cursor.getDate()+1)){
+        if(enabled.has(cursor.getDay())) dates.push(key(cursor));
+      }
+      return {dates};
+    };
+
+    const drawCalendar=()=>{
+      if(!calendar) return;
+      calendar.replaceChildren();
+      const header=document.createElement('div');
+      header.className='shift-range-calendar-head';
+      const previous=document.createElement('button');
+      previous.type='button';previous.textContent='‹';previous.setAttribute('aria-label','Mês anterior');
+      previous.addEventListener('click',()=>{month.setMonth(month.getMonth()-1);drawCalendar();});
+      const title=document.createElement('strong');
+      title.textContent=month.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+      const next=document.createElement('button');
+      next.type='button';next.textContent='›';next.setAttribute('aria-label','Próximo mês');
+      next.addEventListener('click',()=>{month.setMonth(month.getMonth()+1);drawCalendar();});
+      header.append(previous,title,next);
+      const grid=document.createElement('div');
+      grid.className='shift-range-calendar-grid';
+      ['D','S','T','Q','Q','S','S'].forEach(name=>{
+        const label=document.createElement('span');label.className='day-label';label.textContent=name;grid.append(label);
+      });
+      const firstDay=new Date(month.getFullYear(),month.getMonth(),1,12);
+      for(let i=0;i<firstDay.getDay();i++){
+        const blank=document.createElement('span');blank.className='blank';grid.append(blank);
+      }
+      const daysInMonth=new Date(month.getFullYear(),month.getMonth()+1,0).getDate();
+      const {start,end}=selected();
+      const today=new Date();today.setHours(0,0,0,0);
+      for(let day=1;day<=daysInMonth;day++){
+        const date=new Date(month.getFullYear(),month.getMonth(),day,12);
+        const button=document.createElement('button');
+        button.type='button';button.textContent=String(day);
+        button.setAttribute('aria-label',format(date));
+        button.disabled=date<today;
+        if(start&&end&&date>start&&date<end) button.classList.add('range-inside');
+        if((start&&key(date)===key(start))||(end&&key(date)===key(end))) button.classList.add('range-edge');
+        button.addEventListener('click',()=>{
+          if(!expectingEnd || !parseDate(from.value)){
+            from.value=key(date);
+            to.value='';
+            expectingEnd=true;
+          }else if(date<parseDate(from.value)){
+            from.value=key(date);
+            to.value='';
+          }else{
+            to.value=key(date);
+            expectingEnd=false;
+          }
+          excluded.clear();
+          draw();
+        });
+        grid.append(button);
+      }
+      calendar.append(header,grid);
+    };
+
+    const drawPreview=()=>{
+      if(!preview) return;
+      preview.replaceChildren();
+      const result=allDates();
+      const active=result.dates.filter(date=>!excluded.has(date));
+      const message=document.createElement('strong');
+      if(result.error){
+        message.className='error';message.textContent=result.error;preview.append(message);
+      }else{
+        message.textContent=active.length+' turno(s) serão publicados.';
+        preview.append(message);
+        const hint=document.createElement('div');
+        hint.textContent='Clique em uma data para excluí-la ou incluí-la novamente. Cada dia terá candidatos e gestão independentes.';
+        preview.append(hint);
+        const chips=document.createElement('div');chips.className='date-chips';
+        result.dates.forEach(date=>{
+          const chip=document.createElement('button');
+          chip.type='button';chip.className='date-chip-item';
+          if(excluded.has(date)) chip.classList.add('excluded');
+          const parsed=parseDate(date);
+          chip.textContent=(parsed?parsed.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):date)+(excluded.has(date)?' ↶':' ×');
+          chip.setAttribute('aria-label',(excluded.has(date)?'Incluir ':'Excluir ')+format(parsed));
+          chip.addEventListener('click',()=>{
+            if(excluded.has(date)) excluded.delete(date);else excluded.add(date);
+            drawPreview();
+          });
+          chips.append(chip);
+        });
+        preview.append(chips);
+        if(!active.length){
+          const error=document.createElement('p');error.className='error';
+          error.textContent='Inclua pelo menos uma data para publicar.';preview.append(error);
+        }
+      }
+      if(excludedInput) excludedInput.value=[...excluded].join(',');
+      if(submit){
+        const batch=modes.some(input=>input.value==='range'&&input.checked);
+        submit.textContent=batch?'Publicar '+active.length+' turno(s)':'Publicar vaga';
+      }
+    };
+    const draw=()=>{drawCalendar();drawPreview();};
+    const syncMode=()=>{
+      const batch=modes.some(input=>input.value==='range'&&input.checked);
+      range.hidden=!batch;
+      single.hidden=batch;
+      singleInput.disabled=batch;
+      from.disabled=!batch;to.disabled=!batch;
+      from.required=batch;to.required=batch;
+      weekdays.forEach(input=>input.disabled=!batch);
+      modes.forEach(input=>input.closest('label')?.classList.toggle('selected',input.checked));
+      const base=parseDate(from.value);
+      if(base) month=new Date(base.getFullYear(),base.getMonth(),1,12);
+      draw();
+    };
+    modes.forEach(input=>input.addEventListener('change',syncMode));
+    [from,to].forEach(input=>input.addEventListener('change',()=>{
+      expectingEnd=false;
+      excluded.clear();
+      const base=parseDate(from.value);
+      if(base) month=new Date(base.getFullYear(),base.getMonth(),1,12);
+      draw();
+    }));
+    weekdays.forEach(input=>input.addEventListener('change',drawPreview));
+    form.addEventListener('submit',event=>{
+      if(!modes.some(input=>input.value==='range'&&input.checked)) return;
+      const result=allDates();
+      if(result.error || !result.dates.some(date=>!excluded.has(date))){
+        event.preventDefault();
+        drawPreview();
+        preview?.scrollIntoView({behavior:'smooth',block:'center'});
+      }
+    });
+    syncMode();
+  });
+
 })();

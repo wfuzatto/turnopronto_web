@@ -1,5 +1,5 @@
 <?php
-$statusLabel=['published'=>'Publicada','filling'=>'Em preenchimento','confirmed'=>'Confirmada','cancelled'=>'Cancelada','draft'=>'Rascunho'][$shift['status']]??ucfirst($shift['status']);
+$statusLabel=['published'=>'Publicada','filling'=>'Em preenchimento','confirmed'=>'Confirmada','cancelled'=>'Cancelada','expired'=>'Encerrada','draft'=>'Rascunho'][$shift['status']]??ucfirst($shift['status']);
 $fill=min(100,round(((int)$shift['assigned']/max(1,(int)$shift['required_workers']))*100));
 $activeCandidates=array_values(array_filter($candidates,fn($c)=>in_array($c['status'],['applied','invited'],true)));
 $followers=$followers??[];
@@ -11,7 +11,7 @@ $followers=$followers??[];
     <p><?=e($shift['title'])?> · <?=e($shift['city'].' - '.$shift['state'])?></p>
   </div>
   <div class="head-actions">
-    <?php if(!in_array($shift['status'],['cancelled','completed'],true) && strtotime($shift['ends_at'])>time()):?>
+    <?php if(!in_array($shift['status'],['cancelled','completed','expired'],true) && strtotime($shift['ends_at'])>time()):?>
       <a class="btn btn-soft" href="<?=e(url('empresa/vagas/'.$shift['id'].'/editar'))?>"><?=icon('file',15)?> Editar vaga</a>
       <form method="post" action="<?=e(url('empresa/vagas/'.$shift['id'].'/cancelar'))?>" data-confirm="Cancelar esta vaga e liberar os profissionais confirmados?">
         <?=csrf_field()?><input type="hidden" name="reason" value="Cancelada pela empresa">
@@ -63,7 +63,7 @@ $followers=$followers??[];
             </div>
             <div class="candidate-side">
               <span class="status <?=e($p['status']==='applied'?'filling':($p['status']==='accepted'?'confirmed':'draft'))?>"><?=e(['applied'=>'Candidatou-se','invited'=>'Convidado','accepted'=>'Aprovado','rejected'=>'Rejeitado'][$p['status']]??$p['status'])?></span>
-              <?php if(in_array($p['status'],['applied','invited'],true) && empty($p['assignment_id']) && !in_array($shift['status'],['confirmed','cancelled'],true)):?>
+              <?php if(in_array($p['status'],['applied','invited'],true) && empty($p['assignment_id']) && !in_array($shift['status'],['confirmed','cancelled','expired'],true)):?>
                 <div class="candidate-actions">
                   <?php if(($p['professional_status']??'pending')==='verified'):?>
                     <form method="post" action="<?=e(url('empresa/vagas/'.$shift['id'].'/candidaturas/'.$p['id'].'/aprovar'))?>"><?=csrf_field()?><button class="btn btn-primary btn-sm">Aprovar</button></form>

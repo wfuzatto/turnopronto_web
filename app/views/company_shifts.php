@@ -12,6 +12,7 @@
       <option value="filling">Em preenchimento</option>
       <option value="confirmed">Confirmada</option>
       <option value="cancelled">Cancelada</option>
+      <option value="expired">Encerrada</option>
     </select>
   </div>
   <div class="table-wrap">
@@ -19,7 +20,7 @@
       <thead><tr><th>Função</th><th>Data</th><th>Horário</th><th>Valor</th><th>Preenchimento</th><th>Interessados</th><th>Candidatos</th><th>Status</th><th></th></tr></thead>
       <tbody>
       <?php foreach($shifts as $s):
-        $statusLabel=['published'=>'Publicada','filling'=>'Em preenchimento','confirmed'=>'Confirmada','cancelled'=>'Cancelada','draft'=>'Rascunho'][$s['status']]??ucfirst($s['status']);
+        $statusLabel=['published'=>'Publicada','filling'=>'Em preenchimento','confirmed'=>'Confirmada','cancelled'=>'Cancelada','expired'=>'Encerrada','draft'=>'Rascunho'][$s['status']]??ucfirst($s['status']);
         $search=mb_strtolower($s['category_name'].' '.$s['title'].' '.$s['city'].' '.$s['state']);
       ?>
         <tr data-filter-row data-search="<?=e($search)?>" data-status="<?=e($s['status'])?>">

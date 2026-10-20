@@ -6,6 +6,10 @@ $start=$editing && !empty($source['starts_at']) ? date('H:i',strtotime($source['
 $end=$editing && !empty($source['ends_at']) ? date('H:i',strtotime($source['ends_at'])) : ($source['end_time']??'02:00');
 $value=$source['value']??$source['shift_value']??160;
 $mode=$source['acceptance_mode']??'automatic';
+$rangeMode=!$editing && ($source['date_mode']??'single')==='range';
+$rangeFrom=(string)($source['date_from']??$date);
+$rangeTo=(string)($source['date_to']??date('Y-m-d',strtotime($date.' +6 days')));
+$selectedWeekdays=array_map('strval',is_array($source['weekdays']??null)?$source['weekdays']:range(0,6));
 ?>
 <div class="shift-form-page">
 <div class="page-head">
@@ -17,6 +21,7 @@ $mode=$source['acceptance_mode']??'automatic';
 </div>
 
 <form method="post" enctype="multipart/form-data" class="form-layout" data-shift-form><?=csrf_field()?>
+<?php if(!$editing):?><input type="hidden" name="batch_token" value="<?=e($batch_token??'')?>"><?php endif;?>
 <input type="hidden" name="latitude" value="<?=e((string)($source['latitude']??''))?>" data-shift-latitude>
 <input type="hidden" name="longitude" value="<?=e((string)($source['longitude']??''))?>" data-shift-longitude>
 <section class="panel form-panel">
@@ -68,11 +73,36 @@ $mode=$source['acceptance_mode']??'automatic';
 
 <section class="panel form-panel">
   <h2>2. Data, horário e confirmação</h2>
+  <?php if(!$editing):?>
+  <div class="shift-date-mode" aria-label="Forma de publicação">
+    <label class="<?=!$rangeMode?'selected':''?>"><input type="radio" name="date_mode" value="single" <?=!$rangeMode?'checked':''?> data-date-mode> Um único dia</label>
+    <label class="<?=$rangeMode?'selected':''?>"><input type="radio" name="date_mode" value="range" <?=$rangeMode?'checked':''?> data-date-mode> Vários dias (em lote)</label>
+  </div>
+  <?php endif;?>
   <div class="form-grid three">
-    <div><label>Data *</label><input type="date" name="date" value="<?=e($date)?>" required></div>
+    <div data-single-date <?=$rangeMode?'hidden':''?>><label for="shift-date">Data *</label><input id="shift-date" type="date" name="date" value="<?=e($date)?>" <?=$rangeMode?'disabled':''?> required></div>
     <div><label>Entrada *</label><input type="time" name="start_time" value="<?=e($start)?>" required></div>
     <div><label>Saída *</label><input type="time" name="end_time" value="<?=e($end)?>" required></div>
   </div>
+  <?php if(!$editing):?>
+  <div class="shift-range-box" data-shift-range <?=$rangeMode?'':'hidden'?>>
+    <div class="shift-range-fields">
+      <div><label for="shift-range-from">Primeiro dia *</label><input id="shift-range-from" type="date" name="date_from" value="<?=e($rangeFrom)?>" data-range-from <?=$rangeMode?'required':'disabled'?>></div>
+      <div><label for="shift-range-to">Último dia *</label><input id="shift-range-to" type="date" name="date_to" value="<?=e($rangeTo)?>" data-range-to <?=$rangeMode?'required':'disabled'?>></div>
+    </div>
+    <p class="shift-range-help">Escolha início e fim no calendário abaixo, como em uma reserva de viagem. O intervalo inclui as duas datas (máximo 90 dias).</p>
+    <div class="shift-range-calendar" data-range-calendar role="group" aria-label="Escolher intervalo de dias"></div>
+    <div class="shift-range-weekdays">
+      <strong>Publicar nos dias:</strong>
+      <?php foreach(['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'] as $i=>$name):?>
+        <label><input type="checkbox" name="weekdays[]" value="<?=$i?>" data-range-weekday <?=in_array((string)$i,$selectedWeekdays,true)?'checked':''?>><?=$name?></label>
+      <?php endforeach;?>
+      <input type="hidden" name="weekdays_present" value="1">
+    </div>
+    <input type="hidden" name="excluded_dates" value="<?=e($source['excluded_dates']??'')?>" data-range-excluded>
+    <div class="shift-range-preview" data-range-preview aria-live="polite"></div>
+  </div>
+  <?php endif;?>
   <div class="acceptance-choice">
     <label class="choice-card <?=$mode==='automatic'?'selected':''?>">
       <input type="radio" name="acceptance_mode" value="automatic" <?=$mode==='automatic'?'checked':''?>>
@@ -111,7 +141,7 @@ $mode=$source['acceptance_mode']??'automatic';
 
 <div class="form-actions">
   <a class="btn btn-soft" href="<?=e(url($editing?'empresa/vagas/'.$shift['id']:'empresa/vagas'))?>">Cancelar</a>
-  <button class="btn btn-primary" type="submit"><?=$editing?'Salvar alterações':'Publicar vaga'?></button>
+  <button class="btn btn-primary" type="submit" data-shift-submit><?=$editing?'Salvar alterações':'Publicar vaga'?></button>
 </div>
 </form>
 

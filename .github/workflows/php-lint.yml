@@ -26,4 +26,9 @@ jobs:
         run: php tests/push_distance_unit.php
 
       - name: Validate landing JavaScript syntax
-        run: node --check public/assets/js/landing-ux-v3.js
+        run: |
+          node --check public/assets/js/landing-ux-v3.js
+          node --check public/assets/js/app.js
+
+      - name: Test inclusive shift date ranges
+        run: php tests/shift_batch_dates_unit.php

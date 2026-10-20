@@ -1,0 +1,46 @@
+name: Cadastro em lote - integração
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'tests/shift_batch*'
+      - '.github/workflows/shift-batch-test.yml'
+
+jobs:
+  batch-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: ci-database-only
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_mysql, mbstring
+          coverage: none
+      - name: Syntax and pure date tests
+        run: |
+          php -l app/Data.php
+          php -l app/Web.php
+          php -l app/views/company_shift_form.php
+          node --check public/assets/js/app.js
+          php tests/shift_batch_dates_unit.php
+      - name: Transactional batch and expiry with MariaDB
+        env:
+          TP_TEST_DB: tp_ci
+          TP_TEST_DB_PASSWORD: ci-database-only
+        run: |
+          set -euo pipefail
+          export TP_TEST_PASSWORD="$(openssl rand -hex 24)"
+          php tests/setup_demo.php
+          php tests/shift_batch_flow.php

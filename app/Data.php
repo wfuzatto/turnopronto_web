@@ -772,13 +772,26 @@ final class Data
         self::audit($adminUserId,'verification.company_document_reviewed','company_document',$documentId,['decision'=>$decision]);
     }
 
+    /** Atualização preguiçosa: ao acessar listas, encerra vagas não completas cujo FIM já passou. */
+    public static function closeExpiredShifts(bool $force=false): int
+    {
+        static $ran=false;
+        $pdo=Database::connection();
+        if(($ran && !$force) || $pdo->inTransaction()) return 0;
+        $st=$pdo->prepare("UPDATE tp_shifts SET status='expired',updated_at=NOW() WHERE status IN ('published','filling') AND ends_at<=?");
+        $st->execute([date('Y-m-d H:i:s')]);
+        $ran=true;
+        return $st->rowCount();
+    }
+
     public static function companyDashboard(int $userId): array
     {
+        self::closeExpiredShifts();
         $pdo=Database::connection();
         $companyId=self::companyIdForUser($userId);
         $company=self::companyProfile($userId);
 
-        $s=$pdo->prepare("SELECT COUNT(*) FROM tp_shifts WHERE company_id=? AND status IN ('published','filling','confirmed') AND starts_at >= NOW()");
+        $s=$pdo->prepare("SELECT COUNT(*) FROM tp_shifts WHERE company_id=? AND status IN ('published','filling') AND starts_at >= NOW()");
         $s->execute([$companyId]);
         $open=(int)$s->fetchColumn();
 
@@ -800,13 +813,14 @@ final class Data
         return [
             'company'=>$company,
             'kpis'=>['open'=>$open,'today'=>$today,'fill_rate'=>$fillRate,'spend'=>$spend],
-            'shifts'=>self::companyShifts($userId,6),
+            'shifts'=>self::companyShifts($userId,6,true),
             'professionals'=>self::suggestedProfessionals(3),
         ];
     }
 
-    public static function companyShifts(int $userId, int $limit=50): array
+    public static function companyShifts(int $userId, int $limit=50, bool $openOnly=false): array
     {
+        self::closeExpiredShifts();
         self::ensureShiftFollowingSchema();
         self::ensureShiftMediaSchema();
         $companyId=self::companyIdForUser($userId);
@@ -816,7 +830,7 @@ final class Data
                 (SELECT COUNT(*) FROM tp_shift_followers f WHERE f.shift_id=s.id) followers
             FROM tp_shifts s
             JOIN tp_job_categories c ON c.id=s.category_id
-            WHERE s.company_id=?
+            WHERE s.company_id=? " . ($openOnly ? "AND s.status IN ('published','filling') AND s.starts_at>NOW() " : "") . "
             ORDER BY CASE WHEN s.starts_at>=NOW() THEN 0 ELSE 1 END, s.starts_at ASC
             LIMIT ".max(1,(int)$limit);
         $st=Database::connection()->prepare($sql);
@@ -842,6 +856,7 @@ final class Data
 
     public static function companyShift(int $userId, int $shiftId): ?array
     {
+        self::closeExpiredShifts();
         self::ensureShiftFollowingSchema();
         self::ensureShiftMediaSchema();
         $companyId=self::companyIdForUser($userId);
@@ -1128,6 +1143,64 @@ final class Data
         ];
     }
 
+    /**
+     * Seleciona datas civis inclusivas, no fuso configurado, antes de qualquer escrita.
+     * Aceita exclusão pontual e filtro opcional por dias da semana (0=dom., 6=sáb.).
+     */
+    public static function shiftBatchDates(array $data): array
+    {
+        $from=trim((string)($data['date_from']??''));
+        $to=trim((string)($data['date_to']??''));
+        $start=DateTimeImmutable::createFromFormat('!Y-m-d',$from);
+        $end=DateTimeImmutable::createFromFormat('!Y-m-d',$to);
+        if(!$start || !$end || $start->format('Y-m-d')!==$from || $end->format('Y-m-d')!==$to){
+            throw new InvalidArgumentException('Informe datas inicial e final válidas.');
+        }
+        if($end<$start) throw new InvalidArgumentException('A data final precisa ser igual ou posterior à inicial.');
+        $span=(int)$start->diff($end)->days+1;
+        if($span>90) throw new InvalidArgumentException('Selecione um período de até 90 dias por publicação.');
+
+        $days=isset($data['weekdays']) && is_array($data['weekdays']) ? $data['weekdays'] :
+            (isset($data['weekdays_present']) ? [] : ['0','1','2','3','4','5','6']);
+        $weekdays=[];
+        foreach($days as $day){
+            if(!is_scalar($day) || !preg_match('/^[0-6]$/',(string)$day)) throw new InvalidArgumentException('Dia da semana inválido.');
+            $weekdays[(int)$day]=true;
+        }
+        if(!$weekdays) throw new InvalidArgumentException('Selecione pelo menos um dia da semana.');
+
+        $excluded=[];
+        foreach(explode(',',(string)($data['excluded_dates']??'')) as $date){
+            $date=trim($date);
+            if($date==='') continue;
+            if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$date)) throw new InvalidArgumentException('Data excluída inválida.');
+            $excluded[$date]=true;
+        }
+
+        $selected=[];
+        for($cursor=$start;$cursor<=$end;$cursor=$cursor->modify('+1 day')){
+            $date=$cursor->format('Y-m-d');
+            if(isset($weekdays[(int)$cursor->format('w')]) && !isset($excluded[$date])) $selected[]=$date;
+        }
+        if(!$selected) throw new InvalidArgumentException('Nenhuma data restante. Revise os dias selecionados ou excluídos.');
+        return $selected;
+    }
+
+    private static function insertNewShiftRecord(PDO $pdo,int $companyId,array $d,?string $imagePath): int
+    {
+        if(self::hasColumn('tp_shifts','acceptance_mode')){
+            $sql='INSERT INTO tp_shifts (company_id,category_id,title,description,image_path,starts_at,ends_at,shift_value,required_workers,address,city,state,latitude,longitude,dress_code,notes,checkin_pin,acceptance_mode,status,created_at)
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"published",NOW())';
+            $params=[$companyId,$d['category_id'],$d['title'],$d['description'],$imagePath,$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['latitude'],$d['longitude'],$d['dress_code'],$d['notes'],sprintf('%06d',random_int(0,999999)),$d['acceptance_mode']];
+        }else{
+            $sql='INSERT INTO tp_shifts (company_id,category_id,title,description,image_path,starts_at,ends_at,shift_value,required_workers,address,city,state,latitude,longitude,dress_code,notes,checkin_pin,status,created_at)
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"published",NOW())';
+            $params=[$companyId,$d['category_id'],$d['title'],$d['description'],$imagePath,$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['latitude'],$d['longitude'],$d['dress_code'],$d['notes'],sprintf('%06d',random_int(0,999999))];
+        }
+        $pdo->prepare($sql)->execute($params);
+        return (int)$pdo->lastInsertId();
+    }
+
     public static function createShift(int $userId, array $data, ?array $imageFile=null): int
     {
         self::ensureShiftMediaSchema();
@@ -1136,23 +1209,10 @@ final class Data
         $company=self::companyProfile($userId);
         if(($company['status']??'pending')!=='verified') throw new RuntimeException('A empresa precisa ser verificada antes de publicar vagas.');
         $d=self::normalizedShiftInput($data);
-        $pdo=Database::connection();
+        if(strtotime($d['starts_at'])<=time()) throw new InvalidArgumentException('A entrada do turno precisa estar no futuro.');
         $imagePath=$imageFile ? self::storeShiftImage($imageFile) : null;
-
-        if(self::hasColumn('tp_shifts','acceptance_mode')){
-            $sql='INSERT INTO tp_shifts (company_id,category_id,title,description,image_path,starts_at,ends_at,shift_value,required_workers,address,city,state,latitude,longitude,dress_code,notes,checkin_pin,acceptance_mode,status,created_at)
-                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"published",NOW())';
-            $params=[$companyId,$d['category_id'],$d['title'],$d['description'],$imagePath,$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['latitude'],$d['longitude'],$d['dress_code'],$d['notes'],sprintf('%06d',random_int(0,999999)),$d['acceptance_mode']];
-        } else {
-            $sql='INSERT INTO tp_shifts (company_id,category_id,title,description,image_path,starts_at,ends_at,shift_value,required_workers,address,city,state,latitude,longitude,dress_code,notes,checkin_pin,status,created_at)
-                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"published",NOW())';
-            $params=[$companyId,$d['category_id'],$d['title'],$d['description'],$imagePath,$d['starts_at'],$d['ends_at'],$d['shift_value'],$d['required_workers'],$d['address'],$d['city'],$d['state'],$d['latitude'],$d['longitude'],$d['dress_code'],$d['notes'],sprintf('%06d',random_int(0,999999))];
-        }
-
         try{
-            $st=$pdo->prepare($sql);
-            $st->execute($params);
-            $id=(int)$pdo->lastInsertId();
+            $id=self::insertNewShiftRecord(Database::connection(),$companyId,$d,$imagePath);
         }catch(Throwable $e){
             if($imagePath) self::deleteShiftImage($imagePath);
             throw $e;
@@ -1162,12 +1222,50 @@ final class Data
         return $id;
     }
 
+    /** Publica cada dia como vaga autônoma. Todas as inserções confirmam ou revertem juntas. */
+    public static function createShiftsBatch(int $userId,array $data,?array $imageFile=null): array
+    {
+        self::ensureShiftMediaSchema();
+        $companyId=self::companyIdForUser($userId);
+        if(!$companyId) throw new RuntimeException('Empresa não encontrada para este usuário.');
+        $company=self::companyProfile($userId);
+        if(($company['status']??'pending')!=='verified') throw new RuntimeException('A empresa precisa ser verificada antes de publicar vagas.');
+
+        $normalized=[];
+        foreach(self::shiftBatchDates($data) as $date){
+            $input=$data;
+            $input['date']=$date;
+            $d=self::normalizedShiftInput($input);
+            if(strtotime($d['starts_at'])<=time()) throw new InvalidArgumentException('Há um turno no passado. Ajuste a primeira data ou o horário de entrada.');
+            $normalized[]=$d;
+        }
+
+        $pdo=Database::connection();
+        $imagePath=$imageFile ? self::storeShiftImage($imageFile) : null;
+        $ids=[];
+        try{
+            $pdo->beginTransaction();
+            foreach($normalized as $d) $ids[]=self::insertNewShiftRecord($pdo,$companyId,$d,$imagePath);
+            $pdo->commit();
+        }catch(Throwable $e){
+            if($pdo->inTransaction()) $pdo->rollBack();
+            if($imagePath) self::deleteShiftImage($imagePath);
+            throw $e;
+        }
+        foreach($ids as $id){
+            self::audit($userId,'shift.created','shift',$id,['batch_size'=>count($ids),'acceptance_mode'=>$data['acceptance_mode']??'automatic']);
+            try{ self::notifyProfessionalsForShift($id); }
+            catch(Throwable $e){ error_log('TurnoPronto batch shift notification: '.$e->getMessage()); }
+        }
+        return $ids;
+    }
+
     public static function updateShift(int $userId, int $shiftId, array $data, ?array $imageFile=null): void
     {
         self::ensureShiftMediaSchema();
         $current=self::companyShift($userId,$shiftId);
         if(!$current) throw new RuntimeException('Vaga não encontrada.');
-        if(in_array($current['status'],['cancelled','completed'],true)) throw new RuntimeException('Esta vaga não pode mais ser editada.');
+        if(in_array($current['status'],['cancelled','completed','expired'],true)) throw new RuntimeException('Esta vaga não pode mais ser editada.');
         if(strtotime($current['ends_at'])<=time()) throw new RuntimeException('Uma vaga cujo turno já terminou não pode mais ser editada.');
 
         $d=self::normalizedShiftInput($data);
@@ -1194,7 +1292,11 @@ final class Data
             if($newImagePath) self::deleteShiftImage($newImagePath);
             throw $e;
         }
-        if($newImagePath && $oldImagePath!=='' && $oldImagePath!==$newImagePath) self::deleteShiftImage($oldImagePath);
+        if($newImagePath && $oldImagePath!=='' && $oldImagePath!==$newImagePath){
+            $check=$pdo->prepare('SELECT COUNT(*) FROM tp_shifts WHERE image_path=?');
+            $check->execute([$oldImagePath]);
+            if((int)$check->fetchColumn()===0) self::deleteShiftImage($oldImagePath);
+        }
         self::audit($userId,'shift.updated','shift',$shiftId,['title'=>$d['title'],'image_changed'=>(bool)$newImagePath]);
         self::notifyShiftParticipantsOfUpdate($shiftId,$current,$d);
         if((int)$current['category_id']!==(int)$d['category_id']) self::notifyProfessionalsForShift($shiftId);
@@ -1231,7 +1333,7 @@ final class Data
             $st->execute([$shiftId,$companyId]);
             $shift=$st->fetch();
             if(!$shift) throw new RuntimeException('Vaga não encontrada.');
-            if(!in_array($shift['status'],['published','filling'],true)) throw new RuntimeException('Esta vaga não aceita novas aprovações.');
+            if(!in_array($shift['status'],['published','filling'],true) || strtotime($shift['starts_at'])<=time()) throw new RuntimeException('Esta vaga não aceita novas aprovações após o início.');
 
             $st=$pdo->prepare('SELECT * FROM tp_shift_applications WHERE id=? AND shift_id=? FOR UPDATE');
             $st->execute([$applicationId,$shiftId]);
@@ -1788,6 +1890,7 @@ final class Data
 
     public static function publicOpportunities(int $limit=80): array
     {
+        self::closeExpiredShifts();
         self::ensureShiftMediaSchema();
         $mode=self::hasColumn('tp_shifts','acceptance_mode') ? ',s.acceptance_mode' : '';
         $sql="SELECT s.id,s.title,s.description,s.image_path,s.category_id,s.starts_at,s.ends_at,s.address,s.city,s.state,s.latitude,s.longitude,
@@ -1812,6 +1915,7 @@ final class Data
 
     public static function publicShift(int $id): ?array
     {
+        self::closeExpiredShifts();
         self::ensureShiftMediaSchema();
         $mode=self::hasColumn('tp_shifts','acceptance_mode') ? ',s.acceptance_mode' : '';
         $sql="SELECT s.*,jc.name category_name,co.trade_name company_name,co.rating company_rating,co.logo_url company_logo $mode,
@@ -1831,6 +1935,7 @@ final class Data
 
     public static function shift(int $id): ?array
     {
+        self::closeExpiredShifts();
         self::ensureShiftMediaSchema();
         $mode=self::hasColumn('tp_shifts','acceptance_mode') ? ',s.acceptance_mode' : '';
         $sql="SELECT s.*,jc.name category_name,co.trade_name company_name,co.rating company_rating,co.logo_url company_logo $mode,
@@ -2972,7 +3077,7 @@ final class Data
             $count=(int)$st->fetchColumn();
             $shift=self::shift((int)$a['shift_id']);
             if($shift && $shift['status']!=='cancelled'){
-                $newStatus=$count>=(int)$shift['required_workers']?'confirmed':($count>0?'filling':'published');
+                $newStatus=$count>=(int)$shift['required_workers']?'confirmed':(strtotime($shift['ends_at'])<=time()?'expired':($count>0?'filling':'published'));
                 $pdo->prepare('UPDATE tp_shifts SET status=? WHERE id=?')->execute([$newStatus,$a['shift_id']]);
             }
 
