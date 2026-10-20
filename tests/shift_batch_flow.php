@@ -34,15 +34,15 @@ foreach($rows as $i=>$row){
     if((float)$row['shift_value']!==175.5 || (int)$row['required_workers']!==2) throw new RuntimeException('Shared properties not retained.');
 }
 $past=$pdo->prepare('INSERT INTO tp_shifts (company_id,category_id,title,description,starts_at,ends_at,shift_value,required_workers,address,city,state,checkin_pin,status)
-                    SELECT id,?,"Turno antigo sem preencher","Teste de expiração",?,?,100,2,"Rua Teste","São Paulo","SP","654321","filling"
-                    FROM tp_companies WHERE user_id=? LIMIT 1');
+                    SELECT company_id,?,"Turno antigo sem preencher","Teste de expiração",?,?,100,2,"Rua Teste","São Paulo","SP","654321","filling"
+                    FROM tp_company_members WHERE user_id=? LIMIT 1');
 $past->execute([$categoryId,date('Y-m-d H:i:s',strtotime('-2 days')),date('Y-m-d H:i:s',strtotime('-1 hour')),$companyId]);
 $expiredId=(int)$pdo->lastInsertId();
 if(!$expiredId) throw new RuntimeException('Could not create expired test fixture.');
 
 $full=$pdo->prepare('INSERT INTO tp_shifts (company_id,category_id,title,description,starts_at,ends_at,shift_value,required_workers,address,city,state,checkin_pin,status)
-                    SELECT id,?,"Turno antigo preenchido","Teste de expiração",?,?,100,1,"Rua Teste","São Paulo","SP","654321","confirmed"
-                    FROM tp_companies WHERE user_id=? LIMIT 1');
+                    SELECT company_id,?,"Turno antigo preenchido","Teste de expiração",?,?,100,1,"Rua Teste","São Paulo","SP","654321","confirmed"
+                    FROM tp_company_members WHERE user_id=? LIMIT 1');
 $full->execute([$categoryId,date('Y-m-d H:i:s',strtotime('-2 days')),date('Y-m-d H:i:s',strtotime('-1 hour')),$companyId]);
 $confirmedId=(int)$pdo->lastInsertId();
 Data::closeExpiredShifts(true);
