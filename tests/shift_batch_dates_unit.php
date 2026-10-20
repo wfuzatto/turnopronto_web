@@ -35,4 +35,11 @@ foreach([
     throw new RuntimeException('Intervalo inválido aceito: '.json_encode($bad));
 }
 
+// Formulário enxuto envia apenas duas datas; sem filtros, publica todos os dias inclusivos.
+$sequential=Data::shiftBatchDates(['date_from'=>$from,'date_to'=>$to]);
+if($sequential!==[$from,$base->modify('+1 day')->format('Y-m-d'),
+    $base->modify('+2 days')->format('Y-m-d'),$to]){
+    throw new RuntimeException('Intervalo simples sem filtros não gerou todos os dias.');
+}
+
 echo "Shift batch date unit: PASS\n";
