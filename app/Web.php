@@ -553,17 +553,30 @@ final class Web
             if($method==='POST'){
                 verify_csrf();
                 try {
-                    Data::createShift((int)$u['id'],$_POST,$_FILES['shift_image']??null);
-                    flash('success','Vaga publicada com sucesso.');
+                    if((string)($_POST['date_mode']??'single')==='range'){
+                        $received=(string)($_POST['batch_token']??'');
+                        $expected=(string)($_SESSION['shift_batch_token']??'');
+                        if($received==='' || $expected==='' || !hash_equals($expected,$received)){
+                            throw new RuntimeException('Este formulário já foi enviado ou expirou. Atualize a página antes de publicar novamente.');
+                        }
+                        $ids=Data::createShiftsBatch((int)$u['id'],$_POST,$_FILES['shift_image']??null);
+                        unset($_SESSION['shift_batch_token']);
+                        flash('success',count($ids).' vagas publicadas com sucesso, uma por data selecionada.');
+                    }else{
+                        Data::createShift((int)$u['id'],$_POST,$_FILES['shift_image']??null);
+                        flash('success','Vaga publicada com sucesso.');
+                    }
                     redirect('empresa/vagas');
                 } catch(Throwable $e){
                     flash('error',$e->getMessage());
                 }
             }
+            if(empty($_SESSION['shift_batch_token'])) $_SESSION['shift_batch_token']=bin2hex(random_bytes(16));
             View::render('company_shift_form',[
                 'title'=>'Publicar nova vaga',
                 'categories'=>Data::categories(),
                 'shift'=>null,
+                'batch_token'=>$_SESSION['shift_batch_token'],
                 'user'=>$u
             ]);
         }
