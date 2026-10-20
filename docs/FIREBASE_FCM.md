@@ -26,3 +26,21 @@ O app só registra tokens após a permissão do sistema operacional. Não envie 
 5. Testar app em segundo plano e totalmente fechado; tocar deve abrir a vaga. Logout apaga o token do dispositivo.
 
 Sem projeto/credenciais Firebase, a fila pode receber eventos, mas o cron não fará envio. Não agende o cron antes de configurar a conta de serviço.
+
+## Limitar notificações por distância
+
+O profissional escolhe de **5 a 200 km** (passos de 5 km) em `/profissional/perfil`
+ou no menu **Conta** do aplicativo. As preferências ficam no MySQL (`tp_push_preferences`).
+O GPS é utilizado apenas quando o profissional define ou atualiza seu ponto de referência.
+Não existe rastreamento contínuo do telefone.
+
+Importe `database/migrations/20261019_02_push_distance.sql` caso o usuário MySQL
+não possua permissão de CREATE TABLE. O filtro usa distância geodésica aproximada
+em linha reta pela fórmula Haversine, tanto ao criar a notificação quanto antes de
+despachá-la. Se um raio foi salvo mas a vaga não possui latitude/longitude, a
+notificação é suprimida para não violar o limite. Profissionais que ainda não
+configuraram o raio conservam o comportamento anterior (sem filtro).
+
+API autenticada: GET/POST `/api/v1/push/preferences`, com POST
+`{"radius_km":50,"latitude":-23.55,"longitude":-46.63}`.
+O backend identifica o usuário pelo token e não aceita IDs de terceiros.

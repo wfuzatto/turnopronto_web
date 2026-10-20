@@ -63,4 +63,35 @@ Data::markAllNotificationsRead($professionalUserId);
 $menu=Data::notificationMenu($professionalUserId,20);
 if((int)$menu['unread']!==0) throw new RuntimeException('Mark-all-read did not clear the unread count.');
 
+
+// Regressão: o filtro só envia dentro do raio selecionado e deve negar vagas sem coordenadas.
+if(!Push::withinDistance(null,null,null,null,null)) throw new RuntimeException('Legacy notifications should be unfiltered.');
+if(!Push::withinDistance(5,-23.5505,-46.6333,-23.5505,-46.6333)) throw new RuntimeException('Same point must be within radius.');
+if(Push::withinDistance(5,-23.5505,-46.6333,-22.9068,-43.1729)) throw new RuntimeException('Distant vacancy must be excluded.');
+if(Push::withinDistance(5,-23.5505,-46.6333,null,null)) throw new RuntimeException('Unknown vacancy must be excluded when radius is set.');
+Push::savePreferences($professionalUserId,5,-23.5505,-46.6333);
+$distanceSettings=Push::preferences($professionalUserId);
+if($distanceSettings['radius_km']!==5) throw new RuntimeException('Radius was not persisted.');
+$remoteShift=Data::createShift($companyUserId,[
+    'category_id'=>$categoryId,
+    'title'=>'Distância · Fora do raio',
+    'description'=>'Teste de distância de push',
+    'date'=>date('Y-m-d',strtotime('+3 days')),
+    'start_time'=>'18:00',
+    'end_time'=>'23:00',
+    'value'=>'100.00',
+    'required_workers'=>'1',
+    'address'=>'Av. Atlântica, 1',
+    'city'=>'Rio de Janeiro',
+    'state'=>'RJ',
+    'latitude'=>-22.9068,
+    'longitude'=>-43.1729,
+    'acceptance_mode'=>'manual',
+]);
+$rows=Data::notificationMenu($professionalUserId,20);
+foreach($rows['items'] as $n){
+    if(($n['type']??'')==='matching_shift' && ($n['action_url']??'')==='profissional/vagas/'.$remoteShift)
+        throw new RuntimeException('Distant vacancy should not create a matching notification.');
+}
+
 echo "Notification flow: PASS\n";

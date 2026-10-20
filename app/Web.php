@@ -858,6 +858,20 @@ final class Web
             ]);
         }
 
+        if ($path === '/profissional/perfil/notificacoes' && $method==='POST') {
+            $u=Auth::requireRole('professional');
+            verify_csrf();
+            try{
+                $radius=filter_var($_POST['radius_km']??null,FILTER_VALIDATE_INT);
+                if($radius===false) throw new InvalidArgumentException('Distância inválida.');
+                Push::savePreferences((int)$u['id'],$radius,$_POST['latitude']??null,$_POST['longitude']??null);
+                flash('success','Distância das notificações salva.');
+            }catch(Throwable $e){
+                flash('error',$e->getMessage());
+            }
+            redirect('profissional/perfil');
+        }
+
         if ($path === '/profissional/perfil') {
             $u=Auth::requireRole('professional');
             if($method==='POST'){
@@ -875,6 +889,7 @@ final class Web
                 'profile'=>Data::professionalProfile((int)$u['id']),
                 'categories'=>Data::categories(),
                 'selected'=>Data::professionalCategoryIds((int)$u['id']),
+                'push_preferences'=>Push::preferences((int)$u['id']),
                 'onboarding'=>Data::professionalOnboardingState((int)$u['id']),
                 'user'=>$u
             ]);

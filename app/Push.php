@@ -42,7 +42,75 @@ final class Push
             CONSTRAINT fk_push_delivery_notification FOREIGN KEY (notification_id) REFERENCES tp_notifications(id) ON DELETE CASCADE,
             CONSTRAINT fk_push_delivery_device FOREIGN KEY (device_id) REFERENCES tp_push_devices(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS tp_push_preferences (
+            user_id BIGINT UNSIGNED PRIMARY KEY,
+            radius_km SMALLINT UNSIGNED NOT NULL,
+            latitude DECIMAL(10,7) NOT NULL,
+            longitude DECIMAL(10,7) NOT NULL,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            CONSTRAINT fk_push_preference_user FOREIGN KEY (user_id) REFERENCES tp_users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         self::$ready = true;
+    }
+
+    public static function preferences(int $userId): array
+    {
+        self::ensureSchema();
+        $pdo=Database::connection();
+        $st=$pdo->prepare('SELECT radius_km,latitude,longitude FROM tp_push_preferences WHERE user_id=? LIMIT 1');
+        $st->execute([$userId]);
+        $row=$st->fetch(PDO::FETCH_ASSOC);
+        if($row){
+            return ['radius_km'=>(int)$row['radius_km'],
+                'latitude'=>(float)$row['latitude'],'longitude'=>(float)$row['longitude'],
+                'configured'=>true];
+        }
+        // Se o profissional já informou coordenadas no endereço cadastrado,
+        // elas podem ser utilizadas como ponto de partida, sem ativar o filtro.
+        $st=$pdo->prepare('SELECT latitude,longitude FROM tp_professionals WHERE user_id=? LIMIT 1');
+        $st->execute([$userId]);
+        $profile=$st->fetch(PDO::FETCH_ASSOC) ?: [];
+        return ['radius_km'=>null,
+            'latitude'=>isset($profile['latitude'])?(float)$profile['latitude']:null,
+            'longitude'=>isset($profile['longitude'])?(float)$profile['longitude']:null,
+            'configured'=>false];
+    }
+
+    public static function savePreferences(int $userId,int $radiusKm,mixed $latitude=null,mixed $longitude=null): array
+    {
+        if($radiusKm<5 || $radiusKm>200 || $radiusKm%5!==0) {
+            throw new InvalidArgumentException('Selecione uma distância entre 5 e 200 km, de 5 em 5 km.');
+        }
+        $previous=self::preferences($userId);
+        $latitude=($latitude===null || $latitude==='') ? $previous['latitude'] : $latitude;
+        $longitude=($longitude===null || $longitude==='') ? $previous['longitude'] : $longitude;
+        if(!is_numeric($latitude) || !is_numeric($longitude)
+            || (float)$latitude<-90 || (float)$latitude>90
+            || (float)$longitude<-180 || (float)$longitude>180){
+            throw new InvalidArgumentException('Defina uma localização válida para calcular a distância das vagas.');
+        }
+        Database::connection()->prepare(
+            'INSERT INTO tp_push_preferences (user_id,radius_km,latitude,longitude) VALUES (?,?,?,?)
+             ON DUPLICATE KEY UPDATE radius_km=VALUES(radius_km),latitude=VALUES(latitude),
+                 longitude=VALUES(longitude),updated_at=NOW()'
+        )->execute([$userId,$radiusKm,$latitude,$longitude]);
+        return self::preferences($userId);
+    }
+
+    /** Distância geográfica em linha reta (Haversine). Ausência de raio mantém o comportamento legado. */
+    public static function withinDistance(mixed $radiusKm,mixed $originLat,mixed $originLng,mixed $shiftLat,mixed $shiftLng): bool
+    {
+        if($radiusKm===null) return true;
+        foreach([$originLat,$originLng,$shiftLat,$shiftLng] as $coordinate){
+            if($coordinate===null || !is_numeric($coordinate)) return false;
+        }
+        $lat1=deg2rad((float)$originLat);
+        $lat2=deg2rad((float)$shiftLat);
+        $deltaLat=$lat2-$lat1;
+        $deltaLon=deg2rad((float)$shiftLng-(float)$originLng);
+        $h=pow(sin($deltaLat/2),2)+cos($lat1)*cos($lat2)*pow(sin($deltaLon/2),2);
+        $distanceKm=2*6371.0088*asin(min(1.0,sqrt(max(0.0,$h))));
+        return $distanceKm<=(float)$radiusKm+0.000001;
     }
 
     public static function register(int $userId, string $token, string $platform = 'android', bool $enabled = true): void
@@ -169,13 +237,20 @@ final class Push
             $shiftId=0;
             if (preg_match('#^profissional/vagas/(\d+)$#',(string)$row['action_url'],$m)) $shiftId=(int)$m[1];
             // Não avisar de uma vaga cancelada, iniciada ou cuja categoria deixou de interessar.
-            $valid=$pdo->prepare("SELECT COUNT(*) FROM tp_shifts s
+            $valid=$pdo->prepare("SELECT s.latitude,s.longitude,pref.radius_km,
+                    pref.latitude origin_latitude,pref.longitude origin_longitude
+                FROM tp_shifts s
                 JOIN tp_professional_categories pc ON pc.category_id=s.category_id
                 JOIN tp_professionals p ON p.id=pc.professional_id
                 JOIN tp_notifications n ON n.user_id=p.user_id
-                WHERE s.id=? AND n.id=? AND s.status IN ('published','filling') AND s.starts_at>NOW()");
+                LEFT JOIN tp_push_preferences pref ON pref.user_id=n.user_id
+                WHERE s.id=? AND n.id=? AND s.status IN ('published','filling') AND s.starts_at>NOW()
+                LIMIT 1");
             $valid->execute([$shiftId,(int)$row['notification_id']]);
-            if (!$shiftId || !(int)$valid->fetchColumn()) {
+            $eligible=$valid->fetch(PDO::FETCH_ASSOC);
+            if (!$shiftId || !$eligible || !self::withinDistance(
+                $eligible['radius_km'],$eligible['origin_latitude'],$eligible['origin_longitude'],
+                $eligible['latitude'],$eligible['longitude'])) {
                 $pdo->prepare("UPDATE tp_push_deliveries SET status='skipped',locked_at=NULL WHERE id=?")->execute([$id]);
                 $skipped++;
                 continue;

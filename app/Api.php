@@ -122,6 +122,26 @@ final class Api
             }
         }
 
+        if($relative==='/push/preferences' && $method==='GET'){
+            if($user['role']!=='professional') json_response(['ok'=>false,'error'=>'Apenas profissionais.'],403);
+            json_response(['ok'=>true,'data'=>Push::preferences((int)$user['id'])]);
+        }
+
+        if($relative==='/push/preferences' && $method==='POST'){
+            if($user['role']!=='professional') json_response(['ok'=>false,'error'=>'Apenas profissionais.'],403);
+            $input=json_input();
+            try{
+                if(!is_numeric($input['radius_km']??null)){
+                    throw new InvalidArgumentException('Distância inválida.');
+                }
+                $settings=Push::savePreferences((int)$user['id'],(int)$input['radius_km'],
+                    $input['latitude']??null,$input['longitude']??null);
+                json_response(['ok'=>true,'data'=>$settings]);
+            }catch(InvalidArgumentException $e){
+                json_response(['ok'=>false,'error'=>$e->getMessage()],422);
+            }
+        }
+
         if($relative==='/push/devices/unregister' && $method==='POST'){
             $input=json_input();
             Push::unregister((int)$user['id'],(string)($input['token']??''));

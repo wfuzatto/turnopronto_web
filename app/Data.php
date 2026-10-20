@@ -127,7 +127,9 @@ final class Data
     private static function notifyProfessionalsForShift(int $shiftId): void
     {
         $pdo=Database::connection();
+        Push::ensureSchema();
         $st=$pdo->prepare("SELECT s.id,s.title,s.starts_at,s.city,s.state,s.shift_value,s.category_id,
+                                  s.latitude,s.longitude,
                                   jc.name category_name,c.trade_name company_name
                            FROM tp_shifts s
                            JOIN tp_job_categories jc ON jc.id=s.category_id
@@ -137,17 +139,21 @@ final class Data
         $shift=$st->fetch();
         if(!$shift) return;
 
-        $targets=$pdo->prepare("SELECT DISTINCT u.id
+        $targets=$pdo->prepare("SELECT DISTINCT u.id, pref.radius_km,
+                                      pref.latitude origin_latitude,pref.longitude origin_longitude
                                FROM tp_professional_categories pc
                                JOIN tp_professionals p ON p.id=pc.professional_id
                                JOIN tp_users u ON u.id=p.user_id
+                               LEFT JOIN tp_push_preferences pref ON pref.user_id=u.id
                                WHERE pc.category_id=? AND p.status IN ('pending','verified') AND u.status='active'");
         $targets->execute([(int)$shift['category_id']]);
         $when=date('d/m/Y H:i',strtotime((string)$shift['starts_at']));
         $body='Nova vaga de '.$shift['category_name'].' em '.$shift['city'].' - '.$shift['state'].' para '.$when.', por '.money($shift['shift_value']).'. Empresa: '.$shift['company_name'].'.';
-        foreach($targets->fetchAll(PDO::FETCH_COLUMN) as $targetUserId){
+        foreach($targets->fetchAll(PDO::FETCH_ASSOC) as $target){
+            if(!Push::withinDistance($target['radius_km'],$target['origin_latitude'],
+                $target['origin_longitude'],$shift['latitude'],$shift['longitude'])) continue;
             self::createNotification(
-                (int)$targetUserId,
+                (int)$target['id'],
                 'matching_shift',
                 'Nova vaga do seu interesse',
                 $body,

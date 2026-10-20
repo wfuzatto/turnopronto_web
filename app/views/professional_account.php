@@ -72,3 +72,52 @@ $status=$profile['status']??'pending';
     <button class="btn btn-primary" type="submit">Salvar perfil</button>
   </div>
 </form>
+<section class="panel" style="margin-top:16px">
+  <div class="panel-head"><div><h2>Notificações de vagas</h2>
+    <p>Escolha a distância máxima para receber avisos de vagas nas suas áreas de interesse.</p></div></div>
+  <form id="notification-radius-form" method="post" action="<?=e(url('profissional/perfil/notificacoes'))?>">
+    <?=csrf_field()?>
+    <?php $savedRadius=(int)($push_preferences['radius_km']??50); ?>
+    <label for="notification-radius-slider">
+      <strong>Notificações até: <output id="notification-radius-value"><?=$savedRadius?> km</output></strong>
+    </label>
+    <input type="range" id="notification-radius-slider" name="radius_km"
+           min="5" max="200" step="5" value="<?=$savedRadius?>" style="width:100%;margin:20px 0 5px">
+    <div style="display:flex;justify-content:space-between"><small>5 km</small><small>200 km</small></div>
+    <input id="notification-origin-lat" type="hidden" name="latitude"
+           value="<?=e($push_preferences['latitude']??'')?>">
+    <input id="notification-origin-lng" type="hidden" name="longitude"
+           value="<?=e($push_preferences['longitude']??'')?>">
+    <p id="notification-location-state" class="field-note">
+      <?=!empty($push_preferences['configured'])?'Distância ativa a partir do ponto de referência salvo.':'Defina e salve o raio para ativar este filtro.'?>
+      A distância é calculada em linha reta; não rastreamos seus deslocamentos continuamente.
+    </p>
+    <div class="profile-completion-actions">
+      <button id="notification-use-location" type="button" class="btn btn-soft">Usar minha localização atual</button>
+      <button type="submit" class="btn btn-primary">Salvar distância</button>
+    </div>
+  </form>
+</section>
+<script>
+(function(){
+  const range=document.getElementById('notification-radius-slider');
+  const output=document.getElementById('notification-radius-value');
+  const lat=document.getElementById('notification-origin-lat');
+  const lng=document.getElementById('notification-origin-lng');
+  const state=document.getElementById('notification-location-state');
+  range.addEventListener('input',()=>{output.textContent=range.value+' km';});
+  document.getElementById('notification-use-location').addEventListener('click',()=>{
+    if(!navigator.geolocation){state.textContent='Localização indisponível neste navegador.';return;}
+    state.textContent='Obtendo sua localização...';
+    navigator.geolocation.getCurrentPosition(
+      (position)=>{
+        lat.value=String(position.coords.latitude);
+        lng.value=String(position.coords.longitude);
+        state.textContent='Localização de referência atualizada. Clique em Salvar distância.';
+      },
+      ()=>{state.textContent='Não foi possível obter sua localização. Permita o acesso à localização no navegador e tente novamente.';},
+      {enableHighAccuracy:true,timeout:15000,maximumAge:0}
+    );
+  });
+})();
+</script>
