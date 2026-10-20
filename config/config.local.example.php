@@ -16,6 +16,10 @@ return [
         'webhook_url' => '',
         'webhook_token' => '',
     ],
+    // Guarde o JSON da conta de serviço FORA do diretório público e do GitHub.
+    'firebase' => [
+        'service_account_path' => '', // ex.: /home/conta/private/turnopronto-firebase.json
+    ],
     'db' => [
         'host' => 'turnopronto.mysql.dbaas.com.br',
         'port' => 3306,

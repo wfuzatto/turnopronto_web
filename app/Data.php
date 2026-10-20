@@ -107,6 +107,13 @@ final class Data
             $action!==''?$action:null,
             $key!==''?$key:null
         ]);
+        if($type==='matching_shift' && $st->rowCount()>0){
+            try {
+                Push::enqueueNotification((int)Database::connection()->lastInsertId(),$userId);
+            } catch(Throwable $e) {
+                error_log('TurnoPronto push queue: '.$e->getMessage());
+            }
+        }
     }
 
     private static function professionalUserId(int $professionalId): ?int

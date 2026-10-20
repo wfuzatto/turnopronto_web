@@ -110,6 +110,24 @@ final class Api
 
         $user=self::user();
 
+        // Dispositivos só podem ser associados ao usuário autenticado.
+        if($relative==='/push/devices' && $method==='POST'){
+            if($user['role']!=='professional') json_response(['ok'=>false,'error'=>'Apenas profissionais podem ativar notificações.'],403);
+            $input=json_input();
+            try{
+                Push::register((int)$user['id'],(string)($input['token']??''),(string)($input['platform']??'android'),($input['enabled']??true)===true);
+                json_response(['ok'=>true]);
+            }catch(InvalidArgumentException $e){
+                json_response(['ok'=>false,'error'=>$e->getMessage()],422);
+            }
+        }
+
+        if($relative==='/push/devices/unregister' && $method==='POST'){
+            $input=json_input();
+            Push::unregister((int)$user['id'],(string)($input['token']??''));
+            json_response(['ok'=>true]);
+        }
+
         if($relative==='/auth/logout' && $method==='POST'){
             Data::revokeApiToken(self::bearer());
             json_response(['ok'=>true]);
