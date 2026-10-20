@@ -40,7 +40,7 @@ foreach([$single,$range] as $html){
     if(substr_count($html,'data-shift-range')!==2) throw new RuntimeException('Esperados dois campos de datas do intervalo.');
 }
 
-if(!str_contains($single,'class="form-grid three shift-date-fields"'))
+if(!preg_match('/class="form-grid three shift-date-fields\s*"/',$single))
     throw new RuntimeException('Modo individual perdeu a grade de três colunas.');
 if(!str_contains($range,'class="form-grid three shift-date-fields is-range"'))
     throw new RuntimeException('Modo lote perdeu a grade de duas colunas.');
