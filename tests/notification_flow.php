@@ -19,6 +19,9 @@ if(!$companyUserId||!$professionalUserId||!$professionalId||!$categoryId){
     throw new RuntimeException('Demo records required for notification integration test are missing.');
 }
 
+// Registra um token sintético para verificar a fila, sem contatar o Firebase.
+Push::register($professionalUserId, str_repeat('f', 88), 'android', true);
+
 $shiftId=Data::createShift($companyUserId,[
     'category_id'=>$categoryId,
     'title'=>'Garçom · Teste de notificações',
@@ -39,6 +42,10 @@ $shiftId=Data::createShift($companyUserId,[
 $menu=Data::notificationMenu($professionalUserId,20);
 $matching=array_values(array_filter($menu['items'],fn($n)=>$n['type']==='matching_shift' && ($n['action_url']??'')==='profissional/vagas/'.$shiftId));
 if(!$matching) throw new RuntimeException('Matching-shift notification was not created.');
+
+$queued=$pdo->prepare("SELECT COUNT(*) FROM tp_push_deliveries q JOIN tp_notifications n ON n.id=q.notification_id JOIN tp_push_devices d ON d.id=q.device_id WHERE n.user_id=? AND d.user_id=? AND n.type='matching_shift' AND n.action_url=? AND q.status='pending'");
+$queued->execute([$professionalUserId,$professionalUserId,'profissional/vagas/'.$shiftId]);
+if((int)$queued->fetchColumn()!==1) throw new RuntimeException('Matching shift was not enqueued exactly once for the device.');
 
 Data::inviteProfessional($companyUserId,$professionalId,$shiftId);
 $menu=Data::notificationMenu($professionalUserId,20);
